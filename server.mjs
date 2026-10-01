@@ -201,7 +201,8 @@ async function render(mode) {
     const ps = projectState();
     if (ok) ps.renders.unshift({ file: file.split("/").pop(), mode, picked, at: new Date().toISOString(), ms: Date.now() - started });
     saveProjectState(ps);
-    metric({ kind: "render", mode, ok, ms: Date.now() - started, picked });
+    metric({ kind: "render", mode, ok, ms: Date.now() - started, picked, ...(ok ? {} : { error: tail.slice(-1500) }) });
+    if (!ok) writeFileSync(join(rendersDir, "last-render-error.log"), tail);
     emit("render", { state: ok ? "done" : "failed", file: ok ? `/renders/${file.split("/").pop()}` : null, error: ok ? null : tail.slice(-600) });
     emit("project", {});
   });

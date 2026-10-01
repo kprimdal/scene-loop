@@ -541,7 +541,7 @@ es.addEventListener("render", (m) => {
   const d = JSON.parse(m.data);
   $("#renderState").textContent = d.state === "progress" ? `Rendering ${d.pct}%` : d.state === "start" ? "Rendering…" : d.state === "done" ? "Render done" : d.state === "failed" ? "Render failed" : "";
   if (d.state === "done") toast("Render done. Open it under Renders.");
-  if (d.state === "failed") toast(`Render failed: ${d.error?.slice(-200)}`);
+  if (d.state === "failed") toast(`Render failed: ${d.error?.slice(-300)} (full log: renders/last-render-error.log)`);
 });
 es.addEventListener("toast", (m) => toast(JSON.parse(m.data).text));
 
