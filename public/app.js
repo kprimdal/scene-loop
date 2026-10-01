@@ -67,9 +67,9 @@ async function loadProjects() {
   if (!S.projects.some((p) => p.name === S.project)) S.project = S.projects[0]?.name ?? null;
   const sel = $("#projectSel");
   sel.replaceChildren(...S.projects.map((p) => h("option", { value: p.name, selected: p.name === S.project }, p.title === p.name ? p.name : `${p.title} (${p.name})`)));
-  sel.hidden = S.projects.length < 2;
   $("#newProject").hidden = r.single;
   $("#empty").hidden = !!S.project;
+  document.body.classList.toggle("no-project", !S.project);
   $("#empty").textContent = S.project ? "" : `No projects in ${r.root}. Click New project, or ask the chat to create_project.`;
   return !!S.project;
 }
@@ -97,9 +97,8 @@ async function refresh() {
   if (!S.project) return;
   S.data = await api("/api/project");
   S.sel ??= S.data.scenes[0].id;
-  $("#title").textContent = S.data.title;
   document.title = `${S.data.title} · Scene loop`;
-  $("#meta").textContent = `${S.data.scenes.length} scenes · ${S.data.duration.toFixed(1)} s`;
+  $("#meta").textContent = `${S.data.scenes.length} scenes · ${S.data.duration.toFixed(1)}s`;
   renderFilmstrip();
   renderVersions();
   renderPanel();
@@ -148,6 +147,10 @@ function renderTrack() {
   const track = $("#track");
   track.querySelectorAll(".seg-mark,.pinmark").forEach((e) => e.remove());
   const D = duration();
+  const step = D <= 12 ? 1 : D <= 60 ? 5 : D <= 300 ? 30 : 60;
+  const ticks = [];
+  for (let t = 0; t <= D; t += step) ticks.push(h("span", { style: `left:${(t / D) * 100}%` }, `${t}s`));
+  $("#ticks").replaceChildren(...ticks);
   if (S.mode === "whole") {
     for (const s of S.data.scenes) track.append(h("div", { class: "seg-mark", style: `left:${(s.start / D) * 100}%` }, h("span", {}, s.id.slice(0, 3))));
     for (const s of S.data.scenes)
@@ -164,7 +167,7 @@ function tick() {
   if (S.data) {
     const t = player.currentTime || 0;
     const D = duration();
-    $("#time").textContent = `${fmt(t)} / ${fmt(D)}`;
+    $("#time").replaceChildren(fmt(t), h("span", { class: "total" }, ` / ${fmt(D)}s`));
     $("#head").style.left = `${Math.min(100, (t / D) * 100)}%`;
     $("#playBtn").textContent = player.paused === false ? "❚❚" : "▶";
     if (S.mode === "whole") {
@@ -208,16 +211,21 @@ function renderFilmstrip() {
       const pins = s.comments.filter((c) => c.status === "pending").length;
       return h(
         "button",
-        { class: `card ${s.id === S.sel ? "on" : ""}`, "data-id": s.id, style: `flex-grow:${Math.max(s.duration, 2.4)}`, onclick: () => selectScene(s.id, true) },
-        poster ? h("img", { src: poster.url, alt: "" }) : h("div", { class: "noimg" }),
+        { class: `card ${s.id === S.sel ? "on" : ""}`, "data-id": s.id, onclick: () => selectScene(s.id, true) },
         h(
           "div",
-          { class: "badges" },
-          h("span", { class: "badge" }, `v${lv}`),
-          s.approved ? h("span", { class: "badge ok" }, s.approved === lv ? "✓" : `✓v${s.approved}`) : null,
-          pins ? h("span", { class: "badge pins" }, pins) : null,
+          { class: "thumb" },
+          h("span", { class: "num" }, i + 1),
+          poster ? h("img", { src: poster.url, alt: "" }) : h("div", { class: "noimg" }),
+          h(
+            "div",
+            { class: "badges" },
+            lv > 1 ? h("span", { class: "badge" }, `v${lv}`) : null,
+            s.approved ? h("span", { class: "badge ok" }, s.approved === lv ? "✓" : `✓v${s.approved}`) : null,
+            pins ? h("span", { class: "badge pins" }, pins) : null,
+          ),
         ),
-        h("div", { class: "cap" }, h("b", {}, `${i + 1}. ${s.title}`), h("span", { class: "muted" }, `${s.duration.toFixed(1)}s`)),
+        h("div", { class: "cap" }, h("b", {}, s.title), h("span", { class: "muted" }, `${s.duration.toFixed(2)}s`)),
       );
     }),
   );
@@ -228,6 +236,7 @@ function selectScene(id, fromStrip) {
   S.compare = null;
   if (S.mode === "whole" && fromStrip) player.seek(scene(id).start + 0.02);
   renderFilmstrip();
+  $("#filmstrip").querySelector(".card.on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
   renderVersions();
   if (S.tab === "scene") loadChat();
   renderPanel();
@@ -237,7 +246,13 @@ function selectScene(id, fromStrip) {
 // ---------- versions ----------
 function renderVersions() {
   const sc = scene();
+  const i = S.data.scenes.indexOf(sc);
+  $("#sceneLabel").textContent = `Scene ${i + 1} of ${S.data.scenes.length} · ${sc.id}`;
+  $("#title").textContent = `· ${S.data.title}`;
   $("#versionsTitle").textContent = `Versions · ${sc.id}`;
+  $("#versionsBtn").textContent = `Versions (${sc.versions.length})`;
+  $("#versionsBtn").classList.toggle("on", !!S.showVersions);
+  $("#versionsSec").hidden = !S.showVersions;
   $("#viewing").replaceChildren(
     S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
     S.mode === "whole" && S.wholeStale ? h("button", { class: "btn accent", style: "margin-left:10px", onclick: () => loadPlayer(true) }, "New versions · reload whole video") : "",
@@ -274,6 +289,13 @@ function renderVersions() {
   renderCompare();
 }
 
+function showVersions(on = !S.showVersions) {
+  S.showVersions = on;
+  renderVersions();
+  if (on) $(".left").scrollTo({ top: $("#versionsSec").offsetTop - 12, behavior: "smooth" });
+}
+$("#versionsBtn").onclick = () => showVersions();
+
 function viewVersion(v, t) {
   const sc = scene();
   if (S.mode !== "scene") setMode("scene");
@@ -288,7 +310,8 @@ function openCompare(b) {
   const sc = scene();
   const a = viewed(sc);
   S.compare = { a: a === b ? (sc.versions.find((x) => x.v !== b) ?? sc.versions[0]).v : a, b };
-  renderCompare();
+  S.showVersions = true;
+  renderVersions();
 }
 
 function renderCompare() {
@@ -465,7 +488,7 @@ function renderPanel() {
       : []),
   );
   $("#composer").hidden = proj;
-  $("#handoff").textContent = allPending ? `${allPending} open comment${allPending > 1 ? "s" : ""} for the chat` : "";
+  $("#handoff").textContent = allPending ? `${allPending} open comment${allPending > 1 ? "s" : ""} for the chat` : "⌘↵ to add";
   $("#copyPrompt").hidden = !allPending;
 }
 
@@ -556,6 +579,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key === " ") (e.preventDefault(), player.paused === false ? player.pause() : player.play());
   if (e.key === "c") startComment();
   if (e.key === "f") flip();
+  if (e.key === "v") showVersions();
   if (e.key === "ArrowLeft") player.seek(Math.max(0, player.currentTime - (e.shiftKey ? 1 : 1 / 30)));
   if (e.key === "ArrowRight") player.seek(player.currentTime + (e.shiftKey ? 1 : 1 / 30));
   const i = S.data.scenes.indexOf(scene());

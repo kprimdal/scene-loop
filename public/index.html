@@ -11,34 +11,24 @@
     <header class="top">
       <div class="brand">
         <span class="mark"></span>
-        <select id="projectSel" class="project-sel" title="Project" hidden></select>
-        <strong id="title">Scene loop</strong>
-        <span class="muted" id="meta"></span>
-        <button class="btn ghost small" id="newProject" title="Create a project from the template" hidden>New project</button>
+        <strong>Scene loop</strong>
       </div>
-      <div class="seg" id="modeSeg">
-        <button data-mode="scene" class="on">This scene</button>
-        <button data-mode="whole">Whole video</button>
-      </div>
-      <span class="muted small">Video uses</span>
-      <div class="seg small" id="wholeSeg" title="Which version of each scene Whole video and Render mp4 use. Scenes with no approved version use their latest.">
-        <button data-whole="latest" class="on">Latest</button>
-        <button data-whole="approved">Approved</button>
-      </div>
+      <select id="projectSel" class="project-sel" title="Project"></select>
+      <button class="btn" id="newProject" title="Create a project from the template" hidden>+ New project</button>
+      <span class="muted small" id="meta"></span>
       <div class="spacer"></div>
-      <span class="muted" id="renderState"></span>
-      <button class="btn" id="renderBtn">Render mp4</button>
+      <span class="muted small" id="renderState"></span>
       <details class="renders">
-        <summary class="btn ghost">Renders</summary>
+        <summary class="btn">Renders</summary>
         <div id="renderList" class="menu"></div>
       </details>
+      <button class="btn dark" id="renderBtn">Render mp4</button>
     </header>
-
-    <div class="empty-projects" id="empty" hidden></div>
-    <nav class="filmstrip" id="filmstrip"></nav>
 
     <main class="main">
       <section class="left">
+        <div class="empty-projects" id="empty" hidden></div>
+        <div class="scene-label"><span id="sceneLabel"></span> <span class="muted" id="title"></span></div>
         <div class="stage-wrap">
           <div class="stage" id="stage">
             <hyperframes-player id="player"></hyperframes-player>
@@ -48,48 +38,67 @@
         </div>
 
         <div class="transport">
+          <div class="seg dark" id="modeSeg">
+            <button data-mode="scene" class="on">This scene</button>
+            <button data-mode="whole">Whole video</button>
+          </div>
           <button class="icon" id="playBtn" title="Play / pause (space)">▶</button>
           <span class="time" id="time">0.00 / 0.00</span>
-          <div class="track" id="track"><div class="head" id="head"></div></div>
-          <button class="btn accent" id="commentBtn" title="Pin a comment on this frame (C)">Comment</button>
+          <div class="track-wrap">
+            <div class="track" id="track"><div class="head" id="head"></div></div>
+            <div class="ticks" id="ticks"></div>
+          </div>
+          <button class="btn dark" id="commentBtn" title="Pin a comment on this frame (C)">Comment</button>
         </div>
         <p class="narration" id="narration"></p>
 
-        <div class="versions-head">
-          <h3 id="versionsTitle">Versions</h3>
-          <span class="muted" id="viewing"></span>
-          <div class="spacer"></div>
-          <button class="btn ghost" id="flipBtn" title="Flip the player between the two compared versions at the same time (F)" hidden>Flip A/B</button>
-          <button class="btn ghost" id="closeCompare" hidden>Close compare</button>
-        </div>
-        <div class="compare" id="compare" hidden></div>
-        <div class="versions" id="versions"></div>
+        <section class="versions-sec" id="versionsSec" hidden>
+          <div class="versions-head">
+            <h3 id="versionsTitle">Versions</h3>
+            <span class="muted" id="viewing"></span>
+            <div class="spacer"></div>
+            <button class="btn ghost" id="flipBtn" title="Flip the player between the two compared versions at the same time (F)" hidden>Flip A/B</button>
+            <button class="btn ghost" id="closeCompare" hidden>Close compare</button>
+          </div>
+          <div class="compare" id="compare" hidden></div>
+          <div class="versions" id="versions"></div>
+        </section>
       </section>
 
       <aside class="panel">
-        <div class="tabs">
-          <button data-tab="scene" class="on" id="sceneTab">Scene</button>
-          <button data-tab="project">Project</button>
-        </div>
         <div class="panel-head">
-          <div>
-            <div class="panel-title" id="panelTitle"></div>
-            <div class="muted small" id="panelSub"></div>
+          <div class="seg tabs">
+            <button data-tab="scene" class="on" id="sceneTab">Scene</button>
+            <button data-tab="project">Project</button>
           </div>
+          <div class="panel-title" id="panelTitle"></div>
+          <div class="spacer"></div>
+          <div class="muted small" id="panelSub"></div>
+        </div>
+        <div class="toolbar">
+          <button class="btn" id="versionsBtn" title="Show the scene's versions under the player">Versions</button>
+          <span class="muted small">Video uses</span>
+          <div class="seg small" id="wholeSeg" title="Which version of each scene Whole video and Render mp4 use. Scenes with no approved version use their latest.">
+            <button data-whole="latest" class="on">Latest</button>
+            <button data-whole="approved">Approved</button>
+          </div>
+          <div class="spacer"></div>
+          <button class="btn ghost" id="copyPrompt" title="Copy a prompt for the chat next to this page" hidden>Copy prompt</button>
         </div>
         <div class="chat" id="chat"></div>
         <div class="pending" id="pending"></div>
         <div class="composer" id="composer">
-          <textarea id="note" rows="2" placeholder="Comment at the playhead, without a box (⌘↵)"></textarea>
+          <textarea id="note" rows="3" placeholder='What should change? e.g. "Hold on the headline a full second longer, then slide the card in from the right."'></textarea>
           <div class="composer-row">
-            <span class="muted small" id="handoff"></span>
+            <span class="muted small" id="handoff">⌘↵ to add</span>
             <div class="spacer"></div>
-            <button class="btn ghost" id="copyPrompt" title="Copy a prompt for the chat next to this page" hidden>Copy prompt</button>
-            <button class="btn accent" id="addNote">Add comment</button>
+            <button class="btn dark" id="addNote">Add comment</button>
           </div>
         </div>
       </aside>
     </main>
+
+    <nav class="filmstrip" id="filmstrip"></nav>
 
     <div class="pop" id="pop" hidden>
       <textarea id="popText" rows="3" placeholder="What should change here?"></textarea>
