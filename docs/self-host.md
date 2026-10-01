@@ -10,17 +10,16 @@ need any of this: `node server.mjs ~/videos` listens on localhost with no login.
 docker build -t scene-loop .
 ```
 
-Debian slim with Node 22, Debian's Chromium, ffmpeg, git and fonts, the app in `/app`, and
-HyperFrames already in the npx cache. Debian's Chromium rather than Google Chrome because Google
-ships no Linux build for arm64. `CHROME_PATH` points at it and the server passes it on to
-HyperFrames; set `CHROME_PATH` to use another browser.
+Debian slim with Node 22, Debian's Chromium, ffmpeg, git and fonts, and the app in `/app`.
+Debian's Chromium rather than Google Chrome because Google ships no Linux build for arm64.
+`CHROME_PATH` points at it; set it to use another browser.
 
 Measured 2026-10-01 on an M-series Mac (arm64, Docker Desktop 28) with the base image already
-pulled: about 60 seconds from scratch, 540 MB compressed, about 1.45 GB unpacked (Chromium,
-ffmpeg and fonts are most of it, HyperFrames 215 MB, the base 270 MB).
+pulled, when the image still fetched HyperFrames (215 MB, since removed): about 60 seconds from
+scratch, 540 MB compressed, about 1.45 GB unpacked. Chromium, ffmpeg and fonts are most of it.
 
-Rendering still loads the HyperFrames runtime from jsDelivr, so the container needs outbound
-network. That goes away with our own renderer.
+Scenes written for the old GSAP contract load GSAP from jsDelivr at render time; CSS scenes need
+no network.
 
 ## Run it
 

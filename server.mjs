@@ -26,7 +26,6 @@ const BOOLEAN_FLAGS = ["--no-login"];
 const rootArg = resolve(args.find((a, i) => !a.startsWith("--") && !(args[i - 1]?.startsWith("--") && !BOOLEAN_FLAGS.includes(args[i - 1]))) ?? process.cwd());
 const REVIEWER = flag("--reviewer") ?? process.env.SCENE_LOOP_REVIEWER ?? "The reviewer";
 const HOST = flag("--host") ?? process.env.SCENE_LOOP_HOST ?? "127.0.0.1";
-if (process.env.CHROME_PATH) process.env.HYPERFRAMES_BROWSER_PATH ??= process.env.CHROME_PATH;
 if (!existsSync(rootArg) || !statSync(rootArg).isDirectory()) {
   console.error(`${rootArg} is not a directory. Usage: node server.mjs <projectDir|projectsRoot> [--port 4300] [--host 127.0.0.1] [--reviewer Name]`);
   process.exit(1);

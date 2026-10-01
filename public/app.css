@@ -79,7 +79,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .scene-label .muted { font-weight: 500; }
 .stage-wrap { max-width: var(--stage-w); margin: 0 auto; }
 .stage { position: relative; aspect-ratio: 16 / 9; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
-.stage hyperframes-player { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage scene-player { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .overlay { position: absolute; inset: 0; z-index: 5; }
 .overlay.drawing { cursor: crosshair; background: rgb(22 23 26 / 0.06); }
 .box { position: absolute; border: 2px solid var(--pin); border-radius: 4px; box-shadow: 0 0 0 9999px rgb(0 0 0 / 0); pointer-events: none; }

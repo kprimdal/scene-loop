@@ -59,11 +59,25 @@ scene-loop (your Mac, or your own server / Docker)
    `claude_desktop_config.json`, no server change. See Connecting clients.
 4. **MCP App** (`ui://`) so the review UI can also open inside the chat. Done 2026-10-01,
    hand-rolled against the ext-apps spec 2026-01-26 without the SDK. See "MCP App" below.
-5. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP (see README direction).
-   It sits behind `lib/stills.mjs` and the render call, so it can land before or after the MCP work
-   without changing the tools.
+5. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP. Done 2026-10-02.
+   `lib/chrome.mjs` finds Chrome (CHROME_PATH, then chrome-headless-shell, then Chrome or
+   Chromium) and talks CDP over `--remote-debugging-pipe`: NUL-separated JSON on fds 3 and 4, no
+   port, no WebSocket, no puppeteer. One shared browser, closed a minute after its last page.
+   `lib/clock.js` is inlined into every assembled page: `__sl.seek(t)` pauses every CSS
+   animation and Web Animation and sets its time, seeks legacy GSAP timelines, `<video>` and
+   `window.__seek[id]`, and crossfades scenes in the whole-video page. `lib/render.mjs` makes
+   stills (seek, `Page.captureScreenshot`) and clips (JPEG frames piped into ffmpeg, a scene
+   split into chunks of at most 30 frames over parallel pages, segments joined without
+   re-encoding), and joins clips with `xfade` and the soundtrack. Clips are cached in
+   `.build/clips/<id>-v<version>-<key>.mp4`; the key hashes the theme, size, fps, frame span and
+   the clock. `public/player.js` is the preview: an iframe over the build, the same clock, the
+   soundtrack in the parent page. The HyperFrames player, runtime and shader transitions are gone.
+   Render progress is frames done (90%) plus the ffmpeg join (10%). Numbers, AI for begyndere
+   (9 scenes, 55 s, M4 Pro): whole render 24 to 28 s against 425 s with HyperFrames, 6 s when
+   every clip is cached, stills about 1 s per scene against 3.7 s. Measurements in video-lab
+   `experiments/004-own-renderer/findings.md`.
 6. **Docker image and login.** Done 2026-10-01. `Dockerfile` (Debian slim, Node 22, Debian's
-   Chromium, ffmpeg, git, fonts, HyperFrames pre-fetched) and `docker-compose.yml`; about 60 s
+   Chromium, ffmpeg, git, fonts) and `docker-compose.yml`; about 60 s
    to build, 540 MB compressed. `--host` (default 127.0.0.1); any other host refuses to start
    without `SCENE_LOOP_PASSWORD` unless `--no-login`. `lib/auth.mjs`, hand-rolled: a login page
    and signed session cookie for the web UI, `SCENE_LOOP_TOKEN` as a fixed bearer for Claude
@@ -71,8 +85,8 @@ scene-loop (your Mac, or your own server / Docker)
    Authorization Server Metadata, client ID metadata documents and dynamic registration,
    `/authorize` with PKCE S256 behind the same password, `/token` with refresh). Everything is
    a signed value, so nothing is stored. One `auth.gate(req, res)` call in `server.mjs`; `mcp.mjs`
-   skips its localhost Origin check when the request carried a token. `CHROME_PATH` is passed
-   to HyperFrames as `HYPERFRAMES_BROWSER_PATH`. Setup and proxies: `docs/self-host.md`.
+   skips its localhost Origin check when the request carried a token. `CHROME_PATH` picks the
+   browser. Setup and proxies: `docs/self-host.md`.
 
 ## MCP App
 
@@ -225,8 +239,10 @@ PKCE verifier, a reused code and a tampered token are refused), and a render in 
 
 ## Open
 
-- Render progress stayed at 0% until done in the test: `hyperframes render --quiet` printed no percentages
-  that the parser recognises. The job still finishes and reports the file.
+- Frame latency in headless Chrome on macOS varies by Chrome build (25 ms or 150 to 200 ms per
+  screenshot); the renderer hides it with parallel pages. On Linux, `HeadlessExperimental.beginFrame`
+  (not supported on macOS) is worth trying in the Docker image.
+- Shader transitions from HyperFrames are now plain crossfades. `transitionIn.shader` is ignored.
 - Render jobs live in the server process; after a restart `get_render` without a job id still
   lists finished renders from `.state/project.json`, but old job ids are gone.
 - The page reloads when you switch project. One page is one project.

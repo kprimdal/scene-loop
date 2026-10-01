@@ -9,8 +9,8 @@
 FROM node:22-bookworm-slim
 
 # Debian's chromium rather than Google Chrome: Google ships no Linux arm64 build, and this
-# image has to work on arm64 servers and Apple silicon too. CHROME_PATH points at it; the
-# server hands it on to HyperFrames as HYPERFRAMES_BROWSER_PATH.
+# image has to work on arm64 servers and Apple silicon too. CHROME_PATH points at it and
+# lib/chrome.mjs drives it over CDP.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends chromium ffmpeg git ca-certificates \
       fonts-liberation fonts-dejavu-core fonts-noto-color-emoji \
@@ -32,9 +32,6 @@ WORKDIR /app
 COPY --chown=node:node . .
 
 USER node
-# Fetch HyperFrames into the npx cache now, so stills and renders don't download it on first
-# use. It still loads its runtime from jsDelivr at render time, so the container needs network.
-RUN npx --yes hyperframes@0.8.103 --version
 
 VOLUME /projects
 EXPOSE 4300

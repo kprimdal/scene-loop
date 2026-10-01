@@ -45,7 +45,6 @@ const S = {
 };
 
 const player = $("#player");
-player.disableClickToPlay = true;
 
 const scene = (id = S.sel) => S.data.scenes.find((s) => s.id === id);
 const latest = (sc) => sc.versions.at(-1).v;
@@ -114,23 +113,15 @@ async function loadPlayer(force = false) {
   if (key === S.loadedKey && !force) return;
   const [mode, sub] = key.split(":");
   const sameView = S.loadedKey?.startsWith(`${mode}:${sub}:`);
-  // The whole video re-prepares every shader transition on load (about a minute), so a
-  // new scene version marks it stale instead of reloading under the viewer.
-  if (mode === "whole" && sameView && !force) {
-    S.wholeStale = true;
-    renderVersions();
-    return;
-  }
-  S.wholeStale = false;
   const keepTime = sameView ? player.currentTime : null;
   S.loadedKey = key;
-  $("#shade").hidden = mode === "whole"; // the player shows its own progress while it prepares transitions
+  $("#shade").hidden = false;
   const b = mode === "scene" ? await api(`/api/build/scene/${sc.id}?v=${viewed(sc)}`) : await api(`/api/build/whole?mode=${S.wholeMode}`);
   S.picked = b.picked ?? {};
   player.setAttribute("src", b.url);
   const want = mode === "scene" ? sc.duration : S.data.duration;
   const t0 = Date.now();
-  while (!(player.ready && Math.abs(player.duration - want) < 0.05) && Date.now() - t0 < 180000) await new Promise((r) => setTimeout(r, 100));
+  while (!(player.ready && Math.abs(player.duration - want) < 0.05) && Date.now() - t0 < 30000) await new Promise((r) => setTimeout(r, 100));
   $("#shade").hidden = true;
   if (S.loadedKey !== key) return;
   if (keepTime) player.seek(Math.min(keepTime, want - 0.01));
@@ -256,7 +247,6 @@ function renderVersions() {
   $("#versionsSec").hidden = !S.showVersions;
   $("#viewing").replaceChildren(
     S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
-    S.mode === "whole" && S.wholeStale ? h("button", { class: "btn accent", style: "margin-left:10px", onclick: () => loadPlayer(true) }, "New versions · reload whole video") : "",
   );
   $("#narration").replaceChildren(h("b", {}, "Narration "), sc.narration ?? "");
   const box = $("#versions");

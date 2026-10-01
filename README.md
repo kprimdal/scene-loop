@@ -10,9 +10,10 @@ I built this for my own explainer and course videos. It's early and it changes a
 
 The shape is borrowed from Caleb Porzio's
 [Storyboard teaser](https://x.com/calebporzio/status/2104945478055989489): script, then scenes,
-then one scoped chat per scene with versions and whole-video playback. Rendering is
-[HyperFrames](https://github.com/heygen-com/hyperframes) by HeyGen: scenes are HTML with a
-seekable GSAP timeline, rendered to MP4.
+then one scoped chat per scene with versions and whole-video playback. Scenes are HTML with CSS
+animations. scene-loop renders them itself: headless Chrome steps every frame on a frozen clock
+and ffmpeg makes the MP4. It started on [HyperFrames](https://github.com/heygen-com/hyperframes)
+by HeyGen, which showed that HTML is a good way to make video.
 
 I tried HyperFrames' own Studio first. It's a timeline editor where you nudge positions and text
 sizes, and I don't want to edit video like that. I want to point at a frame, say what's wrong, and
@@ -71,7 +72,9 @@ model itself and holds no keys.
 
 ## Run it
 
-Needs Node 22, ffmpeg, and network for jsDelivr and `npx hyperframes@0.8.103`. No npm install.
+Needs Node 22, ffmpeg and Chrome. No npm install. Best is chrome-headless-shell
+(`npx @puppeteer/browsers install chrome-headless-shell@stable`), which scene-loop finds in
+`~/.cache`; a normal Google Chrome or Chromium works too. `CHROME_PATH` picks a specific one.
 It listens on 127.0.0.1 only, with no login. Run it on your own machine, or your own server or
 Docker if you want it elsewhere. Nobody hosts it for you.
 
@@ -99,9 +102,9 @@ Cloudflare Tunnel.
 ```
 storyboard.json        title, size, colours, soundtrack, and the scenes with start, duration,
                        transition and narration
-scenes/<id>/scene.html one HyperFrames sub-composition per scene: <template>, a root div with
-                       data-composition-id="<id>", one paused GSAP timeline registered as
-                       window.__timelines["<id>"]
+scenes/<id>/scene.html one scene: <template>, a <style>, a root div with
+                       data-composition-id="<id>"; motion is CSS animations (or Web
+                       Animations), timed in seconds from the scene start
 assets/                images, fonts, audio, referenced as assets/...
 frame.md               optional design spec the agents read
 AGENTS.md              rules the chat reads through get_rules
@@ -109,13 +112,39 @@ theme.css              optional, applied after every scene's styles
 ```
 
 The app keeps its own state next to that: versions in a private git dir (`.history`), comments,
-chats and a metrics log in `.state`, builds in `.build`, renders in `renders`.
+chats and a metrics log in `.state`, builds and render clips in `.build`, renders in `renders`.
+
+How a scene moves: every `@keyframes` animation, `el.animate()` and `<video>` in the page is paused
+and set to the frame's time by the page clock (`lib/clock.js`), the same in the preview, the stills
+and the render. So a scene must not run on wall time (`setTimeout`, `requestAnimationFrame` loops,
+`Date.now()`, CSS transitions). Something drawn in script registers `window.__seek["<id>"] = (t) => ...`.
+Prefix ids and `@keyframes` names with the scene id; all scenes share one page.
+
+Scenes from before (a paused GSAP timeline in `window.__timelines["<id>"]`) keep playing: the page
+loads GSAP from jsDelivr for them and the clock seeks the timeline. Rewriting one is mechanical,
+each `tl.fromTo(el, from, to, at)` becomes an animation with `animation-delay: <at>s` and
+`fill-mode: both`:
+
+```css
+/* tl.fromTo("#s03-chip", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55, ease: "power3.out" }, 0.37) */
+#s03-chip { animation: s03-pop 0.55s cubic-bezier(0.165, 0.84, 0.44, 1) 0.37s both; }
+@keyframes s03-pop { from { opacity: 0; transform: translateY(24px); } }
+```
+
+The template's `AGENTS.md` has the ease table; ask the chat to "rewrite this scene's GSAP timeline
+as CSS animations" and compare the stills.
+
+Rendering: each scene renders to its own clip, `.build/clips/<id>-v<version>-<key>.mp4`, frames
+split over parallel Chrome pages (`SCENE_LOOP_PARALLEL`, default up to 8). A clip is reused until
+the scene, the theme, the size or its place on the frame grid changes, so after one edit only that
+scene renders again. The whole video is the clips joined with ffmpeg crossfades (`transitionIn:
+{ "duration": 0.6 }` by default, `{ "type": "cut" }` for a hard cut) and the soundtrack.
 
 The server is `server.mjs`; the tools are defined once in `lib/tools.mjs` and served on `/mcp`
 (Streamable HTTP, stateless, no SDK) and to the page. `docs/server-and-mcp.md` has the plan and
 the client notes.
 
-Scene ids must not start with a digit. HyperFrames' own audits crash on them.
+Scene ids must start with a letter: they become CSS ids and animation names.
 
 ## License
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Make videos scene by scene: one agent session per scene, versions, pinned comments, whole-video playback. Built on HyperFrames.",
+  "description": "Make videos scene by scene: one agent session per scene, versions, pinned comments, whole-video playback. Own renderer: headless Chrome and ffmpeg.",
   "license": "SEE LICENSE IN LICENSE.md",
   "author": "Kristian Primdal",
   "bin": { "scene-loop": "server.mjs" },
