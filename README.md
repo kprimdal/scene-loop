@@ -58,7 +58,7 @@ model itself and holds no keys.
 ## Run it
 
 Needs Node 22, ffmpeg, and network for jsDelivr and `npx hyperframes@0.8.103`. No npm install.
-It listens on 127.0.0.1 only; there is no login. Run it on your own machine, or your own server or
+It listens on 127.0.0.1 only, with no login. Run it on your own machine, or your own server or
 Docker if you want it elsewhere. Nobody hosts it for you.
 
 ```
@@ -72,6 +72,13 @@ open http://localhost:4300
 chat or the New project button. Each project keeps its own versions, comments and renders. Point
 the server at a folder that has a `storyboard.json` instead and it serves that one project, as
 before (`cp -R templates/project ~/videos/my-video` makes one).
+
+On a server: `docker compose up -d` with the `Dockerfile` and `docker-compose.yml` here, or
+`node server.mjs ~/videos --host 0.0.0.0` with `SCENE_LOOP_PASSWORD` set. Anything beyond
+localhost needs that password: the web UI gets a login page, and `/mcp` takes a bearer token or
+runs the OAuth flow a claude.ai custom connector expects. Put it behind TLS.
+[docs/self-host.md](docs/self-host.md) has the image, the settings, and nginx, Caddy and
+Cloudflare Tunnel.
 
 ## Project format
 

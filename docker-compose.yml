@@ -1,0 +1,26 @@
+# Example: scene-loop on your own server. Put the secrets in a .env file next to this one:
+#
+#   SCENE_LOOP_PASSWORD=a long password for the web UI and the OAuth login
+#   SCENE_LOOP_SECRET=output of: openssl rand -hex 32
+#   SCENE_LOOP_TOKEN=output of: openssl rand -hex 32   (optional, for Claude Code)
+#   SCENE_LOOP_URL=https://video.example.com            (the public URL behind your proxy)
+#
+# Then: docker compose up -d --build. It publishes on 127.0.0.1 only; your reverse proxy or
+# Cloudflare Tunnel on the same machine is what faces the internet (docs/self-host.md).
+services:
+  scene-loop:
+    build: .
+    image: scene-loop
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4300:4300"
+    volumes:
+      - ./projects:/projects
+    environment:
+      SCENE_LOOP_PASSWORD: ${SCENE_LOOP_PASSWORD:?set SCENE_LOOP_PASSWORD in .env}
+      SCENE_LOOP_SECRET: ${SCENE_LOOP_SECRET:?set SCENE_LOOP_SECRET in .env}
+      SCENE_LOOP_TOKEN: ${SCENE_LOOP_TOKEN:-}
+      SCENE_LOOP_URL: ${SCENE_LOOP_URL:-}
+      SCENE_LOOP_REVIEWER: ${SCENE_LOOP_REVIEWER:-The reviewer}
+    # Chromium wants more shared memory than Docker's 64 MB default.
+    shm_size: "1gb"

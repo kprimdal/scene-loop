@@ -60,7 +60,17 @@ scene-loop (your Mac, or your own server / Docker)
 5. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP (see README direction).
    It sits behind `lib/stills.mjs` and the render call, so it can land before or after the MCP work
    without changing the tools.
-6. **Docker image** with Node, Chrome and ffmpeg, plus login, for people who want it on a server.
+6. **Docker image and login.** Done 2026-10-01. `Dockerfile` (Debian slim, Node 22, Debian's
+   Chromium, ffmpeg, git, fonts, HyperFrames pre-fetched) and `docker-compose.yml`; about 60 s
+   to build, 540 MB compressed. `--host` (default 127.0.0.1); any other host refuses to start
+   without `SCENE_LOOP_PASSWORD` unless `--no-login`. `lib/auth.mjs`, hand-rolled: a login page
+   and signed session cookie for the web UI, `SCENE_LOOP_TOKEN` as a fixed bearer for Claude
+   Code, and the MCP OAuth flow for claude.ai connectors (Protected Resource Metadata,
+   Authorization Server Metadata, client ID metadata documents and dynamic registration,
+   `/authorize` with PKCE S256 behind the same password, `/token` with refresh). Everything is
+   a signed value, so nothing is stored. One `auth.gate(req, res)` call in `server.mjs`; `mcp.mjs`
+   skips its localhost Origin check when the request carried a token. `CHROME_PATH` is passed
+   to HyperFrames as `HYPERFRAMES_BROWSER_PATH`. Setup and proxies: `docs/self-host.md`.
 
 ## Connecting clients
 
@@ -104,6 +114,16 @@ curl -s localhost:4300/mcp -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}'
 ```
 
+### Your own server
+
+See `docs/self-host.md`. Tested 2026-10-01 on the image with a scratch projects root mounted
+at `/projects`: the web UI through the password (agent-browser: login, page tools over WebMCP,
+a comment, logout), `claude -p` with `"headers": { "Authorization": "Bearer ..." }` in the
+`--mcp-config` (rewrote a scene, read the stills from the container's Chromium), the OAuth flow
+with curl (metadata, register, authorize, token, `tools/call`, refresh; wrong password, wrong
+PKCE verifier, a reused code and a tampered token are refused), and a render in the container
+(6 s for the 4 s template). Open localhost mode answers as before.
+
 ## Open
 
 - Render progress stayed at 0% until done in the test: `hyperframes render --quiet` printed no percentages
@@ -111,3 +131,8 @@ curl -s localhost:4300/mcp -H 'Content-Type: application/json' \
 - Render jobs live in the server process; after a restart `get_render` without a job id still
   lists finished renders from `.state/project.json`, but old job ids are gone.
 - The page reloads when you switch project. One page is one project.
+- claude.ai as a custom connector against a real public hostname, and Claude Code's own OAuth
+  flow (no `--header`), are not tried yet; the flow they use was walked with curl.
+- Login is one password for one person. No users, no per-project access, no scopes.
+- The fonts in the image are Liberation and DejaVu; `system-ui` maps to Liberation Sans. Stills
+  made on a Mac and in the container won't match pixel for pixel unless scenes ship their fonts.

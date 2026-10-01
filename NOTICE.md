@@ -9,3 +9,6 @@ Required Notice: Copyright 2026 Kristian Primdal (https://github.com/kprimdal/sc
 - At runtime the app loads GSAP and the HyperFrames runtime and shader transitions from jsDelivr,
   and runs `npx hyperframes` and ffmpeg as separate programs. They keep their own
   licenses and terms.
+- The Docker image installs Debian's Chromium, ffmpeg, git and fonts from Debian's package
+  archive and HyperFrames from npm when it is built. They run as separate programs and keep their
+  own licenses; none of them is in this repository.
