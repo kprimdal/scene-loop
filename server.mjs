@@ -4,9 +4,10 @@
 // /mcp or through the page's tools. This server holds the projects, versions, comments,
 // stills, previews and renders. It never calls a model and holds no keys.
 //
-//   node server.mjs <dir> [--port 4300] [--reviewer Name]
+//   node server.mjs <dir> [--port 4300] [--host 127.0.0.1] [--reviewer Name] [--password ...]
 //   <dir> with a storyboard.json: one project. Any other dir: a projects root, one
 //   folder per project (create_project makes them from templates/project).
+//   A --host beyond loopback needs a login (SCENE_LOOP_PASSWORD); see lib/auth.mjs.
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve, normalize } from "node:path";
@@ -14,16 +15,20 @@ import { fileURLToPath } from "node:url";
 import { createRegistry } from "./lib/projects.mjs";
 import { toolList, callTool, withoutFiles } from "./lib/tools.mjs";
 import { createMcp } from "./lib/mcp.mjs";
+import { createAuth } from "./lib/auth.mjs";
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const VERSION = "0.2.0";
 const args = process.argv.slice(2);
 const PORT = Number(args.includes("--port") ? args[args.indexOf("--port") + 1] : 0) || 4300;
 const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
-const rootArg = resolve(args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--")) ?? process.cwd());
+const BOOLEAN_FLAGS = ["--no-login"];
+const rootArg = resolve(args.find((a, i) => !a.startsWith("--") && !(args[i - 1]?.startsWith("--") && !BOOLEAN_FLAGS.includes(args[i - 1]))) ?? process.cwd());
 const REVIEWER = flag("--reviewer") ?? process.env.SCENE_LOOP_REVIEWER ?? "The reviewer";
+const HOST = flag("--host") ?? process.env.SCENE_LOOP_HOST ?? "127.0.0.1";
+if (process.env.CHROME_PATH) process.env.HYPERFRAMES_BROWSER_PATH ??= process.env.CHROME_PATH;
 if (!existsSync(rootArg) || !statSync(rootArg).isDirectory()) {
-  console.error(`${rootArg} is not a directory. Usage: node server.mjs <projectDir|projectsRoot> [--port 4300] [--reviewer Name]`);
+  console.error(`${rootArg} is not a directory. Usage: node server.mjs <projectDir|projectsRoot> [--port 4300] [--host 127.0.0.1] [--reviewer Name]`);
   process.exit(1);
 }
 
@@ -32,6 +37,21 @@ const clients = new Set();
 function emit(type, data) {
   const msg = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
   for (const c of clients) c.write(msg);
+}
+
+let auth;
+try {
+  auth = createAuth({
+    password: flag("--password") ?? process.env.SCENE_LOOP_PASSWORD,
+    token: process.env.SCENE_LOOP_TOKEN,
+    secret: process.env.SCENE_LOOP_SECRET,
+    publicUrl: flag("--url") ?? process.env.SCENE_LOOP_URL,
+    host: HOST,
+    noLogin: args.includes("--no-login"),
+  });
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
 }
 
 const registry = createRegistry(rootArg, { reviewer: REVIEWER, emit });
@@ -96,8 +116,9 @@ const routes = [
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
-  const origin = `http://${req.headers.host ?? `localhost:${PORT}`}`;
+  const origin = auth.baseUrl(req);
   try {
+    if (await auth.gate(req, res)) return;
     if (url.pathname === "/mcp") return await mcp(req, res, { origin });
     if (url.pathname === "/api/events") {
       res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
@@ -126,9 +147,11 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, "127.0.0.1", async () => {
+server.listen(PORT, HOST, async () => {
   const names = registry.names();
-  console.log(`scene-loop ${VERSION} on http://localhost:${PORT}  (${registry.single ? `project ${rootArg}` : `${names.length} project(s) in ${rootArg}`})`);
-  console.log(`MCP: claude mcp add --transport http scene-loop http://localhost:${PORT}/mcp`);
+  const shown = `http://${["0.0.0.0", "::", "127.0.0.1"].includes(HOST) ? "localhost" : HOST.includes(":") ? `[${HOST}]` : HOST}:${PORT}`;
+  console.log(`scene-loop ${VERSION} on ${shown}${HOST === "127.0.0.1" ? "" : ` (listening on ${HOST})`}  (${registry.single ? `project ${rootArg}` : `${names.length} project(s) in ${rootArg}`})`);
+  console.log(auth.enabled ? `Login on. MCP needs a bearer token or the OAuth flow; see docs/self-host.md.` : `MCP: claude mcp add --transport http scene-loop ${shown}/mcp`);
+  if (auth.generated) console.log("No SCENE_LOOP_SECRET set: sessions and tokens end when the server restarts.");
   for (const n of names) registry.get(n).catch((e) => console.error(`${n}: ${e.message}`)); // opens and warms posters in the background
 });

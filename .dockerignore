@@ -1,0 +1,11 @@
+.git
+.claude
+node_modules
+**/.history
+**/.build
+**/.state
+**/.preview
+**/renders
+.DS_Store
+Dockerfile
+docker-compose.yml

@@ -15,6 +15,7 @@ const h = (tag, attrs = {}, ...kids) => {
 const api = async (path, opts = {}) => {
   if (S.project) path += (path.includes("?") ? "&" : "?") + "project=" + encodeURIComponent(S.project);
   const r = await fetch(path, { method: opts.method ?? (opts.body ? "POST" : "GET"), headers: { "Content-Type": "application/json" }, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  if (r.status === 401) location.href = "/login?next=" + encodeURIComponent(location.pathname + location.search); // the login ran out (self-hosted)
   const j = await r.json();
   if (!r.ok) throw new Error(j.error ?? r.statusText);
   return j;
