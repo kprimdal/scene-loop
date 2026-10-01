@@ -28,6 +28,18 @@ get a new version back.
   flip between them at the same timestamp, approve one, or bring an old one back.
 - A project chat for changes that span scenes, and a Render button for the MP4.
 
+## Chat on the left, video on the right
+
+Open the app in the built-in browser of Claude Code desktop or the ChatGPT/Codex desktop app, and
+the chat next to it can build and edit the video. The page offers its tools through WebMCP
+(ChatGPT's "Site tools" discover them on their own) and as `window.sceneLoop` in the page's
+JavaScript for agents that don't discover WebMCP yet. `window.sceneLoop.help()` lists them:
+project settings, create, reorder and remove scenes, a theme and design spec for all scenes, read
+and write a scene, stills, pending comments, approve.
+
+Pick **Chat** as the agent on a scene and Send leaves your comments for that chat. Every write
+becomes a version that records the model and whether it came through WebMCP or page JavaScript.
+
 ## Your own subscription, no API key
 
 The agents are the `claude` and `codex` CLIs you already have, run headless with session resume

@@ -32,7 +32,52 @@ const stillCmd = () => `node ${stillBin} --port ${PORT}`;
 mkdirSync(stateDir, { recursive: true });
 mkdirSync(rendersDir, { recursive: true });
 
-const storyboard = () => JSON.parse(readFileSync(join(projectDir, "storyboard.json"), "utf8"));
+const readIf = (p) => (existsSync(p) ? readFileSync(p, "utf8") : null);
+const storyboard = () => ({ ...JSON.parse(readFileSync(join(projectDir, "storyboard.json"), "utf8")), themeCss: readIf(join(projectDir, "theme.css")) });
+
+// Scene starts follow from order and durations, so adding, removing or reordering
+// scenes never leaves gaps. A soundtrack laid to the old cuts won't follow; callers warn.
+function saveStoryboard(sb) {
+  const { themeCss, ...out } = sb;
+  let t = 0;
+  for (const s of out.scenes) {
+    s.start = Math.round(t * 1000) / 1000;
+    t += s.duration;
+  }
+  out.duration = Math.round(t * 1000) / 1000;
+  writeFileSync(join(projectDir, "storyboard.json"), JSON.stringify(out, null, 2) + "\n");
+  return out;
+}
+
+const starterScene = (id, sb, title) => `<template>
+<style>
+#root{position:absolute;inset:0;width:${sb.width ?? 1920}px;height:${sb.height ?? 1080}px;background-color:${sb.background ?? "#FFFFFF"};color:#111111;font-family:system-ui,sans-serif;overflow:hidden}
+#${id}-title{position:absolute;left:0;right:0;top:46%;text-align:center;font-size:96px;font-weight:700;letter-spacing:-0.03em}
+</style>
+<div id="root" data-composition-id="${id}" data-width="${sb.width ?? 1920}" data-height="${sb.height ?? 1080}" data-duration="${sb.scenes.find((s) => s.id === id).duration}">
+  <div id="${id}-title">${String(title).replace(/</g, "&lt;")}</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  var tl = gsap.timeline({ paused: true });
+  tl.fromTo("#${id}-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.3);
+  window.__timelines["${id}"] = tl;
+})();
+</script>
+</template>
+`;
+
+const slug = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-").replace(/-+/g, "-").slice(0, 40) || "scene";
+
+async function commitProjectFiles(note, author) {
+  const v = await history.commitProject(["storyboard.json", "theme.css", "frame.md"].filter((f) => existsSync(join(projectDir, f))), note, author);
+  rmSync(join(projectDir, ".build"), { recursive: true, force: true }); // previews pick up the new storyboard/theme
+  if (v) logChat("_project", { role: "system", text: `Project v${v}: ${note}` });
+  emit("project", {});
+  return v;
+}
 const history = createHistory(projectDir);
 await history.init(storyboard().scenes.map((s) => s.id));
 
@@ -160,6 +205,17 @@ async function sendScene(id, { agent, note }) {
   saveSceneState(id, st);
   const pending = st.comments.filter((c) => c.status === "pending");
   if (!pending.length && !note?.trim()) throw new Error("Nothing to send: add a comment or a note");
+  if (agent === "chat") {
+    if (note?.trim()) {
+      const v = (await history.versions(id)).at(-1).v;
+      st.comments.push({ id: randomUUID().slice(0, 8), version: v, t: 0, region: null, text: note.trim(), status: "pending", createdAt: new Date().toISOString() });
+    }
+    for (const c of st.comments) if (c.status === "pending") c.queuedAt ??= new Date().toISOString();
+    saveSceneState(id, st);
+    logChat(id, { role: "system", text: "Queued for the chat next to this page. Ask it to apply your pending comments." });
+    emit("project", {});
+    return;
+  }
   const latest = (await history.versions(id)).at(-1).v;
   running.set(id, { agent, startedAt: Date.now() });
   emit("running", { key: id, agent, state: "start" });
@@ -370,6 +426,78 @@ function inside(root, p) {
 const routes = [
   ["GET", /^\/api\/project$/, async () => projectView()],
   ["GET", /^\/api\/whoami$/, async () => ({ reviewer: REVIEWER })],
+  // ---- project tools for the chat next to the page ----
+  ["GET", /^\/api\/rules$/, async () => ({
+    agents: readIf(join(projectDir, "AGENTS.md")), design: readIf(join(projectDir, "frame.md")), theme: readIf(join(projectDir, "theme.css")),
+    sceneContract: "Each scene is scenes/<id>/scene.html: a <template> with a <style>, a root <div id=\"root\" data-composition-id=\"<id>\" data-width data-height data-duration>, and a script that builds ONE paused GSAP timeline and registers it as window.__timelines[\"<id>\"]. Times are seconds from the scene start. Ids and classes must not start with a digit. Prefix element ids with the scene id. Don't use HyperFrames skills or Studio; the app assembles and renders. theme.css is injected after every scene's styles, so project-wide changes (fonts, colours) go there; in the assembled page each scene's #root becomes a .scene element, so target .scene (with !important where a scene sets its own value).",
+  })],
+  ["GET", /^\/api\/pending$/, async () => {
+    const origin = `http://localhost:${PORT}`;
+    return storyboard().scenes.flatMap((s) => sceneState(s.id).comments.filter((c) => c.status === "pending").map((c) => ({
+      scene: s.id, id: c.id, version: c.version, t: c.t, region: c.region, text: c.text,
+      still: existsSync(join(stateDir, "comments", s.id, `${c.id}.png`)) ? origin + rel(join(stateDir, "comments", s.id, `${c.id}.png`)) : null,
+    })));
+  }],
+  ["POST", /^\/api\/project\/meta$/, async (m, q, b) => {
+    const sb = storyboard();
+    for (const k of ["title", "language", "width", "height", "background", "accent", "soundtrack"]) if (b[k] !== undefined) sb[k] = b[k];
+    saveStoryboard(sb);
+    return { version: await commitProjectFiles(b.note ?? "project settings", b.model ?? "chat") };
+  }],
+  ["POST", /^\/api\/project\/scenes$/, async (m, q, b) => {
+    const sb = storyboard();
+    let id = b.id ?? `s${String(sb.scenes.length + 1).padStart(2, "0")}-${slug(b.title ?? "scene")}`;
+    if (!/^[a-z][\w-]*$/.test(id)) throw new Error("scene id must start with a letter (a-z) and use a-z, 0-9, - or _");
+    if (sb.scenes.some((s) => s.id === id) || existsSync(join(projectDir, "scenes", id))) throw new Error(`${id} already exists`);
+    const scene = { id, title: b.title ?? id, start: 0, duration: Number(b.duration) || 4, transitionIn: b.transitionIn ?? null, narration: b.narration ?? "", picture: b.picture ?? "" };
+    const at = b.after ? sb.scenes.findIndex((s) => s.id === b.after) + 1 : sb.scenes.length;
+    sb.scenes.splice(at || sb.scenes.length, 0, scene);
+    saveStoryboard(sb);
+    mkdirSync(join(projectDir, "scenes", id), { recursive: true });
+    writeFileSync(join(projectDir, "scenes", id, "scene.html"), b.html ?? starterScene(id, storyboard(), scene.title));
+    const v = await history.commitScene(id, `created by ${b.model ?? "chat"}`, b.model ?? "chat");
+    const st = sceneState(id);
+    st.versions[v] = { agent: b.model ?? "chat", note: "created", at: new Date().toISOString() };
+    saveSceneState(id, st);
+    await commitProjectFiles(`add scene ${id}`, b.model ?? "chat");
+    makeVersionStills(id, v).then(() => emit("project", {}));
+    return { id, version: v, soundtrackWarning: sb.soundtrack ? "Scene starts moved; the soundtrack was not re-cut." : null };
+  }],
+  ["POST", /^\/api\/project\/scenes\/([\w-]+)$/, async (m, q, b) => {
+    const sb = storyboard();
+    const s = sb.scenes.find((x) => x.id === m[1]);
+    if (!s) throw new Error(`${m[1]} is not a scene`);
+    for (const k of ["title", "duration", "narration", "picture", "transitionIn"]) if (b[k] !== undefined) s[k] = k === "duration" ? Number(b[k]) : b[k];
+    saveStoryboard(sb);
+    return { version: await commitProjectFiles(b.note ?? `edit ${m[1]} details`, b.model ?? "chat"), note: b.duration !== undefined ? "Also update data-duration in the scene's html." : null };
+  }],
+  ["POST", /^\/api\/project\/order$/, async (m, q, b) => {
+    const sb = storyboard();
+    const ids = sb.scenes.map((s) => s.id);
+    if (!Array.isArray(b.order) || b.order.length !== ids.length || !ids.every((i) => b.order.includes(i))) throw new Error(`order must list every scene once: ${ids.join(", ")}`);
+    sb.scenes = b.order.map((i) => sb.scenes.find((s) => s.id === i));
+    saveStoryboard(sb);
+    return { version: await commitProjectFiles(b.note ?? "reorder scenes", b.model ?? "chat") };
+  }],
+  ["POST", /^\/api\/project\/remove$/, async (m, q, b) => {
+    const sb = storyboard();
+    if (!sb.scenes.some((s) => s.id === b.scene)) throw new Error(`${b.scene} is not a scene`);
+    if (sb.scenes.length === 1) throw new Error("can't remove the last scene");
+    sb.scenes = sb.scenes.filter((s) => s.id !== b.scene); // the folder and its versions stay on disk
+    saveStoryboard(sb);
+    return { version: await commitProjectFiles(b.note ?? `remove scene ${b.scene} (files kept)`, b.model ?? "chat") };
+  }],
+  ["POST", /^\/api\/project\/theme$/, async (m, q, b) => {
+    if (typeof b.css !== "string") throw new Error("css is required");
+    writeFileSync(join(projectDir, "theme.css"), b.css);
+    return { version: await commitProjectFiles(b.note ?? "theme.css", b.model ?? "chat") };
+  }],
+  ["POST", /^\/api\/project\/design$/, async (m, q, b) => {
+    if (typeof b.markdown !== "string") throw new Error("markdown is required");
+    writeFileSync(join(projectDir, "frame.md"), b.markdown);
+    return { version: await commitProjectFiles(b.note ?? "design spec", b.model ?? "chat") };
+  }],
+  ["GET", /^\/api\/project\/files$/, async () => ({ storyboard: readIf(join(projectDir, "storyboard.json")), theme: readIf(join(projectDir, "theme.css")), design: readIf(join(projectDir, "frame.md")) })],
   // Browser-agent mode (WebMCP / window.sceneLoop): the chat agent next to the page reads
   // and writes scene.html itself; each write is a version, like a CLI agent's turn.
   ["GET", /^\/api\/scene\/([\w-]+)\/html$/, async (m, q) => {
@@ -382,16 +510,17 @@ const routes = [
     if (running.has(id)) throw new Error(`${id} has a CLI agent running`);
     if (typeof b.html !== "string" || !b.html.includes(`data-composition-id="${id}"`)) throw new Error(`html must keep the root data-composition-id="${id}"`);
     writeFileSync(join(projectDir, "scenes", id, "scene.html"), b.html);
-    const agent = b.agent || "browser agent";
+    const agent = b.model || b.agent || "browser agent";
+    const via = ["webmcp", "page-js"].includes(b.via) ? b.via : "api";
     const st = sceneState(id);
     const pending = st.comments.filter((c) => c.status === "pending" && (!b.resolves || b.resolves.includes(c.id)));
     const v = await history.commitScene(id, `${agent}: ${(b.note || pending[0]?.text || "edit").slice(0, 60)}`, agent);
     if (v) {
       for (const c of pending) Object.assign(c, { status: "sent", sentAt: new Date().toISOString(), result: v });
-      st.versions[v] = { agent, comments: pending.map((c) => c.id), note: b.note, at: new Date().toISOString() };
+      st.versions[v] = { agent, via, comments: pending.map((c) => c.id), note: b.note, at: new Date().toISOString() };
       saveSceneState(id, st);
       logChat(id, { role: "system", text: `${agent} saved v${v}${b.note ? `: ${b.note}` : ""}.` });
-      metric({ kind: "browser-agent-write", scene: id, agent, newVersion: v, comments: pending.length });
+      metric({ kind: "browser-agent-write", scene: id, agent, via, newVersion: v, comments: pending.length });
       emit("project", {});
       makeVersionStills(id, v).then(() => emit("project", {}));
     }
@@ -404,7 +533,7 @@ const routes = [
     const build = buildScene(projectDir, storyboard(), sc.id, readFileSync(join(sceneDir, "scene.html"), "utf8"), join(sceneDir, ".preview", "build"));
     const out = join(sceneDir, ".preview", "stills");
     rmSync(out, { recursive: true, force: true });
-    return { stills: await snapshot(build, b.times?.length ? b.times : versionTimes(sc.duration), out) };
+    return { stills: (await snapshot(build, b.times?.length ? b.times : versionTimes(sc.duration), out)).map((s) => ({ ...s, url: rel(s.file) })) };
   }],
   ["GET", /^\/api\/chat\/([\w-]+)$/, async (m) => chat(m[1])],
   ["GET", /^\/api\/build\/scene\/([\w-]+)$/, async (m, q) => {
@@ -440,7 +569,7 @@ const routes = [
   }],
   ["POST", /^\/api\/scene\/([\w-]+)\/agent$/, async (m, q, b) => {
     const st = sceneState(m[1]);
-    st.agent = b.agent === "codex" ? "codex" : "claude";
+    st.agent = ["codex", "chat"].includes(b.agent) ? b.agent : "claude";
     saveSceneState(m[1], st);
     return { ok: true };
   }],

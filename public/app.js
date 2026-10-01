@@ -23,7 +23,7 @@ const ago = (iso) => {
   const s = (Date.now() - new Date(iso)) / 1000;
   return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : new Date(iso).toLocaleDateString();
 };
-const AGENT = { claude: "Claude", codex: "Codex", manual: "Manual edit", restore: "Restore", import: "Import" };
+const AGENT = { claude: "Claude", codex: "Codex", chat: "Chat", manual: "Manual edit", restore: "Restore", import: "Import" };
 
 const S = {
   data: null,
@@ -213,7 +213,7 @@ function renderVersions() {
       return h(
         "div",
         { class: `ver ${isView ? "on" : ""}` },
-        h("div", {}, h("div", { class: "vnum" }, `v${v.v}`), h("div", { class: "vmeta" }, AGENT[v.agent] ?? v.agent), h("div", { class: "vmeta" }, ago(v.at ?? v.date)), v.ms ? h("div", { class: "vmeta" }, `${Math.round(v.ms / 1000)} s turn`) : null),
+        h("div", {}, h("div", { class: "vnum" }, `v${v.v}`), h("div", { class: "vmeta" }, AGENT[v.agent] ?? v.agent), v.via ? h("div", { class: "vmeta" }, `via ${v.via === "webmcp" ? "WebMCP" : v.via === "page-js" ? "page JS" : v.via}`) : null, h("div", { class: "vmeta" }, ago(v.at ?? v.date)), v.ms ? h("div", { class: "vmeta" }, `${Math.round(v.ms / 1000)} s turn`) : null),
         h(
           "div",
           { class: "strip" },
@@ -407,7 +407,10 @@ function renderPanel() {
   $("#panelSub").textContent = proj
     ? `All scenes · sessions: ${info.sessions.map((a) => AGENT[a]).join(", ") || "none yet"}`
     : `${sc.id} · ${sc.duration.toFixed(2)} s · sessions: ${info.sessions.map((a) => AGENT[a]).join(", ") || "none yet"}`;
-  document.querySelectorAll("#agentSeg button").forEach((b) => b.classList.toggle("on", b.dataset.agent === info.agent));
+  document.querySelectorAll("#agentSeg button").forEach((b) => {
+    b.classList.toggle("on", b.dataset.agent === info.agent);
+    b.hidden = proj && b.dataset.agent === "chat";
+  });
   const pending = proj ? [] : sc.comments.filter((c) => c.status === "pending");
   $("#pending").replaceChildren(
     ...(pending.length
@@ -428,7 +431,9 @@ function renderPanel() {
   const run = info.running;
   $("#stopBtn").hidden = !run;
   $("#sendBtn").disabled = !!run || (!proj && S.data.project.running) || (proj && S.data.scenes.some((s) => s.running));
-  $("#sendBtn").textContent = proj ? "Send" : pending.length ? `Send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "Send note";
+  const toChat = !proj && info.agent === "chat";
+  $("#sendBtn").textContent = proj ? "Send" : toChat ? `Queue ${pending.length || ""} for chat`.replace("  ", " ") : pending.length ? `Send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "Send note";
+  $("#runState").textContent = toChat ? (pending.some((c) => c.queuedAt) ? "Queued. Ask your chat to apply them." : "The chat next to this page applies them.") : "";
   $("#note").placeholder = proj ? "A change across scenes, e.g. “make every headline 10% smaller”" : "Note for the agent (optional with comments)";
   updateRunState();
 }
@@ -436,7 +441,8 @@ function renderPanel() {
 function updateRunState() {
   const info = S.tab === "project" ? S.data.project : scene();
   const run = info.running;
-  $("#runState").textContent = run ? `${AGENT[run.agent]} working · ${Math.round((Date.now() - run.startedAt) / 1000)} s` : "";
+  if (run) $("#runState").textContent = `${AGENT[run.agent]} working · ${Math.round((Date.now() - run.startedAt) / 1000)} s`;
+  else if (!(S.tab === "scene" && info.agent === "chat")) $("#runState").textContent = "";
 }
 setInterval(() => S.data && updateRunState(), 1000);
 
@@ -561,27 +567,51 @@ es.addEventListener("toast", (m) => toast(JSON.parse(m.data).text));
 // Registered with WebMCP when the browser supports it (ChatGPT desktop "Site tools",
 // Chrome origin trial), and always exposed as window.sceneLoop for agents that can run
 // page JavaScript but don't discover WebMCP tools.
+const sceneArg = { scene: { type: "string", description: "Scene id, e.g. s03-good-at" } };
+const modelArg = { model: { type: "string", description: "Your model name, e.g. Claude Opus 5.5 or GPT-6.1 Sol. Shown on the version." } };
 const TOOLS = [
-  { name: "list_scenes", description: "List the video's scenes: id, title, start, duration, narration, latest and approved version, pending comments.", inputSchema: { type: "object", properties: {} },
-    execute: async () => (await api("/api/project")).scenes.map((s) => ({ id: s.id, title: s.title, start: s.start, duration: s.duration, narration: s.narration, latest: s.versions.at(-1).v, approved: s.approved, pendingComments: s.comments.filter((c) => c.status === "pending").map(({ id, version, t, region, text }) => ({ id, version, t, region, text })) })) },
-  { name: "get_scene_html", description: "Get a scene's scene.html (latest on disk, or a given version). It is a HyperFrames sub-composition: <template>, root div with data-composition-id, one paused GSAP timeline registered as window.__timelines[id].", inputSchema: { type: "object", properties: { scene: { type: "string" }, version: { type: "number" } }, required: ["scene"] },
+  { name: "get_rules", description: "Start here. The scene contract, the project's agent rules, design spec (frame.md) and theme.css. Scenes are plain HTML; do not load HyperFrames or other video skills.", inputSchema: { type: "object", properties: {} },
+    execute: async () => api("/api/rules") },
+  { name: "list_scenes", description: "The video's scenes in order: id, title, start, duration, narration, picture notes, latest and approved version, pending comments.", inputSchema: { type: "object", properties: {} },
+    execute: async () => (await api("/api/project")).scenes.map((s) => ({ id: s.id, title: s.title, start: s.start, duration: s.duration, narration: s.narration, picture: s.picture, latest: s.versions.at(-1)?.v, approved: s.approved, pendingComments: s.comments.filter((c) => c.status === "pending").map(({ id, version, t, region, text }) => ({ id, version, t, region, text })) })) },
+  { name: "get_pending_comments", description: "Every comment the reviewer has pinned and not yet had applied, across all scenes, with a URL to a still of the frame (the commented area boxed in red). Apply them with write_scene_html and pass their ids in resolves.", inputSchema: { type: "object", properties: {} },
+    execute: async () => api("/api/pending") },
+  { name: "get_scene_html", description: "A scene's scene.html (latest on disk, or a given version).", inputSchema: { type: "object", properties: { ...sceneArg, version: { type: "number" } }, required: ["scene"] },
     execute: async ({ scene, version }) => api(`/api/scene/${scene}/html${version ? `?v=${version}` : ""}`) },
-  { name: "write_scene_html", description: "Replace a scene's scene.html. Saved as the scene's next version, with stills. Keep the root data-composition-id and data-duration. Pass the ids of the comments this change resolves.", inputSchema: { type: "object", properties: { scene: { type: "string" }, html: { type: "string" }, note: { type: "string" }, resolves: { type: "array", items: { type: "string" } }, agent: { type: "string", description: "Your name, e.g. Claude or ChatGPT" } }, required: ["scene", "html"] },
-    execute: async (a) => api(`/api/scene/${a.scene}/html`, { body: a }) },
-  { name: "show_scene", description: "Show a scene in the preview at a time in seconds (scene time). Use it to look at your change.", inputSchema: { type: "object", properties: { scene: { type: "string" }, t: { type: "number" } }, required: ["scene"] },
+  { name: "write_scene_html", description: "Replace a scene's scene.html. Saved as the scene's next version, with stills. Keep the root data-composition-id and data-duration. Pass the ids of the comments this change resolves.", inputSchema: { type: "object", properties: { ...sceneArg, html: { type: "string" }, note: { type: "string", description: "One line: what changed" }, resolves: { type: "array", items: { type: "string" } }, ...modelArg }, required: ["scene", "html", "model"] },
+    execute: async (a, via) => api(`/api/scene/${a.scene}/html`, { body: { ...a, via } }) },
+  { name: "get_stills", description: "Render stills of a scene as it is on disk now, at the given scene times. Returns image URLs you can open to check your work.", inputSchema: { type: "object", properties: { ...sceneArg, times: { type: "array", items: { type: "number" } } }, required: ["scene"] },
+    execute: async ({ scene, times }) => ({ stills: (await api("/api/agent/still", { body: { scene, times } })).stills.map((s) => ({ t: s.t, url: location.origin + s.url })) }) },
+  { name: "show_scene", description: "Show a scene in the preview at a time in seconds (scene time), so the reviewer sees it.", inputSchema: { type: "object", properties: { ...sceneArg, t: { type: "number" } }, required: ["scene"] },
     execute: async ({ scene, t = 0 }) => { if (S.mode !== "scene") setMode("scene"); selectScene(scene); delete S.view[scene]; await loadPlayer(true); player.seek(t); return { shown: scene, t }; } },
-  { name: "add_comment", description: "Pin a comment on a scene version at a time, optionally on a region (fractions of the frame).", inputSchema: { type: "object", properties: { scene: { type: "string" }, version: { type: "number" }, t: { type: "number" }, text: { type: "string" }, region: { type: "object" } }, required: ["scene", "t", "text"] },
+  { name: "add_comment", description: "Pin a comment on a scene version at a time, optionally on a region ({x,y,w,h} as fractions of the frame).", inputSchema: { type: "object", properties: { ...sceneArg, version: { type: "number" }, t: { type: "number" }, text: { type: "string" }, region: { type: "object" } }, required: ["scene", "t", "text"] },
     execute: async (a) => api(`/api/scene/${a.scene}/comments`, { body: { version: a.version ?? latest(scene(a.scene)), t: a.t, region: a.region ?? null, text: a.text } }) },
-  { name: "approve_version", description: "Approve a version of a scene.", inputSchema: { type: "object", properties: { scene: { type: "string" }, version: { type: "number" } }, required: ["scene", "version"] },
+  { name: "approve_version", description: "Approve a version of a scene. Only when the reviewer asks.", inputSchema: { type: "object", properties: { ...sceneArg, version: { type: "number" } }, required: ["scene", "version"] },
     execute: async ({ scene, version }) => api(`/api/scene/${scene}/approve`, { body: { v: version } }) },
+  { name: "get_project_files", description: "The raw storyboard.json, theme.css and frame.md.", inputSchema: { type: "object", properties: {} },
+    execute: async () => api("/api/project/files") },
+  { name: "set_project", description: "Change project settings: title, language, width, height, background, accent, soundtrack (a path under assets/ or null).", inputSchema: { type: "object", properties: { title: { type: "string" }, language: { type: "string" }, width: { type: "number" }, height: { type: "number" }, background: { type: "string" }, accent: { type: "string" }, soundtrack: { type: ["string", "null"] }, note: { type: "string" }, ...modelArg }, required: ["model"] },
+    execute: async (a) => api("/api/project/meta", { body: a }) },
+  { name: "create_scene", description: "Add a scene, at the end or after a given scene. Gets a starter scene.html (a title fading in) unless you pass html. Starts are recomputed from durations.", inputSchema: { type: "object", properties: { title: { type: "string" }, duration: { type: "number" }, narration: { type: "string" }, picture: { type: "string", description: "What is on screen" }, after: { type: "string" }, id: { type: "string" }, html: { type: "string" }, transitionIn: { type: ["object", "null"] }, ...modelArg }, required: ["title", "duration", "model"] },
+    execute: async (a) => api("/api/project/scenes", { body: a }) },
+  { name: "update_scene", description: "Change a scene's title, duration, narration, picture notes or transitionIn ({shader, duration} or null). If you change duration, also update data-duration in its html.", inputSchema: { type: "object", properties: { ...sceneArg, title: { type: "string" }, duration: { type: "number" }, narration: { type: "string" }, picture: { type: "string" }, transitionIn: { type: ["object", "null"] }, ...modelArg }, required: ["scene", "model"] },
+    execute: async ({ scene, ...a }) => api(`/api/project/scenes/${scene}`, { body: a }) },
+  { name: "reorder_scenes", description: "Set the scene order. List every scene id once.", inputSchema: { type: "object", properties: { order: { type: "array", items: { type: "string" } }, ...modelArg }, required: ["order", "model"] },
+    execute: async (a) => api("/api/project/order", { body: a }) },
+  { name: "remove_scene", description: "Take a scene out of the video. Its files and versions are kept.", inputSchema: { type: "object", properties: { ...sceneArg, ...modelArg }, required: ["scene", "model"] },
+    execute: async (a) => api("/api/project/remove", { body: a }) },
+  { name: "set_theme_css", description: "Replace theme.css, which is applied after every scene's own styles. Use it for project-wide changes like the font or colours. In the assembled video each scene's #root becomes a .scene element, so target .scene, e.g. .scene { font-family: Georgia, serif !important; }.", inputSchema: { type: "object", properties: { css: { type: "string" }, note: { type: "string" }, ...modelArg }, required: ["css", "model"] },
+    execute: async (a) => api("/api/project/theme", { body: a }) },
+  { name: "set_design_spec", description: "Replace frame.md, the design spec every scene agent reads (palette, type, motion rules, brand voice).", inputSchema: { type: "object", properties: { markdown: { type: "string" }, note: { type: "string" }, ...modelArg }, required: ["markdown", "model"] },
+    execute: async (a) => api("/api/project/design", { body: a }) },
 ];
-window.sceneLoop = Object.fromEntries(TOOLS.map((t) => [t.name, t.execute]));
+window.sceneLoop = Object.fromEntries(TOOLS.map((t) => [t.name, (args = {}) => t.execute(args, "page-js")]));
 window.sceneLoop.help = () => TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
 const mc = document.modelContext ?? navigator.modelContext;
 if (mc?.registerTool) {
   for (const t of TOOLS) {
     try {
-      mc.registerTool({ name: t.name, description: t.description, inputSchema: t.inputSchema, execute: async (args) => ({ content: [{ type: "text", text: JSON.stringify(await t.execute(args ?? {})) }] }) });
+      mc.registerTool({ name: t.name, description: t.description, inputSchema: t.inputSchema, execute: async (args) => ({ content: [{ type: "text", text: JSON.stringify(await t.execute(args ?? {}, "webmcp")) }] }) });
     } catch (e) {
       console.warn("WebMCP registerTool failed", t.name, e);
     }
