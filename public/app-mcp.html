@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scene-loop review</title>
+<!--
+  scene-loop as an MCP App (ext-apps spec 2026-01-26): the review view a chat host opens
+  in a sandboxed iframe for show_scene, list_scenes and get_pending_comments. A cut-down
+  sibling of public/app.js. It talks to the host over postMessage JSON-RPC (ui/initialize,
+  tools/call through the host) and never to the scene-loop server directly: stills arrive
+  as image content in tool results and are shown as data: URLs, so the host's default CSP
+  (no outside origins) is all it needs. No build step, no SDK.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: var(--color-background-primary, light-dark(#fff, #1b1b1b));
+    --bg2: var(--color-background-secondary, light-dark(#f4f4f2, #252525));
+    --fg: var(--color-text-primary, light-dark(#1b1b1b, #f2f2f2));
+    --muted: var(--color-text-secondary, light-dark(#6b6b6b, #a0a0a0));
+    --line: var(--color-border-primary, light-dark(#ddd, #3a3a3a));
+    --accent: #e8462a;
+    --ok: #2f9e5b;
+    --font: var(--font-sans, system-ui, sans-serif);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 var(--font); }
+  body { padding: 10px; }
+  button, select, textarea { font: inherit; color: inherit; }
+  button { background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+  button.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  select { background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; }
+  .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .bar .grow { flex: 1; }
+  .muted { color: var(--muted); }
+  h1 { font-size: 14px; margin: 0; }
+  .stage { position: relative; display: block; width: 100%; background: #000; border-radius: 6px; overflow: hidden; user-select: none; }
+  .stage img { display: block; width: 100%; height: auto; }
+  .stage .empty { aspect-ratio: 16/9; display: grid; place-items: center; color: #999; }
+  .overlay { position: absolute; inset: 0; }
+  .overlay.drawing { cursor: crosshair; background: rgba(0,0,0,.15); }
+  .box { position: absolute; border: 2px solid var(--accent); border-radius: 3px; }
+  .box.old { border-color: #999; border-style: dashed; }
+  .box span { position: absolute; top: -20px; left: -2px; background: var(--accent); color: #fff; font-size: 11px; padding: 1px 5px; border-radius: 3px; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+  .box.old span { background: #777; }
+  .thumbs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 6px 0 10px; }
+  .thumbs button { padding: 0; border: 2px solid transparent; background: none; border-radius: 5px; overflow: hidden; position: relative; }
+  .thumbs button.on { border-color: var(--accent); }
+  .thumbs img { display: block; width: 100%; }
+  .thumbs .t { position: absolute; right: 3px; bottom: 3px; font-size: 10px; color: #fff; background: rgba(0,0,0,.6); padding: 0 4px; border-radius: 3px; }
+  .thumbs .dot { position: absolute; left: 3px; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .versions { display: flex; gap: 4px; flex-wrap: wrap; }
+  .versions button.on { border-color: var(--accent); color: var(--accent); }
+  .versions .ok { color: var(--ok); }
+  .pop { border: 1px solid var(--line); background: var(--bg2); border-radius: 6px; padding: 8px; margin-top: 8px; }
+  .pop textarea { width: 100%; min-height: 54px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 6px; resize: vertical; }
+  ul.list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+  ul.list li { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+  ul.list li:hover { border-color: var(--muted); }
+  ul.list li img { width: 160px; border-radius: 4px; flex: none; }
+  .tag { font-size: 11px; border-radius: 4px; padding: 0 5px; background: var(--bg2); border: 1px solid var(--line); }
+  .tag.pending { color: var(--accent); border-color: var(--accent); }
+  .tag.ok { color: var(--ok); border-color: var(--ok); }
+  .narr { margin: 6px 0 0; color: var(--muted); }
+  #status { min-height: 1.4em; }
+  .err { color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="app"><p class="muted">Waiting for the chat…</p></div>
+<script>
+// ---------- JSON-RPC to the host over postMessage ----------
+let nextId = 1;
+const waiting = new Map();
+const send = (msg) => window.parent.postMessage({ jsonrpc: "2.0", ...msg }, "*");
+const request = (method, params) => {
+  const id = nextId++;
+  send({ id, method, params });
+  return new Promise((resolve, reject) => waiting.set(id, { resolve, reject }));
+};
+const notify = (method, params) => send({ method, params });
+
+window.addEventListener("message", (e) => {
+  if (e.source !== window.parent) return;
+  const m = e.data;
+  if (!m || m.jsonrpc !== "2.0") return;
+  if (m.method) return onHost(m);
+  const w = waiting.get(m.id);
+  if (!w) return;
+  waiting.delete(m.id);
+  m.error ? w.reject(new Error(m.error.message ?? JSON.stringify(m.error))) : w.resolve(m.result);
+});
+
+function onHost(m) {
+  const reply = (result) => m.id != null && send({ id: m.id, result });
+  switch (m.method) {
+    case "ui/notifications/tool-input": S.args = m.params?.arguments ?? {}; if (S.args.project) S.project = S.args.project; break;
+    case "ui/notifications/tool-result": showResult(m.params); break;
+    case "ui/notifications/tool-cancelled": status(`Cancelled${m.params?.reason ? `: ${m.params.reason}` : ""}`); break;
+    case "ui/notifications/host-context-changed": applyContext(m.params); break;
+    case "ui/resource-teardown": reply({}); break;
+    case "ping": reply({}); break;
+    default: if (m.id != null) send({ id: m.id, error: { code: -32601, message: `Method not found: ${m.method}` } });
+  }
+}
+
+// A server tool, through the host. Returns { data, images, error }.
+async function callTool(name, args = {}) {
+  const r = await request("tools/call", { name, arguments: S.project ? { project: S.project, ...args } : args });
+  return parse(r);
+}
+
+// Our tool results: the JSON as the first text item, then a label and an image per still.
+function parse(r) {
+  const content = r?.content ?? [];
+  const first = content.find((c) => c.type === "text");
+  if (r?.isError) return { error: first?.text ?? "Tool error" };
+  let data = null;
+  try { data = JSON.parse(first?.text ?? "null"); } catch { return { error: first?.text ?? "Unreadable result" }; }
+  const images = [];
+  let label = "";
+  for (const c of content.slice(content.indexOf(first) + 1)) {
+    if (c.type === "text") label = c.text;
+    if (c.type === "image") { images.push({ label, src: `data:${c.mimeType};base64,${c.data}` }); label = ""; }
+  }
+  return { data, images };
+}
+
+// ---------- host context: theme, fonts, size ----------
+const S = { ctx: {}, project: null, args: {}, view: null, still: 0, drawing: false, draft: null };
+
+function applyContext(c = {}) {
+  S.ctx = { ...S.ctx, ...c };
+  const root = document.documentElement;
+  if (S.ctx.theme) root.style.colorScheme = S.ctx.theme;
+  for (const [k, v] of Object.entries(S.ctx.styles?.variables ?? {})) if (v) root.style.setProperty(k, v);
+  if (S.ctx.styles?.css?.fonts && !document.getElementById("hostFonts")) {
+    const st = document.createElement("style");
+    st.id = "hostFonts";
+    st.textContent = S.ctx.styles.css.fonts;
+    document.head.append(st);
+  }
+}
+
+let lastH = 0;
+new ResizeObserver(() => {
+  const height = Math.ceil(document.documentElement.getBoundingClientRect().height);
+  if (height === lastH) return;
+  lastH = height;
+  notify("ui/notifications/size-changed", { width: Math.ceil(document.documentElement.scrollWidth), height });
+}).observe(document.documentElement);
+
+// ---------- DOM ----------
+const $ = (s) => document.querySelector(s);
+const h = (tag, attrs = {}, ...kids) => {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : String(k));
+  return el;
+};
+const status = (text, err) => { const el = $("#status"); if (el) { el.textContent = text ?? ""; el.className = err ? "err" : "muted"; } };
+const mount = (...kids) => $("#app").replaceChildren(...kids);
+
+function showResult(r) {
+  const p = parse(r);
+  if (p.error) return mount(h("p", { class: "err" }, p.error));
+  const d = p.data;
+  if (Array.isArray(d)) return renderScenes(d);
+  if (d?.pending) return renderPending(d.pending, p.images);
+  if (d?.versions && d?.scene) return renderScene(d, p.images);
+  mount(h("pre", {}, JSON.stringify(d, null, 1)));
+}
+
+async function go(name, args) {
+  status("Loading…");
+  try {
+    showResult(await request("tools/call", { name, arguments: S.project ? { project: S.project, ...args } : args }));
+  } catch (e) {
+    status(e.message, true);
+  }
+}
+const showScene = (scene, version) => go("show_scene", { scene, ...(version ? { version } : {}) });
+
+// ---------- list_scenes ----------
+function renderScenes(scenes) {
+  mount(
+    h("div", { class: "bar" }, h("h1", { class: "grow" }, `${scenes.length} scenes`), h("button", { onclick: () => go("get_pending_comments") }, "Pending comments")),
+    h("ul", { class: "list" }, scenes.map((s, i) => h("li", { onclick: () => showScene(s.id) },
+      h("div", {},
+        h("b", {}, `${i + 1}. ${s.title}`), " ", h("span", { class: "muted" }, `${s.id} · ${Number(s.duration).toFixed(1)}s`), " ",
+        h("span", { class: "tag" }, `v${s.latest}`), " ",
+        s.approved ? h("span", { class: "tag ok" }, `✓ v${s.approved}`) : null, " ",
+        s.pendingComments?.length ? h("span", { class: "tag pending" }, `${s.pendingComments.length} pending`) : null,
+        s.narration ? h("div", { class: "narr" }, s.narration) : null)))),
+    h("div", { id: "status" }),
+  );
+}
+
+// ---------- get_pending_comments ----------
+function renderPending(list, images) {
+  const img = (c) => images.find((i) => i.label.includes(`comment ${c.id}:`));
+  mount(
+    h("div", { class: "bar" }, h("h1", { class: "grow" }, list.length ? `${list.length} pending comment${list.length > 1 ? "s" : ""}` : "No pending comments"),
+      list.length ? h("button", { class: "accent", onclick: askToApply }, "Ask the chat to apply them") : null,
+      h("button", { onclick: () => go("list_scenes") }, "Scenes")),
+    h("ul", { class: "list" }, list.map((c) => h("li", { onclick: () => showScene(c.scene, c.version) },
+      img(c) ? h("img", { src: img(c).src, alt: "" }) : null,
+      h("div", {}, h("b", {}, c.text), h("div", { class: "muted" }, `${c.scene} · v${c.version} · ${c.t}s · ${c.id}`))))),
+    h("div", { id: "status" }),
+  );
+}
+
+async function askToApply() {
+  try {
+    await request("ui/message", { role: "user", content: { type: "text", text: "Apply my pending scene-loop comments (get_pending_comments), then show me the scene again." } });
+    status("Sent to the chat.");
+  } catch (e) {
+    status(e.message, true);
+  }
+}
+
+// ---------- show_scene ----------
+function renderScene(d, images) {
+  S.view = d;
+  S.project = d.project;
+  // Pair each still with its image by the time in the label ("… at 1.2s").
+  S.frames = d.stills.map((st) => ({ t: st.t, src: images.find((i) => i.label.endsWith(` at ${st.t}s`))?.src }));
+  if (S.still >= S.frames.length) S.still = 0;
+  S.drawing = false;
+  S.draft = null;
+  const v = d.versions.find((x) => x.v === d.version);
+  const canFull = (S.ctx.availableDisplayModes ?? []).includes("fullscreen");
+  mount(
+    h("div", { class: "bar" },
+      h("select", { onchange: (e) => showScene(e.target.value) }, d.scenes.map((s, i) => h("option", { value: s.id, selected: s.id === d.scene.id }, `${i + 1}. ${s.title}`))),
+      h("span", { class: "muted grow" }, `${d.scene.duration}s · v${d.version}${v?.agent ? ` · ${v.model ?? v.agent}` : ""}`),
+      h("button", { onclick: () => go("get_pending_comments") }, "Pending"),
+      h("button", { onclick: () => go("list_scenes") }, "Scenes"),
+      canFull ? h("button", { onclick: () => request("ui/request-display-mode", { mode: S.ctx.displayMode === "fullscreen" ? "inline" : "fullscreen" }).then((r) => applyContext({ displayMode: r?.mode })).catch(() => {}) }, S.ctx.displayMode === "fullscreen" ? "Inline" : "Full screen") : null,
+      h("button", { title: d.page, onclick: () => request("ui/open-link", { url: d.page }).catch((e) => status(`${e.message}. The page is ${d.page}`, true)) }, "Open in scene-loop"),
+    ),
+    h("div", { class: "stage", id: "stage" }, h("img", { id: "still", alt: "" }), h("div", { class: "overlay", id: "overlay" })),
+    h("div", { class: "thumbs", id: "thumbs" }),
+    h("div", { class: "bar" },
+      h("span", { class: "muted" }, "Versions"),
+      h("div", { class: "versions grow" }, d.versions.map((x) => h("button", { class: x.v === d.version ? "on" : "", title: [x.note, x.model ?? x.agent, x.via && `via ${x.via}`].filter(Boolean).join(" · "), onclick: () => showScene(d.scene.id, x.v) }, `v${x.v}`, d.scene.approved === x.v ? h("span", { class: "ok" }, " ✓") : null))),
+      d.scene.approved === d.version ? h("span", { class: "tag ok" }, "Approved") : h("button", { onclick: approve }, `Approve v${d.version}`),
+      h("button", { class: "accent", id: "pinBtn", onclick: startPin, disabled: !S.frames.length }, "Pin a comment"),
+    ),
+    h("div", { id: "popSlot" }),
+    d.scene.narration ? h("p", { class: "narr" }, h("b", {}, "Narration "), d.scene.narration) : null,
+    h("ul", { class: "list", id: "comments" }),
+    h("div", { id: "status" }),
+  );
+  drawStill();
+  drawComments();
+}
+
+const frame = () => S.frames[S.still];
+
+function drawStill() {
+  const f = frame();
+  const img = $("#still");
+  if (f?.src) img.src = f.src;
+  else $("#stage").replaceChildren(h("div", { class: "empty" }, S.frames.length ? "Still not available" : "No stills yet"));
+  $("#thumbs").replaceChildren(...S.frames.map((fr, i) => h("button", { class: i === S.still ? "on" : "", onclick: () => { S.still = i; cancelPin(); drawStill(); } },
+    fr.src ? h("img", { src: fr.src, alt: "" }) : h("div", { class: "empty" }, "–"),
+    commentsAt(fr.t).length ? h("span", { class: "dot" }) : null,
+    h("span", { class: "t" }, `${fr.t}s`))));
+  drawBoxes();
+}
+
+const commentsAt = (t) => S.view.comments.filter((c) => c.version === S.view.version && c.region && Math.abs(c.t - t) < 0.3);
+
+function drawBoxes() {
+  const ov = $("#overlay");
+  if (!ov || S.drawing) return;
+  const f = frame();
+  ov.replaceChildren(...(f ? commentsAt(f.t) : []).map((c) => boxEl(c.region, c.text, c.status !== "pending")));
+}
+
+function boxEl(r, label, old) {
+  return h("div", { class: `box ${old ? "old" : ""}`, style: `left:${r.x * 100}%;top:${r.y * 100}%;width:${r.w * 100}%;height:${r.h * 100}%` }, label ? h("span", {}, label) : null);
+}
+
+function drawComments() {
+  const list = S.view.comments.slice().sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1) || b.version - a.version || a.t - b.t);
+  $("#comments").replaceChildren(...list.map((c) => h("li", { onclick: () => (c.version === S.view.version ? nearest(c.t) : showScene(S.view.scene.id, c.version)) },
+    h("div", {}, h("span", { class: `tag ${c.status === "pending" ? "pending" : ""}` }, c.status), " ", c.text, h("div", { class: "muted" }, `v${c.version} · ${c.t}s · ${c.id}`)))));
+}
+
+function nearest(t) {
+  let best = 0;
+  S.frames.forEach((f, i) => Math.abs(f.t - t) < Math.abs(S.frames[best].t - t) && (best = i));
+  S.still = best;
+  drawStill();
+}
+
+async function approve() {
+  status("Approving…");
+  const r = await callTool("approve_version", { scene: S.view.scene.id, version: S.view.version }).catch((e) => ({ error: e.message }));
+  if (r.error) return status(r.error, true);
+  showScene(S.view.scene.id, S.view.version);
+}
+
+// ---------- pin a comment: drag a box on the still, write, save ----------
+function startPin() {
+  S.drawing = true;
+  const ov = $("#overlay");
+  ov.replaceChildren();
+  ov.classList.add("drawing");
+  status("Drag a box around what should change, or click a spot. Esc cancels.");
+}
+
+function cancelPin() {
+  S.drawing = false;
+  S.draft = null;
+  $("#overlay")?.classList.remove("drawing");
+  $("#popSlot")?.replaceChildren();
+  status("");
+  drawBoxes();
+}
+
+const pos = (e) => {
+  const r = $("#overlay").getBoundingClientRect();
+  return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) };
+};
+
+document.addEventListener("pointerdown", (e) => {
+  const ov = $("#overlay");
+  if (!S.drawing || e.target !== ov || S.draft) return;
+  const p0 = pos(e);
+  const box = boxEl({ x: p0.x, y: p0.y, w: 0, h: 0 });
+  ov.replaceChildren(box);
+  ov.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    const p = pos(ev);
+    Object.assign(box.style, { left: `${Math.min(p.x, p0.x) * 100}%`, top: `${Math.min(p.y, p0.y) * 100}%`, width: `${Math.abs(p.x - p0.x) * 100}%`, height: `${Math.abs(p.y - p0.y) * 100}%` });
+  };
+  const up = (ev) => {
+    ov.removeEventListener("pointermove", move);
+    ov.removeEventListener("pointerup", up);
+    const p = pos(ev);
+    let region = { x: Math.min(p.x, p0.x), y: Math.min(p.y, p0.y), w: Math.abs(p.x - p0.x), h: Math.abs(p.y - p0.y) };
+    if (region.w < 0.015 && region.h < 0.015) region = { x: Math.max(0, p.x - 0.04), y: Math.max(0, p.y - 0.06), w: 0.08, h: 0.12 };
+    for (const k in region) region[k] = Math.round(region[k] * 1000) / 1000;
+    Object.assign(box.style, { left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.w * 100}%`, height: `${region.h * 100}%` });
+    openPop(region);
+  };
+  ov.addEventListener("pointermove", move);
+  ov.addEventListener("pointerup", up);
+});
+
+document.addEventListener("keydown", (e) => e.key === "Escape" && S.drawing && cancelPin());
+
+function openPop(region) {
+  const f = frame();
+  S.draft = { scene: S.view.scene.id, version: S.view.version, t: f.t, region };
+  const ta = h("textarea", { placeholder: "What should change here?", onkeydown: (e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && savePin() });
+  $("#popSlot").replaceChildren(h("div", { class: "pop" },
+    h("div", { class: "muted" }, `${S.draft.scene} · v${S.draft.version} · ${f.t}s`),
+    ta,
+    h("div", { class: "bar", style: "margin:6px 0 0" }, h("span", { class: "grow" }), h("button", { onclick: cancelPin }, "Cancel"), h("button", { class: "accent", id: "saveBtn", onclick: savePin }, "Pin comment"))));
+  status("");
+  ta.focus();
+}
+
+async function savePin() {
+  const text = document.querySelector("#popSlot textarea")?.value.trim();
+  if (!text || !S.draft) return;
+  const d = { ...S.draft, text };
+  $("#saveBtn").disabled = true;
+  status("Saving…");
+  const r = await callTool("add_comment", d).catch((e) => ({ error: e.message }));
+  if (r.error) { $("#saveBtn").disabled = false; return status(r.error, true); }
+  // Let the model know without starting a turn; the reviewer decides when to ask.
+  request("ui/update-model-context", { content: [{ type: "text", text: `The reviewer pinned a comment in scene-loop on ${d.scene} v${d.version} at ${d.t}s: "${text}". Call get_pending_comments when asked to apply comments.` }] }).catch(() => {});
+  const keep = S.still;
+  await showScene(d.scene, d.version);
+  S.still = keep;
+  drawStill();
+  status("Pinned. It waits with the other pending comments.");
+}
+
+// ---------- handshake ----------
+(async () => {
+  try {
+    const r = await request("ui/initialize", { appInfo: { name: "scene-loop", version: "0.2.0" }, appCapabilities: { availableDisplayModes: ["inline", "fullscreen"] }, protocolVersion: "2026-01-26" });
+    applyContext(r?.hostContext);
+    notify("ui/notifications/initialized", {});
+  } catch (e) {
+    mount(h("p", { class: "err" }, `Could not connect to the chat: ${e.message}`));
+  }
+})();
+</script>
+</body>
+</html>
