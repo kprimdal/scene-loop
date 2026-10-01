@@ -1,8 +1,8 @@
 # scene-loop
 
-Make videos scene by scene with an AI agent. Each scene gets its own chat with Claude or Codex,
-its own versions, and comments you pin straight onto the frame. Then you play the whole video and
-render it.
+Make videos scene by scene with the AI chat you already use. Claude or ChatGPT sits on the left and
+builds the video; scene-loop sits on the right in the chat app's built-in browser, where you pin
+comments on the frame, compare versions, play the whole video and render it.
 
 I built this for my own explainer and course videos. It's early and it changes a lot.
 
@@ -20,13 +20,12 @@ get a new version back.
 
 ## What it does
 
-- Filmstrip of scenes, a preview with This scene / Whole video, and a chat panel per scene.
-- Pause, drag a box on the frame, write a comment. Comments collect per scene and go to the agent
-  in one batch, with a still of each frame and the box drawn on it.
-- The agent edits only that scene's folder and checks its own work with stills before it replies.
-  Every turn that changes the scene becomes a new version with 5 stills. You can compare versions,
-  flip between them at the same timestamp, approve one, or bring an old one back.
-- A project chat for changes that span scenes, and a Render button for the MP4.
+- Filmstrip of scenes, a preview with This scene / Whole video, and an activity panel per scene.
+- Pause, drag a box on the frame, write a comment. The chat picks open comments up with a still of
+  each frame and the box drawn on it.
+- Every change the chat saves becomes a new version with 5 stills. You can compare versions, flip
+  between them at the same timestamp, approve one, or bring an old one back.
+- A Render button for the MP4.
 
 ## Chat on the left, video on the right
 
@@ -37,24 +36,19 @@ JavaScript for agents that don't discover WebMCP yet. `window.sceneLoop.help()` 
 project settings, create, reorder and remove scenes, a theme and design spec for all scenes, read
 and write a scene, stills, pending comments, approve.
 
-Pick **Chat** as the agent on a scene and Send leaves your comments for that chat. Every write
-becomes a version that records the model and whether it came through WebMCP or page JavaScript.
+Your comments wait in the page until you tell the chat to apply them (Copy prompt gives you the
+words). Every write becomes a version that records the model and whether it came through WebMCP or
+page JavaScript.
 
-## Your own subscription, no API key
+## Your own plan, no API key
 
-The agents are the `claude` and `codex` CLIs you already have, run headless with session resume
-(`claude -p --resume`, `codex exec resume`). They use your Claude or ChatGPT subscription login.
-The app strips `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` before it
-starts Claude, because those would otherwise win over the subscription login.
-
-Writes are kept inside the scene folder three ways: Claude runs in `dontAsk` mode with edit rules for
-that folder and your user settings skipped, Codex runs in its `workspace-write` sandbox, and the
-server undoes any change outside the folder after each turn.
+The agent is the chat you already use, in the app you already pay for. scene-loop never calls a
+model itself and holds no keys.
 
 ## Run it
 
-Needs Node 22, ffmpeg, `claude` and/or `codex` logged in, and network for jsDelivr and
-`npx hyperframes@0.8.103`. No npm install.
+Needs Node 22, ffmpeg, and network for jsDelivr and `npx hyperframes@0.8.103`. No npm install.
+Then open the URL in the built-in browser of Claude Code desktop or the ChatGPT desktop app.
 
 ```
 cp -R templates/project ~/videos/my-video
@@ -72,7 +66,8 @@ scenes/<id>/scene.html one HyperFrames sub-composition per scene: <template>, a 
                        window.__timelines["<id>"]
 assets/                images, fonts, audio, referenced as assets/...
 frame.md               optional design spec the agents read
-AGENTS.md, CLAUDE.md   rules for the scene agents
+AGENTS.md              rules the chat reads through get_rules
+theme.css              optional, applied after every scene's styles
 ```
 
 The app keeps its own state next to that: versions in a private git dir (`.history`), comments,

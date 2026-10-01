@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Scene loop: a local review app over a HyperFrames project, in Caleb Porzio's shape.
-// Scenes, one agent session per scene (Claude or Codex via their CLIs), versions,
-// pinned comments sent in batches, whole-video playback and render.
+// Scene loop: a local review app over HTML video scenes, in Caleb Porzio's shape.
+// The agent is the chat next to the page (Claude Code desktop or the ChatGPT desktop
+// app's built-in browser), which works through the page's tools. This server holds the
+// project, versions, comments, stills, previews and renders.
 //
 //   node server.mjs <projectDir> [--port 4300] [--reviewer Name]
 import { createServer } from "node:http";
@@ -13,7 +14,6 @@ import { spawn } from "node:child_process";
 import { createHistory } from "./lib/history.mjs";
 import { buildScene, buildWhole } from "./lib/assemble.mjs";
 import { snapshot, versionTimes, annotate } from "./lib/stills.mjs";
-import { runTurn } from "./lib/agents.mjs";
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -27,8 +27,6 @@ if (!existsSync(join(projectDir, "storyboard.json"))) {
   process.exit(1);
 }
 const stateDir = join(projectDir, ".state");
-const stillBin = join(appDir, "bin", "still.mjs");
-const stillCmd = () => `node ${stillBin} --port ${PORT}`;
 mkdirSync(stateDir, { recursive: true });
 mkdirSync(rendersDir, { recursive: true });
 
@@ -85,7 +83,7 @@ await history.init(storyboard().scenes.map((s) => s.id));
 const readJson = (p, d) => (existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : d);
 const writeJson = (p, v) => (mkdirSync(dirname(p), { recursive: true }), writeFileSync(p, JSON.stringify(v, null, 2)));
 const sceneStatePath = (id) => join(stateDir, "scenes", `${id}.json`);
-const sceneState = (id) => readJson(sceneStatePath(id), { agent: "claude", sessions: {}, comments: [], versions: {} });
+const sceneState = (id) => readJson(sceneStatePath(id), { comments: [], versions: {} });
 const saveSceneState = (id, s) => writeJson(sceneStatePath(id), s);
 const chatPath = (key) => join(stateDir, "chat", `${key}.jsonl`);
 const chat = (key) => (existsSync(chatPath(key)) ? readFileSync(chatPath(key), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
@@ -96,7 +94,7 @@ function logChat(key, entry) {
   emit("chat", { key, entry: e });
 }
 const metric = (m) => appendFileSync(join(stateDir, "metrics.jsonl"), JSON.stringify({ at: new Date().toISOString(), ...m }) + "\n");
-const projectState = () => readJson(join(stateDir, "project.json"), { agent: "claude", sessions: {}, renders: [] });
+const projectState = () => readJson(join(stateDir, "project.json"), { renders: [] });
 const saveProjectState = (s) => writeJson(join(stateDir, "project.json"), s);
 
 // ---------- live events (SSE) ----------
@@ -149,177 +147,20 @@ async function makeCommentStill(id, c) {
   return out;
 }
 
-// ---------- the agent loop ----------
-const running = new Map(); // key (scene id or "_project") -> { agent, startedAt, handle }
-
+// ---------- hand edits ----------
+// Files changed on disk outside the app (an editor, a terminal agent) become a version
+// before the next build, so nothing is lost or misattributed.
 async function commitManualEdits() {
   for (const s of storyboard().scenes) {
-    if (running.has(s.id) || running.has("_project")) continue;
     const v = await history.commitScene(s.id, "manual edit", REVIEWER);
     if (v) {
       const st = sceneState(s.id);
       st.versions[v] = { agent: "manual", at: new Date().toISOString() };
       saveSceneState(s.id, st);
-      logChat(s.id, { role: "system", text: `Manual edit on disk saved as v${v}.` });
+      logChat(s.id, { role: "system", text: `Edit on disk saved as v${v}.` });
       makeVersionStills(s.id, v).then(() => emit("project", {}));
     }
   }
-}
-
-function scenePrompt(sb, sc, st, agent, pending, stills, note, latest) {
-  const n = sb.scenes.indexOf(sc) + 1;
-  const prev = sb.scenes[n - 2], next = sb.scenes[n];
-  const head = `Scene ${n} of ${sb.scenes.length}, "${sc.id}" (${sc.title}). ${sc.duration}s long, at ${sc.start}–${(sc.start + sc.duration).toFixed(2)}s in the whole video. Transition in: ${sc.transitionIn ? sc.transitionIn.shader ?? "crossfade" : "none (first scene)"}.`;
-  const intro = st.sessions[agent]
-    ? ""
-    : `You are the agent for one scene of a HyperFrames explainer video ("${sb.title}"${sb.language ? `, ${sb.language}` : ""}, ${sb.width}x${sb.height}). ${REVIEWER} reviews the video scene by scene in a review app and sends you feedback in batches. Each of your turns that changes files becomes a new version of this scene.
-
-Rules:
-- Your file is scene.html in this folder. It is a HyperFrames sub-composition: <template>, a root <div id="root" data-composition-id="${sc.id}">, and one paused GSAP timeline registered as window.__timelines["${sc.id}"]. The app inlines it into the whole video, so keep that structure. Keep data-duration="${sc.duration}"; the narration fixes it.
-- Write only inside this folder. You may read anything in ${projectDir}: storyboard.json, assets/ (reference them as assets/...), frame.md (design rules) and transcript.json (word times in whole-video seconds; subtract ${sc.start} for scene time) if they exist, and the other scenes in scenes/ (read-only, for continuity at the cuts).
-- No id or class may start with a digit.
-${sc.narration ? `- Narration for this scene: "${sc.narration}"\n` : ""}- Previous scene: ${prev ? `scenes/${prev.id}/scene.html` : "none"}. Next scene: ${next ? `scenes/${next.id}/scene.html` : "none"}.
-- Check your work before you reply: run \`${stillCmd()} --at <seconds,comma,separated>\` from this folder and look at the PNGs it prints.
-- Reply in English, in 2–4 plain sentences: what you changed, and anything you could not do. ${REVIEWER} reads it in the chat panel.
-
-`;
-  const items = pending
-    .map((c, i) => `${i + 1}. At ${c.t.toFixed(2)}s on v${c.version}${c.region ? " (the area is boxed in red on the still)" : ""}: "${c.text}"\n   Still: ${stills[c.id]}`)
-    .join("\n");
-  const versionNote = pending.some((c) => c.version !== latest) ? `\nThe scene on disk is v${latest}; some comments were made on an older version.` : "";
-  return `${intro}${head}
-
-Feedback from ${REVIEWER} (${pending.length} comment${pending.length === 1 ? "" : "s"}):
-${items || "(no pinned comments)"}${note ? `\n\nNote: ${note}` : ""}${versionNote}
-${agent === "claude" && pending.length ? "\nOpen the stills with Read before you start." : ""}`;
-}
-
-async function sendScene(id, { agent, note }) {
-  if (running.has(id) || running.has("_project")) throw new Error(`${running.has(id) ? id : "The project session"} is already running`);
-  await commitManualEdits();
-  const sb = storyboard();
-  const sc = sb.scenes.find((s) => s.id === id);
-  const st = sceneState(id);
-  agent = agent ?? st.agent;
-  st.agent = agent;
-  saveSceneState(id, st);
-  const pending = st.comments.filter((c) => c.status === "pending");
-  if (!pending.length && !note?.trim()) throw new Error("Nothing to send: add a comment or a note");
-  if (agent === "chat") {
-    if (note?.trim()) {
-      const v = (await history.versions(id)).at(-1).v;
-      st.comments.push({ id: randomUUID().slice(0, 8), version: v, t: 0, region: null, text: note.trim(), status: "pending", createdAt: new Date().toISOString() });
-    }
-    for (const c of st.comments) if (c.status === "pending") c.queuedAt ??= new Date().toISOString();
-    saveSceneState(id, st);
-    logChat(id, { role: "system", text: "Queued for the chat next to this page. Ask it to apply your pending comments." });
-    emit("project", {});
-    return;
-  }
-  const latest = (await history.versions(id)).at(-1).v;
-  running.set(id, { agent, startedAt: Date.now() });
-  emit("running", { key: id, agent, state: "start" });
-  logChat(id, { role: "user", agent, text: [...pending.map((c) => `@${c.t.toFixed(2)}s v${c.version}: ${c.text}`), ...(note?.trim() ? [note.trim()] : [])].join("\n") });
-
-  (async () => {
-    const stills = {};
-    try {
-      for (const c of pending) stills[c.id] = await makeCommentStill(id, c);
-    } catch (e) {
-      logChat(id, { role: "system", text: `Could not make comment stills: ${e.message.slice(0, 200)}` });
-    }
-    const prompt = scenePrompt(sb, sc, st, agent, pending, stills, note?.trim(), latest);
-    const sceneDir = join(projectDir, "scenes", id);
-    const handle = runTurn({
-      agent,
-      cwd: sceneDir,
-      prompt,
-      sessionId: st.sessions[agent],
-      readDir: projectDir,
-      writeDir: sceneDir,
-      images: Object.values(stills),
-      bashAllow: [`node ${stillBin}`],
-      onEvent: (ev) => logChat(id, { role: ev.kind === "text" ? "agent" : ev.kind, agent, text: ev.text.replaceAll(projectDir + "/", "") }),
-    });
-    running.get(id).handle = handle;
-    const res = await handle.done;
-    await finishTurn(id, agent, res, pending, latest, note?.trim());
-  })().catch((e) => {
-    logChat(id, { role: "system", text: `Turn failed: ${e.message}` });
-    running.delete(id);
-    emit("running", { key: id, state: "end" });
-  });
-}
-
-async function finishTurn(id, agent, res, pending, latest, note) {
-  const st = sceneState(id);
-  if (res.sessionId) st.sessions[agent] = res.sessionId;
-  const others = [...running.keys()].filter((k) => k !== id && k !== "_project").map((k) => `scenes/${k}/`);
-  const outside = await history.revertOutside([`scenes/${id}/`, ...others]);
-  if (outside.length) logChat(id, { role: "system", text: `Scope guard: undid changes outside the scene: ${outside.map((o) => o.path).join(", ")}` });
-  const summary = pending[0]?.text ?? note ?? "note";
-  const v = res.cancelled ? null : await history.commitScene(id, `${agent}: ${summary.slice(0, 60)}`, agent);
-  for (const c of pending) if (res.ok || v) Object.assign(c, { status: "sent", sentAt: new Date().toISOString(), result: v ?? latest });
-  st.comments = st.comments.map((c) => pending.find((p) => p.id === c.id) ?? c);
-  if (v) st.versions[v] = { agent, ms: res.ms, comments: pending.map((c) => c.id), note, at: new Date().toISOString(), usage: res.usage };
-  saveSceneState(id, st);
-  metric({ kind: "scene-turn", scene: id, agent, ms: res.ms, ok: res.ok, cancelled: !!res.cancelled, comments: pending.length, fromVersion: latest, newVersion: v, outside: outside.map((o) => o.path) });
-  logChat(id, { role: "system", text: res.cancelled ? "Stopped." : v ? `Saved as v${v} (${Math.round(res.ms / 1000)} s). Making stills…` : `No file changes (${Math.round(res.ms / 1000)} s).` });
-  running.delete(id);
-  emit("running", { key: id, state: "end", v });
-  emit("project", {});
-  if (v) await makeVersionStills(id, v);
-  emit("project", {});
-}
-
-async function sendProject({ agent, text }) {
-  if (running.size) throw new Error(`Wait for running scenes to finish: ${[...running.keys()].join(", ")}`);
-  if (!text?.trim()) throw new Error("Empty message");
-  await commitManualEdits();
-  const ps = projectState();
-  agent = agent ?? ps.agent;
-  ps.agent = agent;
-  saveProjectState(ps);
-  const sb = storyboard();
-  running.set("_project", { agent, startedAt: Date.now() });
-  emit("running", { key: "_project", agent, state: "start" });
-  logChat("_project", { role: "user", agent, text });
-  const intro = ps.sessions[agent]
-    ? ""
-    : `You are the project agent for a HyperFrames explainer ("${sb.title}"${sb.language ? `, ${sb.language}` : ""}, ${sb.width}x${sb.height}) in a scene-by-scene review app. storyboard.json lists the scenes; each scene is scenes/<id>/scene.html (a sub-composition with a paused GSAP timeline registered as window.__timelines["<id>"]). Every scene you change becomes a new version of that scene. Keep each scene's data-duration (the narration fixes it). frame.md, if present, has the design rules. Check a scene with \`${stillCmd()} --at <seconds>\` run from its folder. Reply in English, in 2–4 plain sentences.\n\n`;
-  (async () => {
-    const handle = runTurn({
-      agent, cwd: projectDir, prompt: intro + text.trim(), sessionId: ps.sessions[agent], readDir: projectDir, writeDir: projectDir,
-      bashAllow: [`node ${stillBin}`],
-      onEvent: (ev) => logChat("_project", { role: ev.kind === "text" ? "agent" : ev.kind, agent, text: ev.text.replaceAll(projectDir + "/", "") }),
-    });
-    running.get("_project").handle = handle;
-    const res = await handle.done;
-    const ps2 = projectState();
-    if (res.sessionId) ps2.sessions[agent] = res.sessionId;
-    saveProjectState(ps2);
-    const made = [];
-    for (const s of sb.scenes) {
-      const v = await history.commitScene(s.id, `${agent} (project): ${text.trim().slice(0, 50)}`, agent);
-      if (v) {
-        const st = sceneState(s.id);
-        st.versions[v] = { agent, project: true, ms: res.ms, at: new Date().toISOString() };
-        saveSceneState(s.id, st);
-        made.push([s.id, v]);
-      }
-    }
-    metric({ kind: "project-turn", agent, ms: res.ms, ok: res.ok, versions: made });
-    logChat("_project", { role: "system", text: made.length ? `New versions: ${made.map(([i, v]) => `${i} v${v}`).join(", ")} (${Math.round(res.ms / 1000)} s).` : `No scene changes (${Math.round(res.ms / 1000)} s).` });
-    running.delete("_project");
-    emit("running", { key: "_project", state: "end" });
-    emit("project", {});
-    for (const [i, v] of made) await makeVersionStills(i, v);
-    emit("project", {});
-  })().catch((e) => {
-    logChat("_project", { role: "system", text: `Turn failed: ${e.message}` });
-    running.delete("_project");
-    emit("running", { key: "_project", state: "end" });
-  });
 }
 
 // ---------- whole video and render ----------
@@ -376,10 +217,7 @@ async function projectView() {
     const approved = await history.approved(s.id);
     scenes.push({
       ...s,
-      agent: st.agent,
-      sessions: Object.keys(st.sessions),
       approved,
-      running: running.get(s.id) ? { agent: running.get(s.id).agent, startedAt: running.get(s.id).startedAt } : null,
       comments: st.comments.map((c) => ({ ...c, still: existsSync(join(stateDir, "comments", s.id, `${c.id}.png`)) ? rel(join(stateDir, "comments", s.id, `${c.id}.png`)) : null })),
       versions: vs.map((x) => ({ ...x, ...(st.versions[x.v] ?? { agent: x.v === 1 ? "import" : "?" }), stills: listStills(s.id, x.v) })),
     });
@@ -387,7 +225,6 @@ async function projectView() {
   const ps = projectState();
   return {
     title: sb.title, duration: sb.duration, soundtrack: sb.soundtrack, scenes,
-    project: { agent: ps.agent, sessions: Object.keys(ps.sessions), running: running.get("_project") ? { agent: running.get("_project").agent, startedAt: running.get("_project").startedAt } : null },
     renders: ps.renders.map((r) => ({ ...r, url: `/renders/${r.file}` })),
     rendering: !!rendering,
   };
@@ -424,7 +261,7 @@ function inside(root, p) {
 }
 
 const routes = [
-  ["GET", /^\/api\/project$/, async () => projectView()],
+  ["GET", /^\/api\/project$/, async (m, q) => (q.get("sync") ? await commitManualEdits() : null, projectView())],
   ["GET", /^\/api\/whoami$/, async () => ({ reviewer: REVIEWER })],
   // ---- project tools for the chat next to the page ----
   ["GET", /^\/api\/rules$/, async () => ({
@@ -499,7 +336,7 @@ const routes = [
   }],
   ["GET", /^\/api\/project\/files$/, async () => ({ storyboard: readIf(join(projectDir, "storyboard.json")), theme: readIf(join(projectDir, "theme.css")), design: readIf(join(projectDir, "frame.md")) })],
   // Browser-agent mode (WebMCP / window.sceneLoop): the chat agent next to the page reads
-  // and writes scene.html itself; each write is a version, like a CLI agent's turn.
+  // and writes scene.html itself; each write is a version.
   ["GET", /^\/api\/scene\/([\w-]+)\/html$/, async (m, q) => {
     const v = q.get("v");
     return { id: m[1], version: v ? Number(v) : (await history.versions(m[1])).at(-1).v, html: v ? await history.fileAt(m[1], Number(v)) : readFileSync(join(projectDir, "scenes", m[1], "scene.html"), "utf8") };
@@ -507,7 +344,6 @@ const routes = [
   ["POST", /^\/api\/scene\/([\w-]+)\/html$/, async (m, q, b) => {
     const id = m[1];
     if (!storyboard().scenes.some((s) => s.id === id)) throw new Error(`${id} is not a scene`);
-    if (running.has(id)) throw new Error(`${id} has a CLI agent running`);
     if (typeof b.html !== "string" || !b.html.includes(`data-composition-id="${id}"`)) throw new Error(`html must keep the root data-composition-id="${id}"`);
     writeFileSync(join(projectDir, "scenes", id, "scene.html"), b.html);
     const agent = b.model || b.agent || "browser agent";
@@ -546,6 +382,7 @@ const routes = [
     return { url: `/p/.build/${m[1]}-v${v}/index.html` };
   }],
   ["GET", /^\/api\/build\/whole$/, async (m, q) => {
+    await commitManualEdits();
     const mode = q.get("mode") === "approved" ? "approved" : "latest";
     const { map, picked } = await wholeHtml(mode);
     buildWhole(projectDir, storyboard(), map, `whole-${mode}`);
@@ -567,14 +404,6 @@ const routes = [
     emit("project", {});
     return { ok: true };
   }],
-  ["POST", /^\/api\/scene\/([\w-]+)\/agent$/, async (m, q, b) => {
-    const st = sceneState(m[1]);
-    st.agent = ["codex", "chat"].includes(b.agent) ? b.agent : "claude";
-    saveSceneState(m[1], st);
-    return { ok: true };
-  }],
-  ["POST", /^\/api\/scene\/([\w-]+)\/send$/, async (m, q, b) => (await sendScene(m[1], b), { ok: true })],
-  ["POST", /^\/api\/scene\/([\w-]+)\/stop$/, async (m) => (running.get(m[1])?.handle?.cancel(), { ok: true })],
   ["POST", /^\/api\/scene\/([\w-]+)\/approve$/, async (m, q, b) => {
     await history.approve(m[1], b.v);
     logChat(m[1], { role: "system", text: `Approved v${b.v}.` });
@@ -583,7 +412,6 @@ const routes = [
     return { ok: true };
   }],
   ["POST", /^\/api\/scene\/([\w-]+)\/restore$/, async (m, q, b) => {
-    if (running.has(m[1])) throw new Error("Scene agent is running");
     const v = await history.restore(m[1], b.v, REVIEWER);
     const st = sceneState(m[1]);
     if (v) st.versions[v] = { agent: "restore", from: b.v, at: new Date().toISOString() };
@@ -594,14 +422,6 @@ const routes = [
     emit("project", {});
     return { v };
   }],
-  ["POST", /^\/api\/project\/agent$/, async (m, q, b) => {
-    const ps = projectState();
-    ps.agent = b.agent === "codex" ? "codex" : "claude";
-    saveProjectState(ps);
-    return { ok: true };
-  }],
-  ["POST", /^\/api\/project\/send$/, async (m, q, b) => (await sendProject(b), { ok: true })],
-  ["POST", /^\/api\/project\/stop$/, async () => (running.get("_project")?.handle?.cancel(), { ok: true })],
   ["POST", /^\/api\/render$/, async (m, q, b) => (await render(b.mode === "approved" ? "approved" : "latest"), { ok: true })],
 ];
 

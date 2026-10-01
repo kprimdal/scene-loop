@@ -177,7 +177,6 @@ function renderFilmstrip() {
           h("span", { class: "badge" }, `v${lv}`),
           s.approved ? h("span", { class: "badge ok" }, s.approved === lv ? "✓" : `✓v${s.approved}`) : null,
           pins ? h("span", { class: "badge pins" }, pins) : null,
-          s.running ? h("span", { class: "badge run" }, AGENT[s.running.agent]) : null,
         ),
         h("div", { class: "cap" }, h("b", {}, `${i + 1}. ${s.title}`), h("span", { class: "muted" }, `${s.duration.toFixed(1)}s`)),
       );
@@ -392,30 +391,28 @@ function renderChat() {
     }
     tools = null;
     if (e.role === "system") out.push(h("div", { class: "sys" }, e.text));
-    else out.push(h("div", { class: `msg ${e.role}` }, h("span", { class: "who" }, e.role === "user" ? `${S.reviewer} → ${AGENT[e.agent]}` : AGENT[e.agent]), e.text));
+    else out.push(h("div", { class: `msg ${e.role}` }, h("span", { class: "who" }, e.role === "user" ? S.reviewer : AGENT[e.agent]), e.text));
   }
-  box.replaceChildren(...(out.length ? out : [h("div", { class: "empty" }, S.tab === "project" ? "Project chat: changes that span scenes." : "No conversation for this scene yet. Pin comments on the frame, then Send.")]));
+  box.replaceChildren(...(out.length ? out : [h("div", { class: "empty" }, S.tab === "project" ? "Project changes show up here." : "Nothing yet. Pin a comment on the frame; the chat next to this page picks it up.")]));
   if (atBottom) box.scrollTop = box.scrollHeight;
 }
+
+// The right panel is the scene's activity and its open comments. The agent is the chat
+// next to this page (left side), which picks comments up through get_pending_comments.
+const CHAT_PROMPT = "Apply my pending comments in scene-loop (get_pending_comments), save each scene with write_scene_html, and show me the result.";
 
 function renderPanel() {
   const sc = scene();
   const proj = S.tab === "project";
-  const info = proj ? S.data.project : sc;
   $("#sceneTab").textContent = `Scene ${S.data.scenes.indexOf(sc) + 1}`;
   $("#panelTitle").textContent = proj ? "Project" : `${S.data.scenes.indexOf(sc) + 1}. ${sc.title}`;
-  $("#panelSub").textContent = proj
-    ? `All scenes · sessions: ${info.sessions.map((a) => AGENT[a]).join(", ") || "none yet"}`
-    : `${sc.id} · ${sc.duration.toFixed(2)} s · sessions: ${info.sessions.map((a) => AGENT[a]).join(", ") || "none yet"}`;
-  document.querySelectorAll("#agentSeg button").forEach((b) => {
-    b.classList.toggle("on", b.dataset.agent === info.agent);
-    b.hidden = proj && b.dataset.agent === "chat";
-  });
+  $("#panelSub").textContent = proj ? "Settings, scene list, theme and design spec" : `${sc.id} · ${sc.duration.toFixed(2)} s`;
   const pending = proj ? [] : sc.comments.filter((c) => c.status === "pending");
+  const allPending = S.data.scenes.reduce((n, s) => n + s.comments.filter((c) => c.status === "pending").length, 0);
   $("#pending").replaceChildren(
     ...(pending.length
       ? [
-          h("h4", {}, `To send · ${pending.length}`),
+          h("h4", {}, `Open comments · ${pending.length}`),
           ...pending.map((c) =>
             h(
               "div",
@@ -428,45 +425,34 @@ function renderPanel() {
         ]
       : []),
   );
-  const run = info.running;
-  $("#stopBtn").hidden = !run;
-  $("#sendBtn").disabled = !!run || (!proj && S.data.project.running) || (proj && S.data.scenes.some((s) => s.running));
-  const toChat = !proj && info.agent === "chat";
-  $("#sendBtn").textContent = proj ? "Send" : toChat ? `Queue ${pending.length || ""} for chat`.replace("  ", " ") : pending.length ? `Send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "Send note";
-  $("#runState").textContent = toChat ? (pending.some((c) => c.queuedAt) ? "Queued. Ask your chat to apply them." : "The chat next to this page applies them.") : "";
-  $("#note").placeholder = proj ? "A change across scenes, e.g. “make every headline 10% smaller”" : "Note for the agent (optional with comments)";
-  updateRunState();
+  $("#composer").hidden = proj;
+  $("#handoff").textContent = allPending ? `${allPending} open comment${allPending > 1 ? "s" : ""} for the chat` : "";
+  $("#copyPrompt").hidden = !allPending;
 }
 
-function updateRunState() {
-  const info = S.tab === "project" ? S.data.project : scene();
-  const run = info.running;
-  if (run) $("#runState").textContent = `${AGENT[run.agent]} working · ${Math.round((Date.now() - run.startedAt) / 1000)} s`;
-  else if (!(S.tab === "scene" && info.agent === "chat")) $("#runState").textContent = "";
-}
-setInterval(() => S.data && updateRunState(), 1000);
-
-async function send() {
-  const note = $("#note").value;
+async function addNote() {
+  const text = $("#note").value.trim();
+  if (!text) return;
+  let sc = scene(), t = player.currentTime || 0, v = viewed();
+  if (S.mode === "whole") {
+    sc = sceneAt(t);
+    t -= sc.start;
+    v = S.picked[sc.id] ?? latest(sc);
+  }
   try {
-    if (S.tab === "project") await api("/api/project/send", { body: { text: note } });
-    else await api(`/api/scene/${S.sel}/send`, { body: { note } });
+    await api(`/api/scene/${sc.id}/comments`, { body: { version: v, t: Math.round(t * 100) / 100, region: null, text } });
     $("#note").value = "";
   } catch (e) {
     toast(e.message);
   }
 }
 
-$("#sendBtn").onclick = send;
-$("#stopBtn").onclick = () => api(S.tab === "project" ? "/api/project/stop" : `/api/scene/${S.sel}/stop`, { body: {} });
-$("#note").addEventListener("keydown", (e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && send());
-document.querySelectorAll("#agentSeg button").forEach((b) =>
-  b.addEventListener("click", async () => {
-    await api(S.tab === "project" ? "/api/project/agent" : `/api/scene/${S.sel}/agent`, { body: { agent: b.dataset.agent } });
-    (S.tab === "project" ? S.data.project : scene()).agent = b.dataset.agent;
-    renderPanel();
-  }),
-);
+$("#addNote").onclick = addNote;
+$("#note").addEventListener("keydown", (e) => e.key === "Enter" && (e.metaKey || e.ctrlKey) && addNote());
+$("#copyPrompt").onclick = async () => {
+  await navigator.clipboard.writeText(CHAT_PROMPT).catch(() => {});
+  toast("Copied. Paste it in the chat next to this page.");
+};
 document.querySelectorAll(".tabs button").forEach((b) =>
   b.addEventListener("click", () => {
     S.tab = b.dataset.tab;
@@ -550,10 +536,6 @@ es.addEventListener("chat", (m) => {
   if (key !== panelKey()) return;
   S.chat.push(entry);
   renderChat();
-});
-es.addEventListener("running", () => {
-  clearTimeout(refreshT);
-  refreshT = setTimeout(refresh, 150);
 });
 es.addEventListener("render", (m) => {
   const d = JSON.parse(m.data);

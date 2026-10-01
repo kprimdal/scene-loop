@@ -7,5 +7,5 @@ Required Notice: Copyright 2026 Kristian Primdal (https://github.com/kprimdal/sc
   Its license text is in `public/vendor/LICENSE-hyperframes-player.txt`. It is not covered by the
   PolyForm license in `LICENSE.md`.
 - At runtime the app loads GSAP and the HyperFrames runtime and shader transitions from jsDelivr,
-  and runs `npx hyperframes`, `claude` and `codex` as separate programs. They keep their own
+  and runs `npx hyperframes` and ffmpeg as separate programs. They keep their own
   licenses and terms.

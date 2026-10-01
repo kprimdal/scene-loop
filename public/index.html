@@ -72,21 +72,16 @@
             <div class="panel-title" id="panelTitle"></div>
             <div class="muted small" id="panelSub"></div>
           </div>
-          <div class="seg small" id="agentSeg">
-            <button data-agent="claude">Claude</button>
-            <button data-agent="codex">Codex</button>
-            <button data-agent="chat" title="Leave comments for the chat next to this page (Claude or ChatGPT desktop browser)">Chat</button>
-          </div>
         </div>
         <div class="chat" id="chat"></div>
         <div class="pending" id="pending"></div>
-        <div class="composer">
-          <textarea id="note" rows="2" placeholder="Note for the agent (optional with comments)"></textarea>
+        <div class="composer" id="composer">
+          <textarea id="note" rows="2" placeholder="Comment at the playhead, without a box (⌘↵)"></textarea>
           <div class="composer-row">
-            <span class="muted small" id="runState"></span>
+            <span class="muted small" id="handoff"></span>
             <div class="spacer"></div>
-            <button class="btn ghost" id="stopBtn" hidden>Stop</button>
-            <button class="btn accent" id="sendBtn">Send</button>
+            <button class="btn ghost" id="copyPrompt" title="Copy a prompt for the chat next to this page" hidden>Copy prompt</button>
+            <button class="btn accent" id="addNote">Add comment</button>
           </div>
         </div>
       </aside>

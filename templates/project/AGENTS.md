@@ -7,4 +7,5 @@ app sends you the comments with stills. Your turn's file changes become the scen
   not a HyperFrames project folder; the app assembles and renders it.
 - `frame.md`, if present, is the design spec.
 - Keep every animation on the scene's one paused GSAP timeline, seek-safe.
-- Check your change with the still helper named in your first prompt before you reply.
+- Check your change with get_stills or show_scene before you reply.
+- Put project-wide changes (font, colours) in theme.css, not in every scene.
