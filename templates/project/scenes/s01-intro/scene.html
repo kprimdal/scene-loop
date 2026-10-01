@@ -1,0 +1,18 @@
+<template>
+<style>
+#root{position:absolute;inset:0;width:1920px;height:1080px;background-color:#FFFFFF;color:#111111;font-family:system-ui,sans-serif;overflow:hidden}
+#s01-intro-title{position:absolute;left:0;right:0;top:470px;text-align:center;font-size:110px;font-weight:700;letter-spacing:-0.03em}
+</style>
+<div id="root" data-composition-id="s01-intro" data-width="1920" data-height="1080" data-duration="4">
+  <div id="s01-intro-title">My video</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script>
+(function () {
+  window.__timelines = window.__timelines || {};
+  var tl = gsap.timeline({ paused: true });
+  tl.fromTo("#s01-intro-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.3);
+  window.__timelines["s01-intro"] = tl;
+})();
+</script>
+</template>

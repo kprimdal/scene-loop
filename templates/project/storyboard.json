@@ -1,0 +1,21 @@
+{
+  "title": "My video",
+  "language": "English",
+  "width": 1920,
+  "height": 1080,
+  "background": "#FFFFFF",
+  "accent": "#2456B8",
+  "duration": 4,
+  "soundtrack": null,
+  "scenes": [
+    {
+      "id": "s01-intro",
+      "title": "intro",
+      "start": 0,
+      "duration": 4,
+      "transitionIn": null,
+      "narration": "",
+      "picture": "A title fades in."
+    }
+  ]
+}

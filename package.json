@@ -1,0 +1,12 @@
+{
+  "name": "scene-loop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Make videos scene by scene: one agent session per scene, versions, pinned comments, whole-video playback. Built on HyperFrames.",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "Kristian Primdal",
+  "bin": { "scene-loop": "server.mjs" },
+  "scripts": { "start": "node server.mjs" },
+  "engines": { "node": ">=22" }
+}

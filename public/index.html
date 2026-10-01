@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Scene loop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/app.css" />
+    <script src="/vendor/hyperframes-player.global.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="mark"></span>
+        <strong id="title">Scene loop</strong>
+        <span class="muted" id="meta"></span>
+      </div>
+      <div class="seg" id="modeSeg">
+        <button data-mode="scene" class="on">This scene</button>
+        <button data-mode="whole">Whole video</button>
+      </div>
+      <div class="seg small" id="wholeSeg" title="Which version of each scene the whole video uses">
+        <button data-whole="latest" class="on">Latest</button>
+        <button data-whole="approved">Approved</button>
+      </div>
+      <div class="spacer"></div>
+      <span class="muted" id="renderState"></span>
+      <button class="btn" id="renderBtn">Render mp4</button>
+      <details class="renders">
+        <summary class="btn ghost">Renders</summary>
+        <div id="renderList" class="menu"></div>
+      </details>
+    </header>
+
+    <nav class="filmstrip" id="filmstrip"></nav>
+
+    <main class="main">
+      <section class="left">
+        <div class="stage-wrap">
+          <div class="stage" id="stage">
+            <hyperframes-player id="player"></hyperframes-player>
+            <div class="overlay" id="overlay"></div>
+            <div class="shade" id="shade"><span>Loading…</span></div>
+          </div>
+        </div>
+
+        <div class="transport">
+          <button class="icon" id="playBtn" title="Play / pause (space)">▶</button>
+          <span class="time" id="time">0.00 / 0.00</span>
+          <div class="track" id="track"><div class="head" id="head"></div></div>
+          <button class="btn accent" id="commentBtn" title="Pin a comment on this frame (C)">Comment</button>
+        </div>
+        <p class="narration" id="narration"></p>
+
+        <div class="versions-head">
+          <h3 id="versionsTitle">Versions</h3>
+          <span class="muted" id="viewing"></span>
+          <div class="spacer"></div>
+          <button class="btn ghost" id="flipBtn" title="Flip the player between the two compared versions at the same time (F)" hidden>Flip A/B</button>
+          <button class="btn ghost" id="closeCompare" hidden>Close compare</button>
+        </div>
+        <div class="compare" id="compare" hidden></div>
+        <div class="versions" id="versions"></div>
+      </section>
+
+      <aside class="panel">
+        <div class="tabs">
+          <button data-tab="scene" class="on" id="sceneTab">Scene</button>
+          <button data-tab="project">Project</button>
+        </div>
+        <div class="panel-head">
+          <div>
+            <div class="panel-title" id="panelTitle"></div>
+            <div class="muted small" id="panelSub"></div>
+          </div>
+          <div class="seg small" id="agentSeg">
+            <button data-agent="claude">Claude</button>
+            <button data-agent="codex">Codex</button>
+          </div>
+        </div>
+        <div class="chat" id="chat"></div>
+        <div class="pending" id="pending"></div>
+        <div class="composer">
+          <textarea id="note" rows="2" placeholder="Note for the agent (optional with comments)"></textarea>
+          <div class="composer-row">
+            <span class="muted small" id="runState"></span>
+            <div class="spacer"></div>
+            <button class="btn ghost" id="stopBtn" hidden>Stop</button>
+            <button class="btn accent" id="sendBtn">Send</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <div class="pop" id="pop" hidden>
+      <textarea id="popText" rows="3" placeholder="What should change here?"></textarea>
+      <div class="composer-row">
+        <span class="muted small" id="popWhere"></span>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="popCancel">Cancel</button>
+        <button class="btn accent" id="popSave">Add</button>
+      </div>
+    </div>
+    <div class="toast" id="toast" hidden></div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
