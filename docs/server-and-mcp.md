@@ -14,7 +14,7 @@ Claude (claude.ai, desktop, mobile, Claude Code)          ChatGPT, M365 Copilot 
 scene-loop (your Mac, or your own server / Docker)
   /mcp          tools: projects, scenes, comments, stills, render, approve
   /             web review UI: filmstrip, player, pinned comments, versions
-  ui://…        MCP App: the same review UI inside the Claude chat (phase 3)
+  ui://…        MCP App: a cut-down review view inside the Claude chat
   renderer      headless Chrome + ffmpeg on the box
   projects/<project>/   one folder and one version history per project
 ```
@@ -57,11 +57,77 @@ scene-loop (your Mac, or your own server / Docker)
    returns a job id; `get_render` returns state, progress, the mp4 URL and its path.
 3. **Claude Desktop locally.** Done 2026-10-01: an `mcp-remote` stdio bridge in
    `claude_desktop_config.json`, no server change. See Connecting clients.
-4. **MCP App** (`ui://`) so the review UI can also open inside the chat.
+4. **MCP App** (`ui://`) so the review UI can also open inside the chat. Done 2026-10-01,
+   hand-rolled against the ext-apps spec 2026-01-26 without the SDK. See "MCP App" below.
 5. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP (see README direction).
    It sits behind `lib/stills.mjs` and the render call, so it can land before or after the MCP work
    without changing the tools.
 6. **Docker image** with Node, Chrome and ffmpeg, plus login, for people who want it on a server.
+
+## MCP App
+
+The review view can open inside a chat that supports MCP Apps (Claude Desktop, claude.ai). It is
+a cut-down sibling of the web UI: one scene at a time with its five stills, the versions, the
+comments, and a way to pin a new comment by dragging a box on a still. It also has a list of
+scenes and a list of pending comments. No SDK, no build step. Spec: `specification/2026-01-26/apps.mdx`
+in [modelcontextprotocol/ext-apps](https://github.com/modelcontextprotocol/ext-apps).
+
+What the server does (`lib/mcp.mjs`, `lib/tools.mjs`):
+
+- `initialize` declares `resources: {}` and `extensions["io.modelcontextprotocol/ui"]` with the
+  mime type. The server is stateless and doesn't remember what the client sent, so it always
+  sends the UI metadata. Hosts without MCP Apps ignore it and get the normal text and images.
+- `resources/list` has one resource, `ui://scene-loop/review.html`, mime type
+  `text/html;profile=mcp-app`. `resources/read` returns `public/app-mcp.html` as text, read from
+  disk on every call. Both carry `_meta.ui.prefersBorder: true`.
+- A tool definition can name the view with `ui`. On `/mcp` that becomes
+  `_meta.ui.resourceUri`, plus the older flat key `_meta["ui/resourceUri"]` that the SDK still
+  writes, because hosts may read either. It is set on `show_scene`, `list_scenes` and
+  `get_pending_comments`.
+- `show_scene` on MCP is new: a scene (default: the first with pending comments) at a version
+  (default: latest), with its versions, comments and stills as images. It is marked
+  `channels: ["mcp"]`, so the page channel (`/api/tools`, WebMCP, `window.sceneLoop`) doesn't
+  list it and keeps its own `show_scene` that drives the player.
+- `/mcp` answers CORS for localhost origins (preflight `OPTIONS` included), because
+  browser-based hosts like the ext-apps basic host call it from another port. Other origins are
+  still refused.
+
+The view (`public/app-mcp.html`) speaks JSON-RPC to `window.parent` over postMessage:
+`ui/initialize` (appInfo, appCapabilities with inline and fullscreen, protocol `2026-01-26`),
+then `ui/notifications/initialized`. It reads `ui/notifications/tool-input` for the `project`
+argument and `ui/notifications/tool-result` for the data, and answers `ping` and
+`ui/resource-teardown`. It sends `ui/notifications/size-changed` from a ResizeObserver and uses
+the host's theme variables when it gets them. Everything else is a `tools/call` through the host:
+`show_scene` to change scene or version, `list_scenes`, `get_pending_comments`, `add_comment`
+for a pin, `approve_version`. After a pin it sends `ui/update-model-context`, so the model knows
+about the comment without a new turn starting. "Ask the chat to apply them" sends a `ui/message`.
+"Open in scene-loop" is a `ui/open-link` to the full page.
+
+**Stills and CSP.** A host runs the view in a sandboxed iframe on its own origin. The CSP comes
+from `_meta.ui.csp`, and with nothing declared the default is `img-src 'self' data:` and
+`connect-src 'none'`. So the view can't load `http://localhost:4300/p/...` or fetch from the
+server. We declare no domains. The view never talks to the server directly: stills come as
+image content in the tool result (960 px JPEGs, about 10 KB each), and it shows them as `data:`
+URLs. This works the same for any host and any address, including a server behind a login. The
+cost is about 50 KB per scene view, and that only reaches the model when the model made the
+call itself. The view does not play the scene. Playback needs the player and the build in a
+nested frame (`frameDomains`), which is exactly what hosts are strict about. "Open in
+scene-loop" covers it.
+
+**Tested 2026-10-01** with the ext-apps basic host (`examples/basic-host` cloned to /tmp,
+`SERVERS='["http://localhost:4304/mcp"]' npm run start`, so a test tool and not a dependency)
+against a projects root with two scratch projects. It covered: handshake, `show_scene`, the
+pending list, the scene list, a scene switch, a version switch, approve, and a pin dragged on a
+still. The pin showed up in `get_pending_comments` with the right region and also in the
+host's model context. `ui/open-link` reached the host. With curl:
+`resources/list`, `resources/read`, an unknown URI (`-32002`), and `tools/list` with the metadata
+on the three tools. Through `npx mcp-remote` (the bridge Claude Desktop uses, see step 3), the
+capabilities, the tool `_meta` and `resources/read` all pass through unchanged.
+
+Not tested in Claude Desktop. Step 3 got Desktop to connect through `mcp-remote` and saw it
+announce `io.modelcontextprotocol/ui` with `text/html;profile=mcp-app`, but nothing here can
+send a chat message in Desktop. By hand: add the bridge entry, restart Desktop, ask it to
+"show scene s01 in scene-loop". The view should open under the tool call.
 
 ## Connecting clients
 

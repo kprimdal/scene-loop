@@ -57,6 +57,10 @@ ChatGPT/Codex desktop app: through WebMCP (ChatGPT's "Site tools" discover them 
 as `window.sceneLoop` in the page's JavaScript. `window.sceneLoop.help()` lists them. The page adds
 `show_scene`, which drives the player.
 
+In a chat that supports MCP Apps (Claude Desktop, claude.ai), `show_scene`, `list_scenes` and
+`get_pending_comments` also open a small review view inside the chat. It shows the stills,
+versions and comments, and you can pin a comment on a frame there too.
+
 Your comments wait in the page until you tell the chat to apply them (Copy prompt gives you the
 words).
 
