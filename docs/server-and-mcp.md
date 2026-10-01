@@ -25,8 +25,8 @@ scene-loop (your Mac, or your own server / Docker)
 - **The web UI stays** for the human side: pinning comments on a frame, comparing, approving,
   watching the whole video. Comments made there show up for Claude through `get_pending_comments`.
 - **Which Claude clients:** locally, Claude Code adds it with
-  `claude mcp add --transport http scene-loop http://localhost:4300/mcp`, and Claude Desktop can
-  reach a local server too (to be tested: its own local-server config, or a small stdio bridge).
+  `claude mcp add --transport http scene-loop http://localhost:4300/mcp`, and Claude Desktop reaches
+  it through a stdio bridge (`npx -y mcp-remote http://localhost:4300/mcp`) in its config file.
   claude.ai on the web and mobile call connectors from Anthropic's cloud, so they only work when
   someone runs scene-loop on a public server with a login in front.
 
@@ -55,7 +55,8 @@ scene-loop (your Mac, or your own server / Docker)
    localhost is refused. `get_stills` and `get_pending_comments` return each still as image
    content, a 960 px JPEG made by ffmpeg and cached next to the PNG (about 10 KB each). `render`
    returns a job id; `get_render` returns state, progress, the mp4 URL and its path.
-3. **Claude Desktop locally:** find the cleanest way to connect it to the local server.
+3. **Claude Desktop locally.** Done 2026-10-01: an `mcp-remote` stdio bridge in
+   `claude_desktop_config.json`, no server change. See Connecting clients.
 4. **MCP App** (`ui://`) so the review UI can also open inside the chat.
 5. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP (see README direction).
    It sits behind `lib/stills.mjs` and the render call, so it can land before or after the MCP work
@@ -88,11 +89,43 @@ normal login.
 
 ### Claude Desktop
 
-Not tested yet. Two routes to try, in this order: a custom connector pointing at
-`http://localhost:4300/mcp` (Settings, Connectors, Add custom connector), and if it insists on
-HTTPS or OAuth, a stdio bridge in `claude_desktop_config.json` such as
-`npx mcp-remote http://localhost:4300/mcp`. The bridge is a client-side tool, not a dependency of
-scene-loop.
+Use a stdio bridge in `~/Library/Application Support/Claude/claude_desktop_config.json`.
+[mcp-remote](https://www.npmjs.com/package/mcp-remote) (MIT) runs on the client side and turns
+the local `/mcp` into the stdio server Desktop expects. It is not a dependency of scene-loop.
+
+```json
+{ "mcpServers": { "scene-loop": { "command": "npx", "args": ["-y", "mcp-remote", "http://localhost:4300/mcp"] } } }
+```
+
+Merge that into the existing `mcpServers` (the file holds Desktop's own preferences too), then
+quit and reopen Claude Desktop. No server change was needed.
+
+Tested 2026-10-01 with Claude Desktop 2.16120.0 on macOS, against a scratch projects root on port
+4303:
+
+- **Config file:** the `mcpServers` entries take `command`, `args` and `env` only, no `url` or
+  `type: http`, so a local HTTP server needs the bridge. Plain `npx` was enough: Desktop resolved
+  the login shell PATH and found npx under Herd's nvm, which is not on the default macOS PATH.
+- **What Desktop sends** (`~/Library/Logs/Claude/mcp-server-<name>.log`, through the bridge):
+  `initialize` with `protocolVersion: 2025-11-25`, client `claude-ai`, and the MCP Apps extension
+  in capabilities (`io.modelcontextprotocol/ui` with `text/html;profile=mcp-app`, relevant for
+  step 4), then `notifications/initialized` and `tools/list`. `main.log` then says
+  `Connected to scene-loop-test (21 tools)`. mcp-remote first tries OAuth discovery, finds none,
+  and connects with Streamable HTTP. Our 405 on GET and the missing session id cause no trouble.
+- **Stills:** `get_stills` through the same bridge returns the JSON, then a label and a JPEG per
+  still (five of about 10 KB each), unchanged.
+- **Not verified:** a real chat turn. Claude Desktop refuses to start with
+  `--remote-debugging-port` ("a debugging or network-override switch is present"), so
+  agent-browser cannot drive it, and the bb session had no screen or accessibility access for
+  clicks and keystrokes. `claude://claude.ai/new?q=...` prefills a new chat but does not send it.
+  Still to do by hand: ask Desktop to call `list_projects` and `get_stills` and check the frames
+  show as images.
+
+**Custom connector (Settings, Connectors, Add custom connector):** not clicked through, for the
+same reason. These connectors belong to the claude.ai account and Anthropic's cloud makes the
+calls, which is why claude.ai on the web and mobile can use them, so a server on `localhost` is
+out of reach for them. Use the config entry above for a local server, and a custom connector only
+for a public HTTPS instance with a login (step 6).
 
 ### Testing without a chat
 

@@ -35,6 +35,16 @@ scene-loop is an MCP server. Claude Code connects to it with one line:
 claude mcp add --transport http scene-loop http://localhost:4300/mcp
 ```
 
+Claude Desktop takes it as a stdio bridge in
+`~/Library/Application Support/Claude/claude_desktop_config.json`, then a restart of the app:
+
+```json
+{ "mcpServers": { "scene-loop": { "command": "npx", "args": ["-y", "mcp-remote", "http://localhost:4300/mcp"] } } }
+```
+
+A custom connector in Desktop's settings won't reach `localhost`; those are called from
+Anthropic's cloud. `docs/server-and-mcp.md` has the details.
+
 Then Claude has the tools: list and create projects, project settings, create, reorder and remove
 scenes, a theme and design spec for all scenes, read and write a scene, stills, pending comments,
 approve, render. Stills come back as images in the tool result, so Claude sees its own frames in
