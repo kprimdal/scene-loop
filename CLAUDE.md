@@ -14,8 +14,9 @@ Read `README.md` first. Kristian's own video tool, built in the open.
 - **The agent is the chat next to the page** (Claude Code desktop or the ChatGPT desktop app's
   built-in browser) through the page tools in `public/app.js` (WebMCP + `window.sceneLoop`). The
   server never calls a model and holds no keys.
-- **Direction:** HTML scenes. HyperFrames is being replaced by our own renderer (Chrome over CDP,
-  frozen clock, ffmpeg, per-scene clip cache) and GSAP by CSS/WAAPI. Python is for synthesized sound
+- **Direction:** HTML scenes with CSS/WAAPI motion, rendered by our own renderer (`lib/chrome.mjs`,
+  `lib/clock.js`, `lib/render.mjs`: Chrome over CDP, frozen clock, ffmpeg, per-scene clip cache).
+  HyperFrames is gone; old GSAP scenes still play through the clock. Python is for synthesized sound
   and maybe intros/outros, not scenes.
 
 ## Working
