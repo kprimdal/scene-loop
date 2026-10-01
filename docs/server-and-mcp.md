@@ -1,9 +1,9 @@
-# scene-loop on a server, used through an MCP connector
+# scene-loop as an MCP server
 
-Decided 2026-10-01 (Kristian): scene-loop runs on a small server and is used through an MCP
-connector. Claude does the creative work on the user's own plan. Everything that happens on the
-server is a tool call: storing, versioning, rendering. Ronni will use it for a Zinkshoppen project,
-so it is multi-user and multi-project from the start.
+Decided 2026-10-01 (Kristian): scene-loop is used through an MCP connector. Claude does the creative
+work on the user's own plan. Everything scene-loop does is a tool call: storing, versioning,
+rendering. **We run it locally.** Anyone else, Ronni for a Zinkshoppen project included, runs their
+own copy on their machine, a server or in Docker. Hosting it for other people is not the plan.
 
 ## Shape
 
@@ -11,12 +11,12 @@ so it is multi-user and multi-project from the start.
 Claude (claude.ai, desktop, mobile, Claude Code)          ChatGPT, M365 Copilot later
         │  MCP over HTTPS (Streamable HTTP + OAuth)
         ▼
-scene-loop server (Hetzner)
+scene-loop (your Mac, or your own server / Docker)
   /mcp          tools: projects, scenes, comments, stills, render, approve
   /             web review UI: filmstrip, player, pinned comments, versions
   ui://…        MCP App: the same review UI inside the Claude chat (phase 3)
   renderer      headless Chrome + ffmpeg on the box
-  /srv/scene-loop/projects/<project>/   one folder and one version history per project
+  projects/<project>/   one folder and one version history per project
 ```
 
 - **The server never calls a model and holds no AI keys.** Same rule as today.
@@ -24,17 +24,20 @@ scene-loop server (Hetzner)
   browser.
 - **The web UI stays** for the human side: pinning comments on a frame, comparing, approving,
   watching the whole video. Comments made there show up for Claude through `get_pending_comments`.
-- **Which Claude clients:** a remote connector added once on claude.ai follows the user to the
-  desktop and mobile apps. Claude Code adds it with `claude mcp add --transport http`. Connectors
-  are called from Anthropic's cloud, so `/mcp` must be reachable on the public internet with our
-  own login in front, not only on the tailnet.
+- **Which Claude clients:** locally, Claude Code adds it with
+  `claude mcp add --transport http scene-loop http://localhost:4300/mcp`, and Claude Desktop can
+  reach a local server too (to be tested: its own local-server config, or a small stdio bridge).
+  claude.ai on the web and mobile call connectors from Anthropic's cloud, so they only work when
+  someone runs scene-loop on a public server with a login in front.
 
-## Accounts and access
+## Projects and access
 
-- Login for both the connector (OAuth, which Claude's custom connectors expect) and the web UI.
-- An allowlist to start: Kristian and Ronni.
-- Projects belong to an owner and can be shared. Ronni's Zinkshoppen project is his; ours are ours.
-- Client material lives only on the server, never in this public repo.
+- Several projects per instance: `list_projects`, `create_project`, and a `project` argument on the
+  other tools. One folder and one version history per project under a projects directory.
+- Locally there is no login: the server listens on localhost only.
+- Login (OAuth for connectors, a session for the web UI) is only needed when someone puts it on a
+  public server. It comes with the Docker image, not before.
+- Client material lives in the projects directory, never in this public repo.
 
 ## Build order
 
@@ -44,20 +47,9 @@ scene-loop server (Hetzner)
    on the rest.
 2. **MCP endpoint** `/mcp` on the same Node server. Stills as image content. Render as a job:
    `render` returns a job id, `get_render` returns status and the mp4 link.
-3. **Login:** OAuth for the connector, a session for the web UI, the allowlist.
-4. **Server:** a Docker image with Node, Chrome and ffmpeg. HTTPS through a Cloudflare tunnel. Daily
-   backup of `/srv/scene-loop`.
-5. **MCP App** (`ui://`) so the review UI can also open inside the chat.
-6. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP (see README direction).
-   It sits behind `lib/stills.mjs` and the render call, so it can land before or after the server
-   work without changing the tools.
-
-Steps 1 to 3 can be built and tested on a Mac against Claude Code (`claude mcp add` to
-`localhost`). Steps 4 onwards need the server.
-
-## Open questions
-
-- New small Hetzner box, or a lane on an existing box? A public endpoint with client projects argues
-  for its own box.
-- Domain, e.g. `scenes.primux.app`.
-- Login method: GitHub, Google or email link.
+3. **Claude Desktop locally:** find the cleanest way to connect it to the local server.
+4. **MCP App** (`ui://`) so the review UI can also open inside the chat.
+5. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP (see README direction).
+   It sits behind `lib/stills.mjs` and the render call, so it can land before or after the MCP work
+   without changing the tools.
+6. **Docker image** with Node, Chrome and ffmpeg, plus login, for people who want it on a server.
