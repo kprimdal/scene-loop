@@ -1,0 +1,28 @@
+# scene-loop: agent setup
+
+Read `README.md` first. Kristian's own video tool, built in the open.
+
+## Rules
+
+- **Public repo.** No client material ever: no scripts, footage, images, brand assets or names from
+  client work (Vikan, AP3 clients, anyone). Client video projects live outside this repo and are
+  passed in as `node server.mjs <projectDir>`.
+- **License:** PolyForm Noncommercial 1.0.0 for our code. Dependencies must be MIT or equally
+  permissive (BSD, ISC). Apache-2.0 only with Kristian's OK. No GPL linked in; ffmpeg and Chrome run
+  as separate programs. Note any new third-party code in `NOTICE.md`.
+- **No npm install today.** Plain Node 22 ESM, no build step. Adding a dependency is a decision.
+- **The agent is the chat next to the page** (Claude Code desktop or the ChatGPT desktop app's
+  built-in browser) through the page tools in `public/app.js` (WebMCP + `window.sceneLoop`). The
+  server never calls a model and holds no keys.
+- **Direction:** HTML scenes. HyperFrames is being replaced by our own renderer (Chrome over CDP,
+  frozen clock, ffmpeg, per-scene clip cache) and GSAP by CSS/WAAPI. Python is for synthesized sound
+  and maybe intros/outros, not scenes.
+
+## Working
+
+- Run against a scratch copy of `templates/project`, never against a real project, when testing:
+  `cp -R templates/project /tmp/sl-test && node server.mjs /tmp/sl-test --port 4301`.
+- Check the page with agent-browser in its own session; `agent-browser webmcp list` shows the tools.
+- Lab notes and measurements go to video-lab (`~/Websites/Primux/video-lab`), one experiment per
+  folder with a `findings.md`.
+- Don't push without Kristian's go.
