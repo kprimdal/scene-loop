@@ -27,18 +27,28 @@ get a new version back.
   between them at the same timestamp, approve one, or bring an old one back.
 - A Render button for the MP4.
 
-## Chat on the left, video on the right
+## Connect a chat
 
-Open the app in the built-in browser of Claude Code desktop or the ChatGPT/Codex desktop app, and
-the chat next to it can build and edit the video. The page offers its tools through WebMCP
-(ChatGPT's "Site tools" discover them on their own) and as `window.sceneLoop` in the page's
-JavaScript for agents that don't discover WebMCP yet. `window.sceneLoop.help()` lists them:
-project settings, create, reorder and remove scenes, a theme and design spec for all scenes, read
-and write a scene, stills, pending comments, approve.
+scene-loop is an MCP server. Claude Code connects to it with one line:
+
+```
+claude mcp add --transport http scene-loop http://localhost:4300/mcp
+```
+
+Then Claude has the tools: list and create projects, project settings, create, reorder and remove
+scenes, a theme and design spec for all scenes, read and write a scene, stills, pending comments,
+approve, render. Stills come back as images in the tool result, so Claude sees its own frames in
+the chat. Comments you pin in the page come through `get_pending_comments` with a still of the
+frame and the box drawn on it. Every write becomes a version that records the model and the
+channel it came through (`mcp`, `webmcp` or `page-js`).
+
+The same tools are also on the page itself, for the built-in browser of Claude Code desktop or the
+ChatGPT/Codex desktop app: through WebMCP (ChatGPT's "Site tools" discover them on their own) and
+as `window.sceneLoop` in the page's JavaScript. `window.sceneLoop.help()` lists them. The page adds
+`show_scene`, which drives the player.
 
 Your comments wait in the page until you tell the chat to apply them (Copy prompt gives you the
-words). Every write becomes a version that records the model and whether it came through WebMCP or
-page JavaScript.
+words).
 
 ## Your own plan, no API key
 
@@ -48,13 +58,20 @@ model itself and holds no keys.
 ## Run it
 
 Needs Node 22, ffmpeg, and network for jsDelivr and `npx hyperframes@0.8.103`. No npm install.
-Then open the URL in the built-in browser of Claude Code desktop or the ChatGPT desktop app.
+It listens on 127.0.0.1 only; there is no login. Run it on your own machine, or your own server or
+Docker if you want it elsewhere. Nobody hosts it for you.
 
 ```
-cp -R templates/project ~/videos/my-video
-node server.mjs ~/videos/my-video --reviewer YourName
+mkdir ~/videos
+node server.mjs ~/videos --reviewer YourName
+claude mcp add --transport http scene-loop http://localhost:4300/mcp
 open http://localhost:4300
 ```
+
+`~/videos` is a projects root: one folder per project, created with `create_project` from the
+chat or the New project button. Each project keeps its own versions, comments and renders. Point
+the server at a folder that has a `storyboard.json` instead and it serves that one project, as
+before (`cp -R templates/project ~/videos/my-video` makes one).
 
 ## Project format
 
@@ -72,6 +89,10 @@ theme.css              optional, applied after every scene's styles
 
 The app keeps its own state next to that: versions in a private git dir (`.history`), comments,
 chats and a metrics log in `.state`, builds in `.build`, renders in `renders`.
+
+The server is `server.mjs`; the tools are defined once in `lib/tools.mjs` and served on `/mcp`
+(Streamable HTTP, stateless, no SDK) and to the page. `docs/server-and-mcp.md` has the plan and
+the client notes.
 
 Scene ids must not start with a digit. HyperFrames' own audits crash on them.
 

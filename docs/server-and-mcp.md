@@ -41,15 +41,73 @@ scene-loop (your Mac, or your own server / Docker)
 
 ## Build order
 
-1. **One tool layer.** Move the tool definitions and handlers out of `public/app.js` and
-   `server.mjs` into one module, used by the MCP endpoint and by the page (WebMCP and
-   `window.sceneLoop`). Add multi-project: `list_projects`, `create_project`, a `project` argument
-   on the rest.
-2. **MCP endpoint** `/mcp` on the same Node server. Stills as image content. Render as a job:
-   `render` returns a job id, `get_render` returns status and the mp4 link.
+1. **One tool layer.** Done 2026-10-01. `lib/tools.mjs` defines every tool once (name,
+   description, JSON schema, handler) over a project object from `lib/project.mjs`.
+   `lib/projects.mjs` is the registry: a dir with `storyboard.json` is one project, any other
+   dir is a projects root with one folder per project, opened lazily. `list_projects`,
+   `create_project` (from `templates/project`) and a `project` argument on the rest, optional
+   when there is one project. The page fetches the same list from `/api/tools` and calls
+   `POST /api/tools/<name>`; only `show_scene` stays in `public/app.js`. The page has a project
+   switcher (`?project=`).
+2. **MCP endpoint** `/mcp`. Done 2026-10-01, hand-rolled in `lib/mcp.mjs`: JSON-RPC over POST,
+   one JSON response per request, no session id, `initialize`, `notifications/initialized`,
+   `tools/list`, `tools/call`, `ping`. GET and DELETE answer 405. An `Origin` header that is not
+   localhost is refused. `get_stills` and `get_pending_comments` return each still as image
+   content, a 960 px JPEG made by ffmpeg and cached next to the PNG (about 10 KB each). `render`
+   returns a job id; `get_render` returns state, progress, the mp4 URL and its path.
 3. **Claude Desktop locally:** find the cleanest way to connect it to the local server.
 4. **MCP App** (`ui://`) so the review UI can also open inside the chat.
 5. **Our own renderer** instead of HyperFrames, and CSS/WAAPI instead of GSAP (see README direction).
    It sits behind `lib/stills.mjs` and the render call, so it can land before or after the MCP work
    without changing the tools.
 6. **Docker image** with Node, Chrome and ffmpeg, plus login, for people who want it on a server.
+
+## Connecting clients
+
+### Claude Code
+
+```
+claude mcp add --transport http scene-loop http://localhost:4300/mcp
+```
+
+Or in a `--mcp-config` file for `claude -p`:
+
+```json
+{ "mcpServers": { "scene-loop": { "type": "http", "url": "http://127.0.0.1:4300/mcp" } } }
+```
+
+Tested 2026-10-01 with `claude -p --strict-mcp-config --mcp-config ... --allowedTools "mcp__scene-loop__*"`
+against a projects root with two projects: it listed projects, read the rules, created a scene,
+read a pending comment with its still, rewrote the scene with `write_scene_html` and `resolves`,
+and described the five frames from `get_stills`. The version on disk carries `via: mcp` and the
+model name. Images arrive in the chat as JPEGs.
+
+Gotcha when a `claude` child is started from inside bb or another Claude session: it inherits
+`ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` and `CLAUDE_CODE_*`. Unset them so it runs on the
+normal login.
+
+### Claude Desktop
+
+Not tested yet. Two routes to try, in this order: a custom connector pointing at
+`http://localhost:4300/mcp` (Settings, Connectors, Add custom connector), and if it insists on
+HTTPS or OAuth, a stdio bridge in `claude_desktop_config.json` such as
+`npx mcp-remote http://localhost:4300/mcp`. The bridge is a client-side tool, not a dependency of
+scene-loop.
+
+### Testing without a chat
+
+`npx @modelcontextprotocol/inspector` can connect to `/mcp` as a Streamable HTTP server. curl
+works too: POST a JSON-RPC body, every call is independent.
+
+```
+curl -s localhost:4300/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}'
+```
+
+## Open
+
+- Render progress stayed at 0% until done in the test: `hyperframes render --quiet` printed no percentages
+  that the parser recognises. The job still finishes and reports the file.
+- Render jobs live in the server process; after a restart `get_render` without a job id still
+  lists finished renders from `.state/project.json`, but old job ids are gone.
+- The page reloads when you switch project. One page is one project.

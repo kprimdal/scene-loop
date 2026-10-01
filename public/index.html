@@ -11,8 +11,10 @@
     <header class="top">
       <div class="brand">
         <span class="mark"></span>
+        <select id="projectSel" class="project-sel" title="Project" hidden></select>
         <strong id="title">Scene loop</strong>
         <span class="muted" id="meta"></span>
+        <button class="btn ghost small" id="newProject" title="Create a project from the template" hidden>New project</button>
       </div>
       <div class="seg" id="modeSeg">
         <button data-mode="scene" class="on">This scene</button>
@@ -32,6 +34,7 @@
       </details>
     </header>
 
+    <div class="empty-projects" id="empty" hidden></div>
     <nav class="filmstrip" id="filmstrip"></nav>
 
     <main class="main">
