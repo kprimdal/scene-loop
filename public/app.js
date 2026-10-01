@@ -557,6 +557,38 @@ es.addEventListener("render", (m) => {
 });
 es.addEventListener("toast", (m) => toast(JSON.parse(m.data).text));
 
+// ---------- tools for a browser agent next to the page ----------
+// Registered with WebMCP when the browser supports it (ChatGPT desktop "Site tools",
+// Chrome origin trial), and always exposed as window.sceneLoop for agents that can run
+// page JavaScript but don't discover WebMCP tools.
+const TOOLS = [
+  { name: "list_scenes", description: "List the video's scenes: id, title, start, duration, narration, latest and approved version, pending comments.", inputSchema: { type: "object", properties: {} },
+    execute: async () => (await api("/api/project")).scenes.map((s) => ({ id: s.id, title: s.title, start: s.start, duration: s.duration, narration: s.narration, latest: s.versions.at(-1).v, approved: s.approved, pendingComments: s.comments.filter((c) => c.status === "pending").map(({ id, version, t, region, text }) => ({ id, version, t, region, text })) })) },
+  { name: "get_scene_html", description: "Get a scene's scene.html (latest on disk, or a given version). It is a HyperFrames sub-composition: <template>, root div with data-composition-id, one paused GSAP timeline registered as window.__timelines[id].", inputSchema: { type: "object", properties: { scene: { type: "string" }, version: { type: "number" } }, required: ["scene"] },
+    execute: async ({ scene, version }) => api(`/api/scene/${scene}/html${version ? `?v=${version}` : ""}`) },
+  { name: "write_scene_html", description: "Replace a scene's scene.html. Saved as the scene's next version, with stills. Keep the root data-composition-id and data-duration. Pass the ids of the comments this change resolves.", inputSchema: { type: "object", properties: { scene: { type: "string" }, html: { type: "string" }, note: { type: "string" }, resolves: { type: "array", items: { type: "string" } }, agent: { type: "string", description: "Your name, e.g. Claude or ChatGPT" } }, required: ["scene", "html"] },
+    execute: async (a) => api(`/api/scene/${a.scene}/html`, { body: a }) },
+  { name: "show_scene", description: "Show a scene in the preview at a time in seconds (scene time). Use it to look at your change.", inputSchema: { type: "object", properties: { scene: { type: "string" }, t: { type: "number" } }, required: ["scene"] },
+    execute: async ({ scene, t = 0 }) => { if (S.mode !== "scene") setMode("scene"); selectScene(scene); delete S.view[scene]; await loadPlayer(true); player.seek(t); return { shown: scene, t }; } },
+  { name: "add_comment", description: "Pin a comment on a scene version at a time, optionally on a region (fractions of the frame).", inputSchema: { type: "object", properties: { scene: { type: "string" }, version: { type: "number" }, t: { type: "number" }, text: { type: "string" }, region: { type: "object" } }, required: ["scene", "t", "text"] },
+    execute: async (a) => api(`/api/scene/${a.scene}/comments`, { body: { version: a.version ?? latest(scene(a.scene)), t: a.t, region: a.region ?? null, text: a.text } }) },
+  { name: "approve_version", description: "Approve a version of a scene.", inputSchema: { type: "object", properties: { scene: { type: "string" }, version: { type: "number" } }, required: ["scene", "version"] },
+    execute: async ({ scene, version }) => api(`/api/scene/${scene}/approve`, { body: { v: version } }) },
+];
+window.sceneLoop = Object.fromEntries(TOOLS.map((t) => [t.name, t.execute]));
+window.sceneLoop.help = () => TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+const mc = document.modelContext ?? navigator.modelContext;
+if (mc?.registerTool) {
+  for (const t of TOOLS) {
+    try {
+      mc.registerTool({ name: t.name, description: t.description, inputSchema: t.inputSchema, execute: async (args) => ({ content: [{ type: "text", text: JSON.stringify(await t.execute(args ?? {})) }] }) });
+    } catch (e) {
+      console.warn("WebMCP registerTool failed", t.name, e);
+    }
+  }
+}
+document.documentElement.dataset.webmcp = mc?.registerTool ? "registered" : "unavailable";
+
 S.reviewer = (await api("/api/whoami")).reviewer;
 await refresh();
 await loadChat();

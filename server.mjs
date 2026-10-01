@@ -370,6 +370,33 @@ function inside(root, p) {
 const routes = [
   ["GET", /^\/api\/project$/, async () => projectView()],
   ["GET", /^\/api\/whoami$/, async () => ({ reviewer: REVIEWER })],
+  // Browser-agent mode (WebMCP / window.sceneLoop): the chat agent next to the page reads
+  // and writes scene.html itself; each write is a version, like a CLI agent's turn.
+  ["GET", /^\/api\/scene\/([\w-]+)\/html$/, async (m, q) => {
+    const v = q.get("v");
+    return { id: m[1], version: v ? Number(v) : (await history.versions(m[1])).at(-1).v, html: v ? await history.fileAt(m[1], Number(v)) : readFileSync(join(projectDir, "scenes", m[1], "scene.html"), "utf8") };
+  }],
+  ["POST", /^\/api\/scene\/([\w-]+)\/html$/, async (m, q, b) => {
+    const id = m[1];
+    if (!storyboard().scenes.some((s) => s.id === id)) throw new Error(`${id} is not a scene`);
+    if (running.has(id)) throw new Error(`${id} has a CLI agent running`);
+    if (typeof b.html !== "string" || !b.html.includes(`data-composition-id="${id}"`)) throw new Error(`html must keep the root data-composition-id="${id}"`);
+    writeFileSync(join(projectDir, "scenes", id, "scene.html"), b.html);
+    const agent = b.agent || "browser agent";
+    const st = sceneState(id);
+    const pending = st.comments.filter((c) => c.status === "pending" && (!b.resolves || b.resolves.includes(c.id)));
+    const v = await history.commitScene(id, `${agent}: ${(b.note || pending[0]?.text || "edit").slice(0, 60)}`, agent);
+    if (v) {
+      for (const c of pending) Object.assign(c, { status: "sent", sentAt: new Date().toISOString(), result: v });
+      st.versions[v] = { agent, comments: pending.map((c) => c.id), note: b.note, at: new Date().toISOString() };
+      saveSceneState(id, st);
+      logChat(id, { role: "system", text: `${agent} saved v${v}${b.note ? `: ${b.note}` : ""}.` });
+      metric({ kind: "browser-agent-write", scene: id, agent, newVersion: v, comments: pending.length });
+      emit("project", {});
+      makeVersionStills(id, v).then(() => emit("project", {}));
+    }
+    return { version: v, unchanged: !v };
+  }],
   ["POST", /^\/api\/agent\/still$/, async (m, q, b) => {
     const sc = storyboard().scenes.find((s) => s.id === b.scene);
     if (!sc) throw new Error(`${b.scene} is not a scene in storyboard.json`);
