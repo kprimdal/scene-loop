@@ -25,7 +25,8 @@ get a new version back.
 - Pause, drag a box on the frame, write a comment. The chat picks open comments up with a still of
   each frame and the box drawn on it.
 - Every change the chat saves becomes a new version with 5 stills. You can compare versions, flip
-  between them at the same timestamp, approve one, or bring an old one back.
+  between them at the same timestamp, or bring an old one back. The video is always every scene's
+  latest version.
 - A Render button for the MP4.
 
 ## Connect a chat
@@ -48,7 +49,7 @@ Anthropic's cloud. `docs/server-and-mcp.md` has the details.
 
 Then Claude has the tools: list and create projects, project settings, create, reorder and remove
 scenes, a theme and design spec for all scenes, read and write a scene, stills, pending comments,
-approve, render. Stills come back as images in the tool result, so Claude sees its own frames in
+render. Stills come back as images in the tool result, so Claude sees its own frames in
 the chat. Comments you pin in the page come through `get_pending_comments` with a still of the
 frame and the box drawn on it. Every write becomes a version that records the model and the
 channel it came through (`mcp`, `webmcp` or `page-js`).

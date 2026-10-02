@@ -195,7 +195,6 @@ function renderScenes(scenes) {
       h("div", {},
         h("b", {}, `${i + 1}. ${s.title}`), " ", h("span", { class: "muted" }, `${s.id} · ${Number(s.duration).toFixed(1)}s`), " ",
         h("span", { class: "tag" }, `v${s.latest}`), " ",
-        s.approved ? h("span", { class: "tag ok" }, `✓ v${s.approved}`) : null, " ",
         s.pendingComments?.length ? h("span", { class: "tag pending" }, `${s.pendingComments.length} pending`) : null,
         s.narration ? h("div", { class: "narr" }, s.narration) : null)))),
     h("div", { id: "status" }),
@@ -249,8 +248,7 @@ function renderScene(d, images) {
     h("div", { class: "thumbs", id: "thumbs" }),
     h("div", { class: "bar" },
       h("span", { class: "muted" }, "Versions"),
-      h("div", { class: "versions grow" }, d.versions.map((x) => h("button", { class: x.v === d.version ? "on" : "", title: [x.note, x.model ?? x.agent, x.via && `via ${x.via}`].filter(Boolean).join(" · "), onclick: () => showScene(d.scene.id, x.v) }, `v${x.v}`, d.scene.approved === x.v ? h("span", { class: "ok" }, " ✓") : null))),
-      d.scene.approved === d.version ? h("span", { class: "tag ok" }, "Approved") : h("button", { onclick: approve }, `Approve v${d.version}`),
+      h("div", { class: "versions grow" }, d.versions.map((x) => h("button", { class: x.v === d.version ? "on" : "", title: [x.note, x.model ?? x.agent, x.via && `via ${x.via}`].filter(Boolean).join(" · "), onclick: () => showScene(d.scene.id, x.v) }, `v${x.v}`))),
       h("button", { class: "accent", id: "pinBtn", onclick: startPin, disabled: !S.frames.length }, "Pin a comment"),
     ),
     h("div", { id: "popSlot" }),
@@ -302,12 +300,6 @@ function nearest(t) {
   drawStill();
 }
 
-async function approve() {
-  status("Approving…");
-  const r = await callTool("approve_version", { scene: S.view.scene.id, version: S.view.version }).catch((e) => ({ error: e.message }));
-  if (r.error) return status(r.error, true);
-  showScene(S.view.scene.id, S.view.version);
-}
 
 // ---------- pin a comment: drag a box on the still, write, save ----------
 function startPin() {

@@ -12,7 +12,7 @@ Claude (claude.ai, desktop, mobile, Claude Code)          ChatGPT, M365 Copilot 
         │  MCP over HTTPS (Streamable HTTP + OAuth)
         ▼
 scene-loop (your Mac, or your own server / Docker)
-  /mcp          tools: projects, scenes, comments, stills, render, approve
+  /mcp          tools: projects, scenes, comments, stills, render
   /             web review UI: filmstrip, player, pinned comments, versions
   ui://…        MCP App: a cut-down review view inside the Claude chat
   renderer      headless Chrome + ffmpeg on the box
@@ -22,7 +22,7 @@ scene-loop (your Mac, or your own server / Docker)
 - **The server never calls a model and holds no AI keys.** Same rule as today.
 - **Stills come back as images in tool results,** so Claude sees its own work in the chat without a
   browser.
-- **The web UI stays** for the human side: pinning comments on a frame, comparing, approving,
+- **The web UI stays** for the human side: pinning comments on a frame, comparing,
   watching the whole video. Comments made there show up for Claude through `get_pending_comments`.
 - **Which Claude clients:** locally, Claude Code adds it with
   `claude mcp add --transport http scene-loop http://localhost:4300/mcp`, and Claude Desktop reaches
@@ -123,7 +123,7 @@ argument and `ui/notifications/tool-result` for the data, and answers `ping` and
 `ui/resource-teardown`. It sends `ui/notifications/size-changed` from a ResizeObserver and uses
 the host's theme variables when it gets them. Everything else is a `tools/call` through the host:
 `show_scene` to change scene or version, `list_scenes`, `get_pending_comments`, `add_comment`
-for a pin, `approve_version`. After a pin it sends `ui/update-model-context`, so the model knows
+for a pin. After a pin it sends `ui/update-model-context`, so the model knows
 about the comment without a new turn starting. "Ask the chat to apply them" sends a `ui/message`.
 "Open in scene-loop" is a `ui/open-link` to the full page.
 
@@ -141,7 +141,7 @@ scene-loop" covers it.
 **Tested 2026-10-01** with the ext-apps basic host (`examples/basic-host` cloned to /tmp,
 `SERVERS='["http://localhost:4304/mcp"]' npm run start`, so a test tool and not a dependency)
 against a projects root with two scratch projects. It covered: handshake, `show_scene`, the
-pending list, the scene list, a scene switch, a version switch, approve, and a pin dragged on a
+pending list, the scene list, a scene switch, a version switch, approve (since removed), and a pin dragged on a
 still. The pin showed up in `get_pending_comments` with the right region and also in the
 host's model context. `ui/open-link` reached the host. With curl:
 `resources/list`, `resources/read`, an unknown URI (`-32002`), and `tools/list` with the metadata

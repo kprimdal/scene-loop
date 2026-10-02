@@ -40,7 +40,6 @@ const S = {
   projects: [],
   data: null,
   mode: "scene",
-  wholeMode: "latest",
   sel: null,
   view: {}, // sceneId -> pinned version; absent = follow latest
   compare: null, // { a, b }
@@ -122,14 +121,14 @@ async function loadPlayer(force = false) {
   const sc = scene();
   // Keyed on what the build depends on: the scene and version, or every picked version, plus
   // the project stamp (storyboard and theme), so a theme, duration or order change reloads.
-  const key = (S.mode === "scene" ? `scene:${sc.id}:v${viewed(sc)}` : `whole:${S.wholeMode}:${S.data.scenes.map((s) => (S.wholeMode === "approved" ? s.approved ?? latest(s) : latest(s))).join(",")}`) + `:${S.data.stamp}`;
+  const key = (S.mode === "scene" ? `scene:${sc.id}:v${viewed(sc)}` : `whole:latest:${S.data.scenes.map((s) => latest(s)).join(",")}`) + `:${S.data.stamp}`;
   if (key === S.loadedKey && !force) return;
   const [mode, sub] = key.split(":");
   const sameView = S.loadedKey?.startsWith(`${mode}:${sub}:`);
   const keepTime = sameView ? player.currentTime : null;
   S.loadedKey = key;
   $("#shade").hidden = false;
-  const b = mode === "scene" ? await api(`/api/build/scene/${sc.id}?v=${viewed(sc)}`) : await api(`/api/build/whole?mode=${S.wholeMode}`);
+  const b = mode === "scene" ? await api(`/api/build/scene/${sc.id}?v=${viewed(sc)}`) : await api("/api/build/whole");
   S.picked = b.picked ?? {};
   let failed = null;
   const onErr = (e) => (failed = e.detail);
@@ -232,7 +231,6 @@ function renderFilmstrip() {
             "div",
             { class: "badges" },
             lv > 1 ? h("span", { class: "badge" }, `v${lv}`) : null,
-            s.approved ? h("span", { class: "badge ok" }, s.approved === lv ? "✓" : `✓v${s.approved}`) : null,
             pins ? h("span", { class: "badge pins" }, pins) : null,
           ),
         ),
@@ -289,7 +287,6 @@ function renderVersions() {
           { class: "acts" },
           isView ? null : h("button", { class: "btn", onclick: () => viewVersion(v.v) }, "View"),
           sc.versions.length > 1 ? h("button", { class: "btn ghost", onclick: () => openCompare(v.v) }, "Compare") : null,
-          sc.approved === v.v ? h("div", { class: "ok" }, "Approved ✓") : h("button", { class: "btn ghost", onclick: () => approve(v.v) }, "Approve"),
           v.v !== latest(sc) ? h("button", { class: "btn ghost", title: "Bring this version back as a new version", onclick: () => restore(v.v) }, "Restore") : null,
         ),
         h("div", { class: "what" }, comments.length || v.note ? [...comments.map((c) => `“${c.text}”`), ...(v.note ? [`Note: ${v.note}`] : [])].join("  ") : v.v === 1 ? "First version." : v.from ? `Restored from v${v.from}.` : (v.subject ?? "").replace(/^[\w-]+ v\d+: /, "")),
@@ -343,10 +340,6 @@ function flip() {
   const t = player.currentTime;
   const next = viewed() === S.compare.a ? S.compare.b : S.compare.a;
   viewVersion(next, t);
-}
-
-async function approve(v) {
-  await api(`/api/scene/${S.sel}/approve`, { body: { v } });
 }
 
 async function restore(v) {
@@ -526,13 +519,13 @@ $("#copyPrompt").onclick = async () => {
 // ---------- renders ----------
 function renderRenders() {
   const list = $("#renderList");
-  list.replaceChildren(...(S.data.renders.length ? S.data.renders.map((r) => h("a", { href: r.url, target: "_blank" }, `${r.file}`, h("div", { class: "muted small" }, `${r.mode} · ${ago(r.at)} · ${Math.round(r.ms / 1000)} s`))) : [h("div", { class: "muted small", style: "padding:8px" }, "No renders yet.")]));
+  list.replaceChildren(...(S.data.renders.length ? S.data.renders.map((r) => h("a", { href: r.url, target: "_blank" }, `${r.file}`, h("div", { class: "muted small" }, `${ago(r.at)} · ${Math.round(r.ms / 1000)} s`))) : [h("div", { class: "muted small", style: "padding:8px" }, "No renders yet.")]));
   $("#renderBtn").disabled = S.data.rendering;
 }
 
 $("#renderBtn").onclick = async () => {
   try {
-    await api("/api/render", { body: { mode: S.wholeMode } });
+    await api("/api/render", { body: {} });
   } catch (e) {
     toast(e.message);
   }
@@ -550,13 +543,6 @@ function setMode(mode) {
 }
 
 document.querySelectorAll("#modeSeg button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
-document.querySelectorAll("#wholeSeg button").forEach((b) =>
-  b.addEventListener("click", () => {
-    S.wholeMode = b.dataset.whole;
-    document.querySelectorAll("#wholeSeg button").forEach((x) => x.classList.toggle("on", x === b));
-    if (S.mode === "whole") loadPlayer();
-  }),
-);
 $("#playBtn").onclick = () => (player.paused === false ? player.pause() : player.play());
 $("#commentBtn").onclick = startComment;
 $("#flipBtn").onclick = flip;

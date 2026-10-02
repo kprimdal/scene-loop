@@ -65,7 +65,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card .num { position: absolute; top: 6px; left: 6px; z-index: 1; min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; border-radius: 5px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 650; }
 .badges { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; }
 .badge { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: rgb(255 255 255 / 0.92); border: 1px solid var(--line); }
-.badge.ok { color: var(--ok); }
 .badge.pins { color: #fff; background: var(--pin); border-color: var(--pin); }
 .badge.run { color: #fff; background: var(--accent); border-color: var(--accent); }
 .badge.run::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; border: 2px solid #fff; border-right-color: transparent; animation: spin 0.8s linear infinite; vertical-align: -1px; }
@@ -119,7 +118,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ver .strip .noimg { display: grid; place-items: center; font-size: 10px; color: var(--muted); }
 .ver .acts { display: flex; flex-direction: column; gap: 4px; }
 .ver .acts .btn { padding: 3px 9px; font-size: 12px; }
-.ver .acts .ok { color: var(--ok); font-weight: 600; font-size: 12px; text-align: center; }
 .ver .what { grid-column: 2 / 4; font-size: 12px; color: var(--muted); margin-top: -2px; }
 
 .compare { max-width: var(--stage-w); margin: 0 auto 10px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }

@@ -105,12 +105,11 @@ const routes = [
   ["GET", /^\/api\/project$/, async (m, q, b, ctx) => (q.get("sync") ? await ctx.p().then((p) => p.commitManualEdits()) : null, (await ctx.p()).view())],
   ["GET", /^\/api\/chat\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).chat(m[1])],
   ["GET", /^\/api\/build\/scene\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).sceneBuildUrl(m[1], q.get("v"))],
-  ["GET", /^\/api\/build\/whole$/, async (m, q, b, ctx) => (await ctx.p()).wholeBuildUrl(q.get("mode") === "approved" ? "approved" : "latest")],
+  ["GET", /^\/api\/build\/whole$/, async (m, q, b, ctx) => (await ctx.p()).wholeBuildUrl()],
   ["POST", /^\/api\/scene\/([\w-]+)\/comments$/, async (m, q, b, ctx) => (await ctx.p()).addComment(m[1], b)],
   ["DELETE", /^\/api\/scene\/([\w-]+)\/comments\/(\w+)$/, async (m, q, b, ctx) => (await ctx.p()).deleteComment(m[1], m[2])],
-  ["POST", /^\/api\/scene\/([\w-]+)\/approve$/, async (m, q, b, ctx) => (await ctx.p()).approve(m[1], b.v)],
   ["POST", /^\/api\/scene\/([\w-]+)\/restore$/, async (m, q, b, ctx) => (await ctx.p()).restore(m[1], b.v)],
-  ["POST", /^\/api\/render$/, async (m, q, b, ctx) => (await ctx.p()).render(b.mode === "approved" ? "approved" : "latest")],
+  ["POST", /^\/api\/render$/, async (m, q, b, ctx) => (await ctx.p()).render()],
 ];
 
 const server = createServer(async (req, res) => {
