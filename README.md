@@ -7,19 +7,6 @@ it.
 
 I built this for my own explainer and course videos. It's early and it changes a lot.
 
-## Why
-
-The shape is borrowed from Caleb Porzio's
-[Storyboard teaser](https://x.com/calebporzio/status/2104945478055989489): script, then scenes,
-then one scoped chat per scene with versions and whole-video playback. Scenes are HTML with CSS
-animations. scene-loop renders them itself: headless Chrome steps every frame on a frozen clock
-and ffmpeg makes the MP4. It started on [HyperFrames](https://github.com/heygen-com/hyperframes)
-by HeyGen, which showed that HTML is a good way to make video.
-
-I tried HyperFrames' own Studio first. It's a timeline editor where you nudge positions and text
-sizes, and I don't want to edit video like that. I want to point at a frame, say what's wrong, and
-get a new version back.
-
 ## How a video gets made
 
 The order matters, because the narration sets every scene's length and paid voices cost money per
