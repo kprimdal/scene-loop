@@ -26,7 +26,12 @@ Read `README.md` first. Kristian's own video tool, built in the open.
 - Check the page with agent-browser in its own session; `agent-browser webmcp list` shows the tools.
 - Lab notes and measurements go to video-lab (`~/Websites/Primux/video-lab`), one experiment per
   folder with a `findings.md`.
-- Don't push without Kristian's go.
+- **main deploys itself.** A commit on `main` in Kristian's clone is pushed by a post-commit hook,
+  and agent-server pulls origin/main every 5 minutes and restarts the service at
+  scene-loop.dev.primux.app (`/usr/local/bin/scene-loop-deploy`, log in
+  `/var/log/scene-loop-deploy.log`). So a commit on main is a deploy: work in progress goes on a
+  branch, and main gets what has been tested. Service settings live in `/etc/default/scene-loop`
+  and the unit file (`--no-login`, `CHROME_FLAGS=--no-sandbox` because it runs as root).
 
 ## Producing a video
 
