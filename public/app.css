@@ -131,7 +131,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* side panel */
 .panel { display: flex; flex-direction: column; min-height: 0; background: var(--paper); border-left: 1px solid var(--line); }
 .panel-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-.tabs button { padding: 4px 10px; font-size: 13px; }
 .panel-title { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
 .toolbar .btn { padding: 4px 10px; font-size: 13px; }
