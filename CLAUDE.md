@@ -32,6 +32,12 @@ Read `README.md` first. Kristian's own video tool, built in the open.
   `/var/log/scene-loop-deploy.log`). So a commit on main is a deploy: work in progress goes on a
   branch, and main gets what has been tested. Service settings live in `/etc/default/scene-loop`
   and the unit file (`--no-login`, `CHROME_FLAGS=--no-sandbox` because it runs as root).
+- **Branch work on agent-server goes in a worktree** (`git worktree add /srv/work/scene-loop-<name>
+  -b <name> main`), never in `/srv/work/scene-loop` itself: the deploy cron hard-resets that
+  checkout to origin/main (it skips when the checkout is not on main, but do not rely on it).
+- A project folder gets a `project.md` next to `storyboard.json` (or at the project root in the
+  `videos/` layout). Without it the chat has no pronunciation or voice rules, and `instructions`
+  shows false in `list_projects`.
 
 ## Producing a video
 
@@ -44,3 +50,22 @@ Read `README.md` first. Kristian's own video tool, built in the open.
   duration, so a changed script means re-timing every scene after it.
 - Keep per-scene narration as separate audio files named after the scene id, so a change to one
   block re-renders one block.
+- **Before production starts, check that the tool is current where the work happens.**
+  `git -C /srv/work/scene-loop log -1` must match the Mac's main, the service must answer, and
+  the project must show `instructions: true`. On 2026-10-02 the server ran the previous day's
+  HyperFrames build for five hours because main had not been pushed; the script, the narration
+  and the first cut all happened outside the tool as a result.
+- The script is agreed in the tool, not in chat. Put the narration into the scenes first, open
+  the Script view, and let Kristian read and edit it there. Comments on scenes are the review;
+  exported cuts opened as artifact pages are not.
+- Run one dry take of a screen recording before the real one: the brief's failure modes (the
+  wrong tool answering, a connector pulling in material, a 15-minute wait) show up on the first
+  run, not in the plan.
+- Diff every TTS take against the script (ElevenLabs Scribe or whisper) before it goes in. In
+  video-lab 001, three of four takes slipped a word or a name.
+- Sound, from video-lab 001: SFX about 11 dB under the speak, music 15 to 16 dB under, pauses in
+  the speak at most 0.9 s, a scene starts 0.35 s before its first word.
+- A free Danish draft voice is still open: `say` and piper have no usable Danish. Candidates from
+  the lab's landscape research are Røst-v3-chatterbox, Chatterbox Multilingual and VoxCPM2; all
+  need forced alignment for word timing. The lab's #1 open experiment is word anchors instead of
+  absolute seconds, so a voice swap does not re-time every scene.
