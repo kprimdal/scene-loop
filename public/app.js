@@ -20,7 +20,14 @@ const api = async (path, opts = {}) => {
   if (!r.ok) throw new Error(j.error ?? r.statusText);
   return j;
 };
-const fmt = (t) => (Number.isFinite(t) ? t.toFixed(2) : "–");
+// Timecode the way editing tools show it: m:ss:ff, frames on the storyboard's fps (30 by default).
+const fps = () => S.data?.fps || 30;
+const toFrame = (t) => Math.round(t * fps());
+function tc(t) {
+  if (!Number.isFinite(t)) return "–";
+  const f = toFrame(t), s = Math.floor(f / fps());
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}:${String(f - s * fps()).padStart(2, "0")}`;
+}
 const ago = (iso) => {
   if (!iso) return "";
   const s = (Date.now() - new Date(iso)) / 1000;
@@ -172,7 +179,7 @@ function tick() {
   if (S.data) {
     const t = player.currentTime || 0;
     const D = duration();
-    $("#time").replaceChildren(fmt(t), h("span", { class: "total" }, ` / ${fmt(D)}s`));
+    $("#time").replaceChildren(tc(t), h("span", { class: "total" }, ` / ${tc(D)}`));
     $("#head").style.left = `${Math.min(100, (t / D) * 100)}%`;
     $("#playBtn").textContent = player.paused === false ? "❚❚" : "▶";
     if (S.mode === "whole") {
@@ -402,7 +409,7 @@ function openPop(region, ev) {
   pop.hidden = false;
   pop.style.left = `${Math.min(window.innerWidth - 360, ev.clientX + 12)}px`;
   pop.style.top = `${Math.min(window.innerHeight - 170, ev.clientY + 12)}px`;
-  $("#popWhere").textContent = `${sc.id} · v${v} · ${fmt(draft.t)}s`;
+  $("#popWhere").textContent = `${sc.id} · v${v} · ${tc(draft.t)}`;
   $("#popText").value = "";
   $("#popText").focus();
 }
@@ -484,7 +491,7 @@ function renderPanel() {
               "div",
               { class: "pin" },
               c.still ? h("img", { src: c.still, onclick: () => viewVersion(c.version, c.t) }) : h("div", { class: "noimg", onclick: () => viewVersion(c.version, c.t) }),
-              h("div", {}, h("div", { class: "t" }, `v${c.version} · ${fmt(c.t)}s`), c.text),
+              h("div", {}, h("div", { class: "t" }, `v${c.version} · ${tc(c.t)}`), c.text),
               h("button", { class: "x", title: "Remove", onclick: () => api(`/api/scene/${sc.id}/comments/${c.id}`, { method: "DELETE" }) }, "×"),
             ),
           ),
@@ -584,8 +591,9 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "c") startComment();
   if (e.key === "f") flip();
   if (e.key === "v") showVersions();
-  if (e.key === "ArrowLeft") player.seek(Math.max(0, player.currentTime - (e.shiftKey ? 1 : 1 / 30)));
-  if (e.key === "ArrowRight") player.seek(player.currentTime + (e.shiftKey ? 1 : 1 / 30));
+  // One frame per arrow, on the frame grid; shift steps a second.
+  if (e.key === "ArrowLeft") player.seek(Math.max(0, (toFrame(player.currentTime) - (e.shiftKey ? fps() : 1)) / fps()));
+  if (e.key === "ArrowRight") player.seek(Math.min(duration() - 1 / fps(), (toFrame(player.currentTime) + (e.shiftKey ? fps() : 1)) / fps()));
   const i = S.data.scenes.indexOf(scene());
   if (e.key === "[" && i > 0) selectScene(S.data.scenes[i - 1].id, true);
   if (e.key === "]" && i < S.data.scenes.length - 1) selectScene(S.data.scenes[i + 1].id, true);
