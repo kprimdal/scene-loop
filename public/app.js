@@ -34,6 +34,11 @@ const ago = (iso) => {
   const s = (Date.now() - new Date(iso)) / 1000;
   return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : new Date(iso).toLocaleDateString();
 };
+const mmss = (seconds) => {
+  const s = Math.max(0, Math.round(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+};
+const countWords = (text) => String(text ?? "").trim().split(/\s+/).filter(Boolean).length;
 const AGENT = { claude: "Claude", codex: "Codex", chat: "Chat", manual: "Manual edit", restore: "Restore", import: "Import" };
 
 const Q = new URLSearchParams(location.search);
@@ -409,7 +414,8 @@ function renderVersions() {
   $("#viewing").replaceChildren(
     S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
   );
-  $("#narration").replaceChildren(h("b", {}, "Script "), sc.narration ?? "");
+  const scriptMark = S.data.scriptStatus.state === "agreed" ? "agreed" : S.data.scriptStatus.state === "changed" ? "changed" : "not agreed";
+  $("#narration").replaceChildren(h("b", {}, "Script "), sc.narration ?? "", h("span", { class: `script-mark ${S.data.scriptStatus.state}` }, scriptMark));
   const box = $("#versions");
   box.replaceChildren(
     ...sc.versions.map((v) => {
@@ -676,8 +682,7 @@ $("#renderBtn").onclick = async () => {
 };
 
 // ---------- script view ----------
-// Every scene's narration in order, one readable column in place of the stage. Clicking a
-// scene selects it and goes back to the stage.
+// Every scene's narration in order, editable in place by the reviewer.
 function setScript(on = !S.script) {
   S.script = on;
   if (on) player.pause();
@@ -688,26 +693,106 @@ function setScript(on = !S.script) {
   else loadPlayer();
 }
 
+const scriptStatusText = (status) => {
+  if (status.state === "not-agreed") return "Not agreed";
+  const agreed = `Agreed by ${status.agreedBy} ${new Date(status.agreedAt).toLocaleString()}`;
+  return status.state === "changed" ? `${agreed}, changed since` : agreed;
+};
+
+const scriptMetrics = (values) => {
+  const words = values.reduce((n, text) => n + countWords(text), 0);
+  const chars = values.reduce((n, text) => n + String(text ?? "").length, 0);
+  return { words, chars };
+};
+
+function updateScriptCounts() {
+  const textareas = [...document.querySelectorAll("#script .script-row textarea")];
+  for (const ta of textareas) {
+    const row = ta.closest(".script-row");
+    row.querySelector(".script-count").textContent = `${countWords(ta.value)} words · ${ta.value.length} chars`;
+  }
+  const { words, chars } = scriptMetrics(textareas.map((ta) => ta.value));
+  const totals = $("#scriptTotals");
+  if (totals) totals.textContent = `${words} words · ${chars} chars · est. ${mmss(words / 2.4)} spoken · scenes ${mmss(S.data.scenes.reduce((n, s) => n + s.duration, 0))}`;
+}
+
+let scriptSavePending = Promise.resolve();
+function saveScriptNarration(s, ta) {
+  const run = async () => {
+    if (ta.dataset.cancelled === "true") {
+      delete ta.dataset.cancelled;
+      return;
+    }
+    const narration = ta.value;
+    if (narration === ta.dataset.original) return;
+    ta.disabled = true;
+    try {
+      const result = await api("/api/tools/update_scene", { body: { args: { scene: s.id, narration, note: `script: ${s.id}`, model: S.reviewer }, via: "page-js" } });
+      ta.dataset.original = narration;
+      s.narration = narration;
+      toast(result.version ? `Saved ${s.id} as project v${result.version}.` : `${s.id} is unchanged.`);
+      await refresh();
+    } catch (e) {
+      ta.disabled = false;
+      toast(`Could not save ${s.id}: ${e.message}`);
+    }
+  };
+  scriptSavePending = scriptSavePending.then(run, run);
+  return scriptSavePending;
+}
+
+async function toggleScriptAgreement() {
+  try {
+    await scriptSavePending;
+    await api("/api/script/agreement", { body: {} });
+    await refresh();
+  } catch (e) {
+    toast(`Could not change script agreement: ${e.message}`);
+  }
+}
+
 function renderScript() {
-  const words = S.data.scenes.reduce((n, s) => n + (s.narration?.trim().split(/\s+/).filter(Boolean).length ?? 0), 0);
+  const status = S.data.scriptStatus;
+  const { words, chars } = scriptMetrics(S.data.scenes.map((s) => s.narration ?? ""));
   const text = S.data.scenes.map((s, i) => `${i + 1}. ${s.title} (${tc(s.start)})\n${s.narration ?? ""}`).join("\n\n");
   $("#script").replaceChildren(
     h(
       "div",
       { class: "script-head" },
-      h("h2", {}, "Script"),
-      h("span", { class: "muted" }, `${S.data.title} · ${S.data.scenes.length} scenes · ${tc(S.data.duration)} · ${words} words`),
+      h("div", {}, h("h2", {}, "Script"), h("div", { class: `script-status ${status.state}` }, scriptStatusText(status))),
+      h("span", { class: "muted script-totals", id: "scriptTotals" }, `${words} words · ${chars} chars · est. ${mmss(words / 2.4)} spoken · scenes ${mmss(S.data.scenes.reduce((n, s) => n + s.duration, 0))}`),
       h("div", { class: "spacer" }),
+      h("button", { class: `btn small ${status.state === "agreed" ? "dark" : "accent"}`, onclick: toggleScriptAgreement, title: status.state === "agreed" ? "Clear the current agreement" : "Agree the script exactly as written" }, status.state === "agreed" ? "Clear agreement" : "Script agreed"),
       h("button", { class: "btn ghost small", onclick: () => navigator.clipboard.writeText(text).then(() => toast("Script copied.")) }, "Copy"),
     ),
-    ...S.data.scenes.map((s, i) =>
-      h(
+    ...S.data.scenes.map((s, i) => {
+      const narration = s.narration ?? "";
+      const ta = h("textarea", { rows: Math.max(2, narration.split("\n").length), spellcheck: true, "aria-label": `Narration for ${s.id}` }, narration);
+      ta.dataset.original = narration;
+      ta.addEventListener("input", updateScriptCounts);
+      ta.addEventListener("blur", () => saveScriptNarration(s, ta));
+      ta.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.preventDefault(), ta.blur());
+        if (e.key === "Escape") {
+          e.preventDefault();
+          ta.value = ta.dataset.original;
+          ta.dataset.cancelled = "true";
+          updateScriptCounts();
+          ta.blur();
+        }
+      });
+      return h(
         "div",
-        { class: `script-row ${s.id === S.sel ? "on" : ""}`, "data-id": s.id, title: "Show this scene", onclick: () => (selectScene(s.id, true), setScript(false)) },
+        { class: `script-row ${s.id === S.sel ? "on" : ""}`, "data-id": s.id },
         h("div", { class: "tc" }, tc(s.start), h("span", {}, `${s.duration.toFixed(2)} s`)),
-        h("div", {}, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), s.narration?.trim() ? h("p", {}, s.narration) : h("p", { class: "none" }, "No script for this scene yet.")),
-      ),
-    ),
+        h(
+          "div",
+          { class: "script-body" },
+          h("div", { class: "script-row-head" }, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), h("span", { class: "muted script-count" }, `${countWords(narration)} words · ${narration.length} chars`), h("button", { class: "btn ghost small", onclick: () => (selectScene(s.id, true), setScript(false)) }, "Show scene")),
+          ta,
+        ),
+      );
+    }),
   );
 }
 $("#scriptBtn").onclick = () => setScript();

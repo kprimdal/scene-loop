@@ -176,6 +176,7 @@ function showResult(r) {
   const d = p.data;
   if (Array.isArray(d)) return renderScenes(d);
   if (d?.project) (S.project = d.project), (S.video = d.video ?? S.video);
+  if (d?.scenes) return renderScenes(d.scenes);
   if (d?.pending) return renderPending(d.pending, p.images);
   if (d?.versions && d?.scene) return renderScene(d, p.images);
   mount(h("pre", {}, JSON.stringify(d, null, 1)));

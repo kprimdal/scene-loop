@@ -111,6 +111,7 @@ const routes = [
   ["POST", /^\/api\/scene\/([\w-]+)\/comments$/, async (m, q, b, ctx) => (await ctx.p()).addComment(m[1], b)],
   ["DELETE", /^\/api\/scene\/([\w-]+)\/comments\/(\w+)$/, async (m, q, b, ctx) => (await ctx.p()).deleteComment(m[1], m[2])],
   ["POST", /^\/api\/scene\/([\w-]+)\/restore$/, async (m, q, b, ctx) => (await ctx.p()).restore(m[1], b.v)],
+  ["POST", /^\/api\/script\/agreement$/, async (m, q, b, ctx) => (await ctx.p()).toggleScriptAgreement()],
   ["POST", /^\/api\/render$/, async (m, q, b, ctx) => (await ctx.p()).render()],
 ];
 
