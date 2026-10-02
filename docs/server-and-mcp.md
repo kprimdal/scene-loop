@@ -35,7 +35,8 @@ scene-loop (your Mac, or your own server / Docker)
 - Several projects per instance, each holding videos (step 7): `list_projects`, `create_project`,
   `create_video`, and `project` and `video` arguments on the other tools. One folder per project
   under a projects directory, one folder and one version history per video inside it.
-- Locally there is no login: the server listens on localhost only.
+- Locally there is no login: the server listens on localhost only. On a private network,
+  `--no-login` with `SCENE_LOOP_TOKEN` keeps the page open and guards `/mcp` with the token.
 - Login (OAuth for connectors, a session for the web UI) is only needed when someone puts it on a
   public server. It comes with the Docker image, not before.
 - Client material lives in the projects directory, never in this public repo.
@@ -43,7 +44,7 @@ scene-loop (your Mac, or your own server / Docker)
 ## Build order
 
 1. **One tool layer.** Done 2026-10-01. `lib/tools.mjs` defines every tool once (name,
-   description, JSON schema, handler) over a project object from `lib/project.mjs`.
+   description, JSON schema, handler) over a video object from `lib/video.mjs` (projects in `lib/projects.mjs`).
    `lib/projects.mjs` is the registry: a dir with `storyboard.json` is one project, any other
    dir is a projects root with one folder per project, opened lazily. `list_projects`,
    `create_project` (from `templates/project`) and a `project` argument on the rest, optional
@@ -120,6 +121,27 @@ scene-loop (your Mac, or your own server / Docker)
    `?project=` links, page tools with the current project and video as defaults), and `claude -p`
    over `/mcp`, which read the rules and wrote a script line that put the company name at the end
    of the sentence as `project.md` asked.
+8. **The script is agreed in the tool.** Done 2026-10-02, after the first real production rendered
+   paid narration before the script was agreed and then twice more because lines changed. The
+   Script view edits narration in place (a project version under the reviewer), shows words,
+   characters and estimated spoken length against the scene durations, and has a Script agreed
+   button that stores reviewer, time and a hash of every narration line in `storyboard.json`
+   (`script`). The status is computed: not agreed, agreed, or changed since. `get_rules` and
+   `list_scenes` lead with it; the page's `/api/script/agreement` route is the only way to set it.
+   `write_scene_html` now resolves the comments it names even when the html is unchanged.
+9. **Narration, clips and word anchors as tools.** Done 2026-10-02. One audio file per scene
+   under `assets/narration/<id>.<ext>` (`set_narration_audio`, `remove_narration_audio`),
+   `fit_scenes_to_narration` (lead 0.35 s, tail 0.6 s, frame grid, `narrationLead` stored per
+   scene), `build_soundtrack` (blocks laid into their scenes, silence padding, loudnorm -16 LUFS,
+   `assets/narration.m4a`, overruns reported). `set_narration_words` turns a raw Scribe or
+   whisper-cli transcript into `<id>.words.json` aligned to the script; `lib/anchors.js` (55
+   lines, inlined by `lib/assemble.mjs` before the scene scripts and the clock) resolves
+   `data-at="word:…"`, `sentence:N`, offsets and alternatives synchronously, so the renderer,
+   the scene preview and the whole-video preview agree. The clip key covers the words, the lead
+   and `anchors.js`, and skips narration audio (mixed at join time). `cut_clip` (hold, speed,
+   trim), `list_clips`, `probe_media`, and `missingAssets` per scene in `list_scenes`. Audio and
+   clips are not history versions; the chat log records them. The lab result behind the anchors
+   is video-lab 006: a voice swap re-timed a scene with the html byte-identical.
 
 ## MCP App
 
