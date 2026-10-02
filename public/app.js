@@ -719,12 +719,13 @@ function updateScriptCounts() {
 let scriptSavePending = Promise.resolve();
 function saveScriptNarration(s, ta) {
   const run = async () => {
+    const stale = () => S.scriptStale && S.script && renderScript();
     if (ta.dataset.cancelled === "true") {
       delete ta.dataset.cancelled;
-      return;
+      return stale();
     }
     const narration = ta.value;
-    if (narration === ta.dataset.original) return;
+    if (narration === ta.dataset.original) return stale();
     ta.disabled = true;
     try {
       const result = await api("/api/tools/update_scene", { body: { args: { scene: s.id, narration, note: `script: ${s.id}`, model: S.reviewer }, via: "page-js" } });
@@ -735,6 +736,7 @@ function saveScriptNarration(s, ta) {
     } catch (e) {
       ta.disabled = false;
       toast(`Could not save ${s.id}: ${e.message}`);
+      stale();
     }
   };
   scriptSavePending = scriptSavePending.then(run, run);
@@ -752,6 +754,11 @@ async function toggleScriptAgreement() {
 }
 
 function renderScript() {
+  // A project event (an agent's write, stills landing) must not rebuild the rows under a
+  // reviewer who is typing: wait for the blur, which saves or cancels and then re-renders.
+  const active = document.activeElement;
+  if (active?.tagName === "TEXTAREA" && $("#script").contains(active)) return void (S.scriptStale = true);
+  S.scriptStale = false;
   const status = S.data.scriptStatus;
   const { words, chars } = scriptMetrics(S.data.scenes.map((s) => s.narration ?? ""));
   const text = S.data.scenes.map((s, i) => `${i + 1}. ${s.title} (${tc(s.start)})\n${s.narration ?? ""}`).join("\n\n");
