@@ -143,6 +143,16 @@ Narration stays as one audio file per scene in `assets/narration/<scene-id>.mp3`
 `assets/narration.m4a` and select it as the video's soundtrack. `remove_narration_audio` removes a
 scene's audio when it needs a new take.
 
+Word anchors keep scene motion attached to the narration when a take changes. Use
+`set_narration_words` with timed words, raw ElevenLabs Scribe JSON or raw whisper-cli JSON; it
+writes `assets/narration/<scene-id>.words.json` and aligns transcript times to the scene's script.
+Then `data-at="word:brush"`, `word:brush#2`, `sentence:2`, offsets such as `word:brush+0.3`, and
+alternatives such as `word:noon|sentence:6+0.4` replace authored CSS animation delays when the
+word is available. Space-separated anchors apply to successive animations. Code using
+`el.animate()` can call `window.__at["<scene-id>"](spec, fallback)`. The authored delay remains the
+fallback, so scenes still play without word timings. Run `fit_scenes_to_narration` again when a new
+take changes audio length, then rebuild the soundtrack.
+
 How a scene moves: every `@keyframes` animation, `el.animate()` and `<video>` in the page is paused
 and set to the frame's time by the page clock (`lib/clock.js`), the same in the preview, the stills
 and the render. So a scene must not run on wall time (`setTimeout`, `requestAnimationFrame` loops,

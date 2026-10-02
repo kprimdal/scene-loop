@@ -13,6 +13,13 @@ app sends you the comments with stills. Your turn's file changes become the scen
 - Prefix element ids and `@keyframes` names with the scene id. All scenes share one page.
 - Something you draw yourself (a canvas, a counting number) registers
   `window.__seek["<scene id>"] = function (t) { ... }` and draws the state at scene time `t`.
+- Anchor to words, not to seconds, whenever the scene has narration. Put `data-at="word:brush"`
+  on an element to start its CSS animation on that word; use `word:brush#2` for the second
+  occurrence, `sentence:2` for a sentence start, and offsets such as `word:brush+0.3` or
+  `sentence:2-0.2`. Alternatives (`word:noon|sentence:6+0.4`) try left to right. For several
+  animations, space-separate one anchor per animation (`data-at="word:brush word:washed"`). Code
+  using `el.animate()` gets the time from `window.__at["<scene id>"]("word:brush", fallback)`.
+  Keep a sensible authored animation delay as the fallback when word times are unavailable.
 - Check your change with get_stills or show_scene before you reply.
 - Put video-wide changes (font, colours) in theme.css, not in every scene.
 - The project instructions (first in get_rules) say how names are pronounced and where they may
