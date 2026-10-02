@@ -56,8 +56,10 @@ Read `README.md` first. Kristian's own video tool, built in the open.
   HyperFrames build for five hours because main had not been pushed; the script, the narration
   and the first cut all happened outside the tool as a result.
 - The script is agreed in the tool, not in chat. Put the narration into the scenes first, open
-  the Script view, and let Kristian read and edit it there. Comments on scenes are the review;
-  exported cuts opened as artifact pages are not.
+  the Script view, and let Kristian read and edit it there; he presses "Script agreed" when it
+  is right. `get_rules` and `list_scenes` report `scriptStatus` (not agreed, agreed, changed
+  since) and the tools cannot set it. No paid voice before it says agreed. Comments on scenes
+  are the review; exported cuts opened as artifact pages are not.
 - Run one dry take of a screen recording before the real one: the brief's failure modes (the
   wrong tool answering, a connector pulling in material, a 15-minute wait) show up on the first
   run, not in the plan.
