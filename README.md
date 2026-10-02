@@ -161,6 +161,14 @@ the scene, the theme, the size, a file in `assets/` or its place on the frame gr
 one edit only that scene renders again (an asset change renders every scene again). The whole video is the clips joined with ffmpeg crossfades (`transitionIn:
 { "duration": 0.6 }` by default, `{ "type": "cut" }` for a hard cut) and the soundtrack.
 
+## Clips from a screen recording
+
+Screen-recording clips live in `assets/clips/`. Use `probe_media` to inspect a take, `cut_clip` to
+cut a source range for one scene, and `list_clips` to see durations and scene references. `cut_clip`
+can `hold` the final frame to fill the scene, `speed` a longer range uniformly (never slowing it
+down), or `trim` at the scene duration without padding a shorter range. The recorder that creates
+the take and any timestamp marks lives outside scene-loop; these tools start from its media file.
+
 The server is `server.mjs`; the tools are defined once in `lib/tools.mjs` and served on `/mcp`
 (Streamable HTTP, stateless, no SDK) and to the page. `docs/server-and-mcp.md` has the plan and
 the client notes.
