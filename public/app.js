@@ -38,6 +38,11 @@ const mmss = (seconds) => {
   const s = Math.max(0, Math.round(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
+const audioTime = (seconds) => {
+  const value = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(value / 60);
+  return `${minutes}:${(value - minutes * 60).toFixed(1).padStart(4, "0")}`;
+};
 const countWords = (text) => String(text ?? "").trim().split(/\s+/).filter(Boolean).length;
 const AGENT = { claude: "Claude", codex: "Codex", chat: "Chat", manual: "Manual edit", restore: "Restore", import: "Import" };
 
@@ -415,7 +420,10 @@ function renderVersions() {
     S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
   );
   const scriptMark = S.data.scriptStatus.state === "agreed" ? "agreed" : S.data.scriptStatus.state === "changed" ? "changed" : "not agreed";
-  $("#narration").replaceChildren(h("b", {}, "Script "), sc.narration ?? "", h("span", { class: `script-mark ${S.data.scriptStatus.state}` }, scriptMark));
+  $("#narration").replaceChildren(
+    h("span", {}, h("b", {}, "Script "), sc.narration ?? "", h("span", { class: `script-mark ${S.data.scriptStatus.state}` }, scriptMark)),
+    sc.audio ? h("span", { class: "narration-audio" }, h("audio", { controls: true, preload: "none", src: sc.audio.url }), h("span", { class: "muted" }, audioTime(sc.audio.seconds))) : null,
+  );
   const box = $("#versions");
   box.replaceChildren(
     ...sc.versions.map((v) => {
@@ -795,7 +803,7 @@ function renderScript() {
         h(
           "div",
           { class: "script-body" },
-          h("div", { class: "script-row-head" }, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), h("span", { class: "muted script-count" }, `${countWords(narration)} words · ${narration.length} chars`), h("button", { class: "btn ghost small", onclick: () => (selectScene(s.id, true), setScript(false)) }, "Show scene")),
+          h("div", { class: "script-row-head" }, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), h("span", { class: "muted script-count" }, `${countWords(narration)} words · ${narration.length} chars · ${s.audio ? audioTime(s.audio.seconds) : "no audio"}`), h("button", { class: "btn ghost small", onclick: () => (selectScene(s.id, true), setScript(false)) }, "Show scene")),
           ta,
         ),
       );

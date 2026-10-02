@@ -104,6 +104,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .ticks span::before { content: ""; position: absolute; left: 50%; top: -3px; height: 3px; border-left: 1px solid #c8c8cc; }
 .narration { max-width: var(--stage-w); margin: 8px auto 0; color: var(--muted); font-size: 13px; }
 .narration b { color: var(--ink); font-weight: 550; }
+.narration-audio { display: flex; align-items: center; gap: 8px; margin-top: 7px; font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.narration-audio audio { width: min(320px, 100%); height: 28px; }
 .script-mark { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; }
 .script-mark.agreed { color: #17633a; background: #ddf5e7; }
 .script-mark.changed { color: #8a5010; background: #fff0cf; }

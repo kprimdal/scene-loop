@@ -135,6 +135,14 @@ The app keeps its own state next to that: versions in a private git dir (`.histo
 chats and a metrics log in `.state`, builds and render clips in `.build`, renders in `renders`.
 A project folder has a `.history` of its own for `project.md`.
 
+## Narration
+
+Narration stays as one audio file per scene in `assets/narration/<scene-id>.mp3`, `.wav` or
+`.m4a`. Agree the script first, then use `set_narration_audio` for each scene,
+`fit_scenes_to_narration` to put every duration on the frame grid, and `build_soundtrack` to make
+`assets/narration.m4a` and select it as the video's soundtrack. `remove_narration_audio` removes a
+scene's audio when it needs a new take.
+
 How a scene moves: every `@keyframes` animation, `el.animate()` and `<video>` in the page is paused
 and set to the frame's time by the page clock (`lib/clock.js`), the same in the preview, the stills
 and the render. So a scene must not run on wall time (`setTimeout`, `requestAnimationFrame` loops,
@@ -158,7 +166,8 @@ as CSS animations" and compare the stills.
 Rendering: each scene renders to its own clip, `.build/clips/<id>-v<version>-<key>.mp4`, frames
 split over parallel Chrome pages (`SCENE_LOOP_PARALLEL`, default up to 8). A clip is reused until
 the scene, the theme, the size, a file in `assets/` or its place on the frame grid changes, so after
-one edit only that scene renders again (an asset change renders every scene again). The whole video is the clips joined with ffmpeg crossfades (`transitionIn:
+one edit only that scene renders again (an asset change renders every scene again, except narration
+audio, which is mixed when clips are joined). The whole video is the clips joined with ffmpeg crossfades (`transitionIn:
 { "duration": 0.6 }` by default, `{ "type": "cut" }` for a hard cut) and the soundtrack.
 
 ## Clips from a screen recording
