@@ -16,7 +16,7 @@ scene-loop (your Mac, or your own server / Docker)
   /             web review UI: filmstrip, player, pinned comments, versions
   ui://…        MCP App: a cut-down review view inside the Claude chat
   renderer      headless Chrome + ffmpeg on the box
-  projects/<project>/   one folder and one version history per project
+  projects/<project>/   project.md, and videos/<video>/ with one version history per video
 ```
 
 - **The server never calls a model and holds no AI keys.** Same rule as today.
@@ -32,8 +32,9 @@ scene-loop (your Mac, or your own server / Docker)
 
 ## Projects and access
 
-- Several projects per instance: `list_projects`, `create_project`, and a `project` argument on the
-  other tools. One folder and one version history per project under a projects directory.
+- Several projects per instance, each holding videos (step 7): `list_projects`, `create_project`,
+  `create_video`, and `project` and `video` arguments on the other tools. One folder per project
+  under a projects directory, one folder and one version history per video inside it.
 - Locally there is no login: the server listens on localhost only.
 - Login (OAuth for connectors, a session for the web UI) is only needed when someone puts it on a
   public server. It comes with the Docker image, not before.
@@ -87,6 +88,38 @@ scene-loop (your Mac, or your own server / Docker)
    a signed value, so nothing is stored. One `auth.gate(req, res)` call in `server.mjs`; `mcp.mjs`
    skips its localhost Origin check when the request carried a token. `CHROME_PATH` picks the
    browser. Setup and proxies: `docs/self-host.md`.
+
+7. **Projects hold videos.** Done 2026-10-02. What step 1 called a project is now a video. A
+   project is a folder with `project.md` (instructions for the chat, frontmatter `title` and
+   `tags`) and `videos/<video>/`, one folder per video, unchanged inside. `lib/projects.mjs` reads
+   three layouts with nothing moved: a single video folder (`node server.mjs <dir>` with a
+   `storyboard.json`: one project, one video, both named after the folder), a root of video
+   folders (each a project with one video of the same name, `project.md` next to its
+   `storyboard.json`), and the new layout. `lib/project.mjs` became `lib/video.mjs`; on disk
+   nothing was renamed (`project/vN` tags, `.state/project.json`).
+   Tools: every video tool takes `project` and `video`, each optional when there is one; a video
+   name alone finds its project when only one project has it. New: `create_video`,
+   `get_project_instructions`, `set_project_instructions` (markdown, note, model).
+   `list_projects` returns each project's title, tags and videos (title, scenes, duration, poster,
+   latest render), read from disk without opening the videos. `get_rules` returns the project
+   instructions first, then AGENTS.md, frame.md, theme.css and the scene contract, so the chat
+   sees the pronunciation rules before it writes a script or sends a voiceover. `set_project`
+   and `get_project_files` are now `set_video` and `get_video_files`. Saving `project.md` is a
+   version (`project/vN`) in the project's own `.history`, which leaves `videos/` out; in the two
+   older layouts it goes into the video's history.
+   Page: `/` is an overview when there is more than one video (project cards with tags, tag
+   filter chips, a row per video with poster, duration, scene count and render date, + New video);
+   `?project=x&video=y` is the viewer, whose header is a breadcrumb (All projects / project /
+   video). Instructions (key `i`) opens `project.md` in a drawer with a plain monospace textarea.
+   Script (key `s`) replaces the stage with every scene's narration in one column, with timecode
+   and duration; clicking a scene goes back to the stage on it. "Narration" is called Script in
+   the page and the tool descriptions; the stored key is still `narration`.
+   Tested against a scratch root holding all three layouts (ports 4304 to 4306): the tools over
+   curl, the page with agent-browser (overview, tag filter, live update when a video is created,
+   breadcrumb, drawer save, script view, a comment and a render in the new layout, old
+   `?project=` links, page tools with the current project and video as defaults), and `claude -p`
+   over `/mcp`, which read the rules and wrote a script line that put the company name at the end
+   of the sentence as `project.md` asked.
 
 ## MCP App
 
@@ -245,7 +278,11 @@ PKCE verifier, a reused code and a tampered token are refused), and a render in 
 - Shader transitions from HyperFrames are now plain crossfades. `transitionIn.shader` is ignored.
 - Render jobs live in the server process; after a restart `get_render` without a job id still
   lists finished renders from `.state/project.json`, but old job ids are gone.
-- The page reloads when you switch project. One page is one project.
+- The page reloads when you switch project or video. One page is one video.
+- A video folder from the older layouts can't get siblings until it is moved into
+  `<project>/videos/` by hand; `create_video` says so.
+- `update_scene`, `set_video` and the other storyboard writes return the storyboard version
+  (`project/vN` in the video's history), which a chat can mistake for the scene's version.
 - claude.ai as a custom connector against a real public hostname, and Claude Code's own OAuth
   flow (no `--header`), are not tried yet; the flow they use was walked with curl.
 - Login is one password for one person. No users, no per-project access, no scopes.

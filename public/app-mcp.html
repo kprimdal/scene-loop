@@ -96,7 +96,7 @@ window.addEventListener("message", (e) => {
 function onHost(m) {
   const reply = (result) => m.id != null && send({ id: m.id, result });
   switch (m.method) {
-    case "ui/notifications/tool-input": S.args = m.params?.arguments ?? {}; if (S.args.project) S.project = S.args.project; break;
+    case "ui/notifications/tool-input": S.args = m.params?.arguments ?? {}; if (S.args.project) S.project = S.args.project; if (S.args.video) S.video = S.args.video; break;
     case "ui/notifications/tool-result": showResult(m.params); break;
     case "ui/notifications/tool-cancelled": status(`Cancelled${m.params?.reason ? `: ${m.params.reason}` : ""}`); break;
     case "ui/notifications/host-context-changed": applyContext(m.params); break;
@@ -106,9 +106,12 @@ function onHost(m) {
   }
 }
 
+// Calls go to the project and video the view is showing, when it knows them.
+const withWhere = (args) => ({ ...(S.project ? { project: S.project } : {}), ...(S.video ? { video: S.video } : {}), ...args });
+
 // A server tool, through the host. Returns { data, images, error }.
 async function callTool(name, args = {}) {
-  const r = await request("tools/call", { name, arguments: S.project ? { project: S.project, ...args } : args });
+  const r = await request("tools/call", { name, arguments: withWhere(args) });
   return parse(r);
 }
 
@@ -129,7 +132,7 @@ function parse(r) {
 }
 
 // ---------- host context: theme, fonts, size ----------
-const S = { ctx: {}, project: null, args: {}, view: null, still: 0, drawing: false, draft: null };
+const S = { ctx: {}, project: null, video: null, args: {}, view: null, still: 0, drawing: false, draft: null };
 
 function applyContext(c = {}) {
   S.ctx = { ...S.ctx, ...c };
@@ -172,6 +175,7 @@ function showResult(r) {
   if (p.error) return mount(h("p", { class: "err" }, p.error));
   const d = p.data;
   if (Array.isArray(d)) return renderScenes(d);
+  if (d?.project) (S.project = d.project), (S.video = d.video ?? S.video);
   if (d?.pending) return renderPending(d.pending, p.images);
   if (d?.versions && d?.scene) return renderScene(d, p.images);
   mount(h("pre", {}, JSON.stringify(d, null, 1)));
@@ -180,7 +184,7 @@ function showResult(r) {
 async function go(name, args) {
   status("Loading…");
   try {
-    showResult(await request("tools/call", { name, arguments: S.project ? { project: S.project, ...args } : args }));
+    showResult(await request("tools/call", { name, arguments: withWhere(args) }));
   } catch (e) {
     status(e.message, true);
   }
@@ -228,6 +232,7 @@ async function askToApply() {
 function renderScene(d, images) {
   S.view = d;
   S.project = d.project;
+  S.video = d.video ?? null;
   // Pair each still with its image by the time in the label ("… at 1.2s").
   S.frames = d.stills.map((st) => ({ t: st.t, src: images.find((i) => i.label.endsWith(` at ${st.t}s`))?.src }));
   if (S.still >= S.frames.length) S.still = 0;
@@ -252,7 +257,7 @@ function renderScene(d, images) {
       h("button", { class: "accent", id: "pinBtn", onclick: startPin, disabled: !S.frames.length }, "Pin a comment"),
     ),
     h("div", { id: "popSlot" }),
-    d.scene.narration ? h("p", { class: "narr" }, h("b", {}, "Narration "), d.scene.narration) : null,
+    d.scene.narration ? h("p", { class: "narr" }, h("b", {}, "Script "), d.scene.narration) : null,
     h("ul", { class: "list", id: "comments" }),
     h("div", { id: "status" }),
   );

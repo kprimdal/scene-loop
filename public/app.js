@@ -11,9 +11,10 @@ const h = (tag, attrs = {}, ...kids) => {
   for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : String(k));
   return el;
 };
-// Every API call carries the current project (?project=), set from the URL or the switcher.
+// Every API call carries the current project and video (?project=&video=), from the URL.
 const api = async (path, opts = {}) => {
-  if (S.project) path += (path.includes("?") ? "&" : "?") + "project=" + encodeURIComponent(S.project);
+  const q = [S.project && "project=" + encodeURIComponent(S.project), S.video && "video=" + encodeURIComponent(S.video)].filter(Boolean).join("&");
+  if (q) path += (path.includes("?") ? "&" : "?") + q;
   const r = await fetch(path, { method: opts.method ?? (opts.body ? "POST" : "GET"), headers: { "Content-Type": "application/json" }, body: opts.body ? JSON.stringify(opts.body) : undefined });
   if (r.status === 401) location.href = "/login?next=" + encodeURIComponent(location.pathname + location.search); // the login ran out (self-hosted)
   const j = await r.json();
@@ -35,9 +36,14 @@ const ago = (iso) => {
 };
 const AGENT = { claude: "Claude", codex: "Codex", chat: "Chat", manual: "Manual edit", restore: "Restore", import: "Import" };
 
+const Q = new URLSearchParams(location.search);
 const S = {
-  project: new URLSearchParams(location.search).get("project"),
+  project: Q.get("project"),
+  video: Q.get("video"),
   projects: [],
+  overview: false,
+  tag: null, // overview tag filter
+  script: false, // script view instead of the stage
   data: null,
   mode: "scene",
   sel: null,
@@ -64,55 +70,192 @@ function toast(text) {
   toast.t = setTimeout(() => (el.hidden = true), 4200);
 }
 
-// ---------- projects ----------
+// ---------- projects and videos ----------
+// A project holds videos. The page shows either the overview (every project, its tags and
+// videos) or the viewer for one video. Moving between them loads a fresh page.
+const proj = (name = S.project) => S.projects.find((p) => p.name === name);
+const videoCount = () => S.projects.reduce((n, p) => n + p.videos.length, 0);
+const videoUrl = (project, video, extra = {}) => "/?" + new URLSearchParams({ project, video, ...extra });
+const go = (url) => (location.href = url);
+
 async function loadProjects() {
   const r = await fetch("/api/projects").then((x) => x.json());
   S.projects = r.projects;
   S.single = r.single;
-  if (!S.projects.some((p) => p.name === S.project)) S.project = S.projects[0]?.name ?? null;
-  const sel = $("#projectSel");
-  sel.replaceChildren(...S.projects.map((p) => h("option", { value: p.name, selected: p.name === S.project }, p.title === p.name ? p.name : `${p.title} (${p.name})`)));
-  $("#newProject").hidden = r.single;
-  $("#empty").hidden = !!S.project;
-  document.body.classList.toggle("no-project", !S.project);
-  $("#empty").textContent = S.project ? "" : `No projects in ${r.root}. Click New project, or ask the chat to create_project.`;
-  return !!S.project;
+  S.root = r.root;
 }
 
-function switchProject(name) {
-  const u = new URL(location.href);
-  u.searchParams.set("project", name);
-  location.href = u; // a fresh page: the player, versions and chat all belong to one project
+// Which view the URL means. /?all=1 is the overview; / is the overview when there is more
+// than one video in all, else the viewer on the only one. A project alone opens its only video.
+function pickView() {
+  if (Q.has("all") || !videoCount()) return false;
+  if (!S.project && S.video) S.project = S.projects.find((p) => p.videos.some((v) => v.name === S.video))?.name ?? null;
+  if (!S.project) {
+    if (S.projects.length !== 1) return false;
+    S.project = S.projects[0].name;
+  }
+  const p = proj();
+  if (!p) return (toast(`No project ${S.project}`), (S.project = S.video = null), false);
+  if (!S.video) {
+    if (p.videos.length !== 1 && !(Q.get("project") && p.videos.length)) return false;
+    S.video = p.videos[0].name;
+  }
+  if (!p.videos.some((v) => v.name === S.video)) return (toast(`No video ${S.video} in ${p.title}`), (S.video = null), false);
+  return true;
 }
 
-$("#projectSel").onchange = (e) => switchProject(e.target.value);
-$("#newProject").onclick = async () => {
+function renderCrumbs() {
+  const p = proj();
+  const many = S.projects.length > 1 || videoCount() > 1;
+  $("#allProjects").hidden = $("#allSep").hidden = !many;
+  $("#projectSel").replaceChildren(...S.projects.filter((x) => x.videos.length).map((x) => h("option", { value: x.name, selected: x.name === S.project }, x.title)));
+  $("#videoSel").replaceChildren(...p.videos.map((v) => h("option", { value: v.name, selected: v.name === S.video }, v.title)));
+}
+
+$("#projectSel").onchange = (e) => go(videoUrl(e.target.value, proj(e.target.value).videos[0].name));
+$("#videoSel").onchange = (e) => go(videoUrl(S.project, e.target.value));
+
+async function newProject() {
   const name = prompt("Folder name for the new project (letters, digits, - _ .):");
   if (!name) return;
   try {
-    const r = await api("/api/tools/create_project", { body: { args: { name }, via: "page-js" } });
-    switchProject(r.name);
+    await api("/api/tools/create_project", { body: { args: { name, title: name }, via: "page-js" } });
+    await newVideo(name);
   } catch (e) {
     toast(e.message);
   }
-};
+}
+
+async function newVideo(project) {
+  const name = prompt(`Folder name for a new video in ${project} (letters, digits, - _ .):`, "video-1");
+  if (!name) return;
+  try {
+    await api("/api/tools/create_video", { body: { args: { project, name, title: name }, via: "page-js" } });
+    go(videoUrl(project, name));
+  } catch (e) {
+    toast(e.message);
+  }
+}
+$("#newProject").onclick = newProject;
+
+// ---------- overview ----------
+function renderOverview() {
+  const tags = new Map();
+  for (const p of S.projects) for (const t of p.tags) tags.set(t, (tags.get(t) ?? 0) + 1);
+  if (S.tag && !tags.has(S.tag)) S.tag = null;
+  const shown = S.projects.filter((p) => !S.tag || p.tags.includes(S.tag));
+  $("#ovCount").textContent = `${S.projects.length} project${S.projects.length === 1 ? "" : "s"} · ${videoCount()} video${videoCount() === 1 ? "" : "s"}`;
+  $("#tagChips").replaceChildren(
+    ...(tags.size
+      ? [
+          h("button", { class: `chip ${S.tag ? "" : "on"}`, onclick: () => ((S.tag = null), renderOverview()) }, "All"),
+          ...[...tags].sort(([a], [b]) => a.localeCompare(b)).map(([t, n]) => h("button", { class: `chip ${S.tag === t ? "on" : ""}`, onclick: () => ((S.tag = S.tag === t ? null : t), renderOverview()) }, t, h("span", {}, n))),
+        ]
+      : []),
+  );
+  if (!S.projects.length) {
+    $("#ovGrid").replaceChildren(h("div", { class: "ov-empty" }, S.single ? "No video here." : `No projects in ${S.root} yet. Click New project, or ask the chat to create_project.`));
+    return;
+  }
+  $("#ovGrid").replaceChildren(
+    ...shown.map((p) =>
+      h(
+        "article",
+        { class: "pcard" },
+        h(
+          "div",
+          { class: "pcard-head" },
+          h("div", {}, h("h2", {}, p.title), h("div", { class: "muted small" }, `${p.name} · ${p.videos.length} video${p.videos.length === 1 ? "" : "s"}`)),
+          h("div", { class: "spacer" }),
+          h("button", { class: "btn small", title: "The project's instructions for the chat", onclick: () => openInstructions(p.name) }, p.instructions ? "Instructions" : "Add instructions"),
+        ),
+        p.tags.length ? h("div", { class: "tags" }, p.tags.map((t) => h("span", { class: "tag" }, t))) : null,
+        h(
+          "div",
+          { class: "vrows" },
+          p.videos.length
+            ? p.videos.map((v) => {
+                const f = v.fps || 30;
+                const frames = Math.round(v.duration * f), secs = Math.floor(frames / f);
+                const dur = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}:${String(frames - secs * f).padStart(2, "0")}`;
+                return h(
+                  "a",
+                  { class: "vrow", href: videoUrl(p.name, v.name) },
+                  v.poster ? h("img", { src: v.poster, alt: "", loading: "lazy" }) : h("div", { class: "noimg" }),
+                  h("div", { style: "min-width:0" }, h("b", {}, v.title), h("div", { class: "muted small" }, v.name)),
+                  h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${v.scenes} scene${v.scenes === 1 ? "" : "s"}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered")),
+                );
+              })
+            : h("div", { class: "novideos" }, "No videos yet."),
+        ),
+        p.layout === "project" ? h("div", { class: "pcard-foot" }, h("button", { class: "btn ghost small", onclick: () => newVideo(p.name) }, "+ New video")) : null,
+      ),
+    ),
+  );
+}
+
+// ---------- project instructions (project.md) ----------
+let insProject = null;
+let insLoaded = "";
+async function openInstructions(project = S.project) {
+  try {
+    const r = await api(`/api/tools/get_project_instructions`, { body: { args: { project }, via: "page-js" } });
+    insProject = r.project;
+    insLoaded = r.markdown ?? r.starter;
+    $("#insText").value = insLoaded;
+    $("#drawerSub").textContent = `${r.title} · ${r.file}`;
+    $("#insState").textContent = r.markdown == null ? "No project.md yet. Save makes one." : "";
+    $("#drawer").hidden = $("#drawerShade").hidden = false;
+    $("#insText").focus();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+function closeInstructions(force) {
+  if (!force && $("#insText").value !== insLoaded && !confirm("Close without saving your changes?")) return;
+  $("#drawer").hidden = $("#drawerShade").hidden = true;
+}
+
+async function saveInstructions() {
+  try {
+    $("#insState").textContent = "Saving…";
+    const r = await api(`/api/tools/set_project_instructions`, { body: { args: { project: insProject, markdown: $("#insText").value, note: "edited in the page", model: S.reviewer }, via: "page-js" } });
+    insLoaded = $("#insText").value;
+    $("#insState").textContent = r.unchanged ? "No changes." : `Saved as project v${r.version}.`;
+    await loadProjects();
+    if (S.overview) renderOverview();
+    else renderCrumbs();
+  } catch (e) {
+    $("#insState").textContent = e.message;
+  }
+}
+
+$("#instructionsBtn").onclick = () => openInstructions();
+$("#drawerClose").onclick = $("#insCancel").onclick = $("#drawerShade").onclick = () => closeInstructions();
+$("#insSave").onclick = saveInstructions;
+$("#insText").addEventListener("keydown", (e) => {
+  if (e.key === "s" && (e.metaKey || e.ctrlKey)) (e.preventDefault(), saveInstructions());
+  if (e.key === "Escape") closeInstructions();
+});
 
 // ---------- data ----------
 async function refresh() {
-  if (!S.project) return;
+  if (S.overview) return;
   S.data = await api("/api/project");
   if (!S.data.scenes.some((s) => s.id === S.sel)) {
-    // first open, or the selected scene was removed: move to the first one, chat included
-    S.sel = S.data.scenes[0].id;
+    // first open, or the selected scene was removed: move to the one in the URL or the first, chat included
+    S.sel = S.data.scenes.find((s) => s.id === Q.get("scene"))?.id ?? S.data.scenes[0].id;
     S.compare = null;
     loadChat();
   }
   document.title = `${S.data.title} · Scene loop`;
-  $("#meta").textContent = `${S.data.scenes.length} scenes · ${S.data.duration.toFixed(1)}s`;
+  $("#meta").textContent = `${S.data.scenes.length} scenes · ${tc(S.data.duration)}`;
   renderFilmstrip();
   renderVersions();
   renderPanel();
   renderRenders();
+  if (S.script) renderScript();
   await loadPlayer();
 }
 
@@ -242,6 +385,7 @@ function renderFilmstrip() {
 
 function selectScene(id, fromStrip) {
   S.sel = id;
+  if (S.script) renderScript();
   S.compare = null;
   if (S.mode === "whole" && fromStrip) player.seek(scene(id).start + 0.02);
   renderFilmstrip();
@@ -265,7 +409,7 @@ function renderVersions() {
   $("#viewing").replaceChildren(
     S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
   );
-  $("#narration").replaceChildren(h("b", {}, "Narration "), sc.narration ?? "");
+  $("#narration").replaceChildren(h("b", {}, "Script "), sc.narration ?? "");
   const box = $("#versions");
   box.replaceChildren(
     ...sc.versions.map((v) => {
@@ -531,8 +675,46 @@ $("#renderBtn").onclick = async () => {
   }
 };
 
+// ---------- script view ----------
+// Every scene's narration in order, one readable column in place of the stage. Clicking a
+// scene selects it and goes back to the stage.
+function setScript(on = !S.script) {
+  S.script = on;
+  if (on) player.pause();
+  document.body.classList.toggle("scripting", on);
+  $("#scriptBtn").classList.toggle("on", on);
+  $("#script").hidden = !on;
+  if (on) renderScript();
+  else loadPlayer();
+}
+
+function renderScript() {
+  const words = S.data.scenes.reduce((n, s) => n + (s.narration?.trim().split(/\s+/).filter(Boolean).length ?? 0), 0);
+  const text = S.data.scenes.map((s, i) => `${i + 1}. ${s.title} (${tc(s.start)})\n${s.narration ?? ""}`).join("\n\n");
+  $("#script").replaceChildren(
+    h(
+      "div",
+      { class: "script-head" },
+      h("h2", {}, "Script"),
+      h("span", { class: "muted" }, `${S.data.title} · ${S.data.scenes.length} scenes · ${tc(S.data.duration)} · ${words} words`),
+      h("div", { class: "spacer" }),
+      h("button", { class: "btn ghost small", onclick: () => navigator.clipboard.writeText(text).then(() => toast("Script copied.")) }, "Copy"),
+    ),
+    ...S.data.scenes.map((s, i) =>
+      h(
+        "div",
+        { class: `script-row ${s.id === S.sel ? "on" : ""}`, "data-id": s.id, title: "Show this scene", onclick: () => (selectScene(s.id, true), setScript(false)) },
+        h("div", { class: "tc" }, tc(s.start), h("span", {}, `${s.duration.toFixed(2)} s`)),
+        h("div", {}, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), s.narration?.trim() ? h("p", {}, s.narration) : h("p", { class: "none" }, "No script for this scene yet.")),
+      ),
+    ),
+  );
+}
+$("#scriptBtn").onclick = () => setScript();
+
 // ---------- modes, transport, keys ----------
 function setMode(mode) {
+  if (S.script) setScript(false);
   S.mode = mode;
   document.querySelectorAll("#modeSeg button").forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
   if (mode === "whole") S.pendingSeek = scene().start + 0.02;
@@ -560,7 +742,11 @@ $("#track").addEventListener("mousedown", (e) => {
 
 window.addEventListener("keydown", (e) => {
   if (/TEXTAREA|INPUT/.test(document.activeElement?.tagName) || e.repeat || e.metaKey || e.ctrlKey) return;
+  if (!$("#drawer").hidden) return;
   if (e.key === "Escape") return closePop();
+  if (e.key === "i" && !S.overview) return openInstructions();
+  if (S.overview) return;
+  if (e.key === "s") return setScript();
   if (e.key === " ") (e.preventDefault(), player.paused === false ? player.pause() : player.play());
   if (e.key === "c") startComment();
   if (e.key === "f") flip();
@@ -576,9 +762,13 @@ window.addEventListener("keydown", (e) => {
 // ---------- live updates ----------
 const es = new EventSource("/api/events");
 let refreshT;
-const mine = (m) => { const d = JSON.parse(m.data || "{}"); return !d.project || d.project === S.project; };
-es.addEventListener("projects", () => loadProjects());
+const mine = (m) => { const d = JSON.parse(m.data || "{}"); return !S.overview && (!d.project || (d.project === S.project && (!d.video || d.video === S.video))); };
+// The overview follows every change (new projects and videos, posters, renders), debounced.
+let ovT;
+const overviewLater = () => S.overview && (clearTimeout(ovT), (ovT = setTimeout(() => loadProjects().then(renderOverview), 400)));
+es.addEventListener("projects", () => (S.overview ? overviewLater() : loadProjects().then(renderCrumbs)));
 es.addEventListener("project", (m) => {
+  overviewLater();
   if (!mine(m)) return;
   clearTimeout(refreshT);
   refreshT = setTimeout(refresh, 150);
@@ -591,6 +781,7 @@ es.addEventListener("chat", (m) => {
   renderChat();
 });
 es.addEventListener("render", (m) => {
+  if (JSON.parse(m.data).state === "done") overviewLater();
   if (!mine(m)) return;
   const d = JSON.parse(m.data);
   $("#renderState").textContent = d.state === "progress" ? `Rendering ${d.pct}%` : d.state === "start" ? "Rendering…" : d.state === "done" ? "Render done" : d.state === "failed" ? "Render failed" : "";
@@ -601,15 +792,21 @@ es.addEventListener("toast", (m) => mine(m) && toast(JSON.parse(m.data).text));
 
 // ---------- tools for a browser agent next to the page ----------
 // The tool list comes from the server (lib/tools.mjs), the same one the MCP endpoint
-// serves, and every call goes to POST /api/tools/<name> for the current project. Only
+// serves, and every call goes to POST /api/tools/<name> for the current video. Only
 // show_scene, which drives this page's player, is defined here. Registered with WebMCP
 // when the browser supports it (ChatGPT desktop "Site tools", Chrome origin trial), and
 // always exposed as window.sceneLoop for agents that can run page JavaScript.
 const serverTools = (await api("/api/tools")).map((t) => ({ ...t, execute: (args, via) => api(`/api/tools/${t.name}`, { body: { args, via } }) }));
 const TOOLS = [
   ...serverTools,
-  { name: "show_scene", description: "Show a scene in the preview at a time in seconds (scene time), so the reviewer sees it.", inputSchema: { type: "object", properties: { scene: { type: "string", description: "Scene id" }, t: { type: "number" } }, required: ["scene"] },
-    execute: async ({ scene, t = 0 }) => { if (S.mode !== "scene") setMode("scene"); selectScene(scene); delete S.view[scene]; await loadPlayer(true); player.seek(t); return { shown: scene, t }; } },
+  { name: "show_scene", description: "Show a scene in the preview at a time in seconds (scene time), so the reviewer sees it. With another project or video (or from the overview) the page opens that video first.", inputSchema: { type: "object", properties: { project: { type: "string" }, video: { type: "string" }, scene: { type: "string", description: "Scene id" }, t: { type: "number" } }, required: ["scene"] },
+    execute: async ({ project, video, scene, t = 0 }) => {
+      if (S.overview || (project && project !== S.project) || (video && video !== S.video)) {
+        setTimeout(() => go(videoUrl(project ?? S.project, video ?? S.video, { scene })), 50);
+        return { opening: { project: project ?? S.project, video: video ?? S.video, scene } };
+      }
+      if (S.mode !== "scene") setMode("scene"); if (S.script) setScript(false); selectScene(scene); delete S.view[scene]; await loadPlayer(true); player.seek(t); return { shown: scene, t };
+    } },
 ];
 window.sceneLoop = Object.fromEntries(TOOLS.map((t) => [t.name, (args = {}) => t.execute(args, "page-js")]));
 window.sceneLoop.help = () => TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
@@ -626,8 +823,17 @@ if (mc?.registerTool) {
 document.documentElement.dataset.webmcp = mc?.registerTool ? "registered" : "unavailable";
 
 S.reviewer = (await api("/api/whoami")).reviewer;
-if (await loadProjects()) {
+await loadProjects();
+if (pickView()) {
+  renderCrumbs();
   await refresh();
   await loadChat();
   requestAnimationFrame(tick);
+} else {
+  S.overview = true;
+  document.body.classList.add("overview-mode");
+  $(".main").hidden = $("#filmstrip").hidden = true;
+  $("#overview").hidden = false;
+  document.title = "Projects · Scene loop";
+  renderOverview();
 }

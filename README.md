@@ -21,7 +21,10 @@ get a new version back.
 
 ## What it does
 
+- Projects that hold videos. A project has instructions for the chat in `project.md` (how names
+  are pronounced, tone, brand) and tags; the overview shows every project and its videos.
 - Filmstrip of scenes, a preview with This scene / Whole video, and an activity panel per scene.
+- A Script view: every scene's script in one readable column, with timecodes.
 - Pause, drag a box on the frame, write a comment. The chat picks open comments up with a still of
   each frame and the box drawn on it.
 - Every change the chat saves becomes a new version with 5 stills. You can compare versions, flip
@@ -47,9 +50,11 @@ Claude Desktop takes it as a stdio bridge in
 A custom connector in Desktop's settings won't reach `localhost`; those are called from
 Anthropic's cloud. `docs/server-and-mcp.md` has the details.
 
-Then Claude has the tools: list and create projects, project settings, create, reorder and remove
-scenes, a theme and design spec for all scenes, read and write a scene, stills, pending comments,
-render. Stills come back as images in the tool result, so Claude sees its own frames in
+Then Claude has the tools: list and create projects and videos, read and write the project
+instructions, video settings, create, reorder and remove scenes, a theme and design spec for all
+scenes, read and write a scene, stills, pending comments, render. `get_rules` returns the
+project instructions first, so the chat sees how to say the names before it writes a script or
+sends one to a voice service. Stills come back as images in the tool result, so Claude sees its own frames in
 the chat. Comments you pin in the page come through `get_pending_comments` with a still of the
 frame and the box drawn on it. Every write becomes a version that records the model and the
 channel it came through (`mcp`, `webmcp` or `page-js`).
@@ -87,9 +92,14 @@ open http://localhost:4300
 ```
 
 `~/videos` is a projects root: one folder per project, created with `create_project` from the
-chat or the New project button. Each project keeps its own versions, comments and renders. Point
-the server at a folder that has a `storyboard.json` instead and it serves that one project, as
-before (`cp -R templates/project ~/videos/my-video` makes one).
+chat or the New project button, and inside it one folder per video (`create_video`, or + New
+video on the overview). Each video keeps its own versions, comments and renders. `/` shows the
+overview when there is more than one video; `?project=x&video=y` opens one.
+
+Older layouts still work without moving anything. Point the server at a folder that has a
+`storyboard.json` and it serves that one video. A root whose folders each have a `storyboard.json`
+serves each as a project with one video of the same name; a `project.md` next to the
+`storyboard.json` gives it instructions.
 
 On a server: `docker compose up -d` with the `Dockerfile` and `docker-compose.yml` here, or
 `node server.mjs ~/videos --host 0.0.0.0` with `SCENE_LOOP_PASSWORD` set. Anything beyond
@@ -101,8 +111,17 @@ Cloudflare Tunnel.
 ## Project format
 
 ```
+<project>/
+  project.md           instructions for the chat (pronunciation, voice, tone, brand); the
+                       frontmatter has title and tags. Edited from Instructions in the page.
+  videos/<video>/      one video, laid out as below
+```
+
+A video:
+
+```
 storyboard.json        title, size, colours, soundtrack, and the scenes with start, duration,
-                       transition and narration
+                       transition and narration (the script; the key stays `narration`)
 scenes/<id>/scene.html one scene: <template>, a <style>, a root div with
                        data-composition-id="<id>"; motion is CSS animations (or Web
                        Animations), timed in seconds from the scene start
@@ -114,6 +133,7 @@ theme.css              optional, applied after every scene's styles
 
 The app keeps its own state next to that: versions in a private git dir (`.history`), comments,
 chats and a metrics log in `.state`, builds and render clips in `.build`, renders in `renders`.
+A project folder has a `.history` of its own for `project.md`.
 
 How a scene moves: every `@keyframes` animation, `el.animate()` and `<video>` in the page is paused
 and set to the frame's time by the page clock (`lib/clock.js`), the same in the preview, the stills

@@ -5,8 +5,9 @@
 // stills, previews and renders. It never calls a model and holds no keys.
 //
 //   node server.mjs <dir> [--port 4300] [--host 127.0.0.1] [--reviewer Name] [--password ...]
-//   <dir> with a storyboard.json: one project. Any other dir: a projects root, one
-//   folder per project (create_project makes them from templates/project).
+//   <dir> is a projects root: one folder per project, each with project.md and
+//   videos/<video>/ (create_project, create_video). A <dir> with a storyboard.json is one
+//   video, and a root whose folders have one is one video per project; both still work.
 //   A --host beyond loopback needs a login (SCENE_LOOP_PASSWORD); see lib/auth.mjs.
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
@@ -60,7 +61,8 @@ const mcp = createMcp({
   serverInfo: { name: "scene-loop", version: VERSION },
   instructions:
     "scene-loop makes videos scene by scene. Scenes are HTML files; every write becomes a version with stills, and a reviewer pins comments on frames in the web UI. " +
-    "Call get_rules first for the scene contract and the project's rules. Use list_projects to see projects; pass `project` when there is more than one. " +
+    "Projects hold videos. Call get_rules first: the project's instructions (how names are pronounced, voice, tone) come first and hold for every script and voiceover, then the video's rules and the scene contract. " +
+    "Use list_projects to see projects and their videos; pass `project` and `video` when there is more than one. " +
     "After write_scene_html, call get_stills to see the frames. Comments from the reviewer come through get_pending_comments with a still each; pass their ids in resolves when you apply them. " +
     "Pass your model name in `model` on writes. render starts a job; poll get_render.",
 });
@@ -95,13 +97,13 @@ function inside(root, p) {
   return f.startsWith(root) ? f : null;
 }
 
-// UI routes. Each gets (match, query, body, ctx); ctx.p is the project from ?project=
-// (or the only one). The page's agent tools go through /api/tools instead.
+// UI routes. Each gets (match, query, body, ctx); ctx.p() is the video from ?project= and
+// ?video= (or the only one). The page's agent tools go through /api/tools instead.
 const routes = [
   ["GET", /^\/api\/projects$/, async () => ({ projects: await registry.list(), single: registry.single, root: registry.root })],
   ["GET", /^\/api\/whoami$/, async () => ({ reviewer: REVIEWER })],
   ["GET", /^\/api\/tools$/, async () => toolList()],
-  ["POST", /^\/api\/tools\/([\w-]+)$/, async (m, q, b, ctx) => withoutFiles(await callTool(m[1], b.args ?? {}, { registry, via: ["webmcp", "page-js"].includes(b.via) ? b.via : "api", origin: ctx.origin, project: ctx.projectName }))],
+  ["POST", /^\/api\/tools\/([\w-]+)$/, async (m, q, b, ctx) => withoutFiles(await callTool(m[1], b.args ?? {}, { registry, via: ["webmcp", "page-js"].includes(b.via) ? b.via : "api", origin: ctx.origin, defaults: { project: ctx.projectName, video: ctx.videoName } }))],
   ["GET", /^\/api\/project$/, async (m, q, b, ctx) => (q.get("sync") ? await ctx.p().then((p) => p.commitManualEdits()) : null, (await ctx.p()).view())],
   ["GET", /^\/api\/chat\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).chat(m[1])],
   ["GET", /^\/api\/build\/scene\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).sceneBuildUrl(m[1], q.get("v"))],
@@ -126,16 +128,17 @@ const server = createServer(async (req, res) => {
       return;
     }
     const projectName = url.searchParams.get("project") || null;
-    const ctx = { origin, projectName, p: () => registry.resolve(projectName) };
+    const videoName = url.searchParams.get("video") || null;
+    const ctx = { origin, projectName, videoName, p: () => registry.resolve(projectName, videoName) };
     for (const [method, re, fn] of routes) {
       const m = url.pathname.match(re);
       if (m && req.method === method) return send(res, 200, await fn(m, url.searchParams, req.method === "GET" ? {} : await body(req), ctx));
     }
-    // /p/<project>/... project files (builds, stills, assets); /renders/<project>/<file> renders
-    const pm = url.pathname.match(/^\/(p|renders)\/([^/]+)\/(.*)$/);
+    // /p/<project>/<video>/... video files (builds, stills, assets); /renders/<project>/<video>/<file> renders
+    const pm = url.pathname.match(/^\/(p|renders)\/([^/]+)\/([^/]+)\/(.*)$/);
     if (pm) {
-      const p = await registry.get(decodeURIComponent(pm[2]));
-      const f = inside(pm[1] === "p" ? p.dir : p.rendersDir, pm[3]);
+      const d = registry.dirOfVideo(decodeURIComponent(pm[2]), decodeURIComponent(pm[3]));
+      const f = inside(pm[1] === "p" ? d : join(d, "renders"), pm[4]);
       return f ? serveFile(req, res, f) : send(res, 403, {});
     }
     const f = inside(join(appDir, "public"), url.pathname === "/" ? "index.html" : url.pathname.slice(1));
@@ -147,9 +150,10 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, HOST, async () => {
   const names = registry.names();
+  const videos = names.flatMap((n) => registry.videoNames(n).map((v) => [n, v]));
   const shown = `http://${["0.0.0.0", "::", "127.0.0.1"].includes(HOST) ? "localhost" : HOST.includes(":") ? `[${HOST}]` : HOST}:${PORT}`;
-  console.log(`scene-loop ${VERSION} on ${shown}${HOST === "127.0.0.1" ? "" : ` (listening on ${HOST})`}  (${registry.single ? `project ${rootArg}` : `${names.length} project(s) in ${rootArg}`})`);
+  console.log(`scene-loop ${VERSION} on ${shown}${HOST === "127.0.0.1" ? "" : ` (listening on ${HOST})`}  (${registry.single ? `one video in ${rootArg}` : `${names.length} project(s), ${videos.length} video(s) in ${rootArg}`})`);
   console.log(auth.enabled ? `Login on. MCP needs a bearer token or the OAuth flow; see docs/self-host.md.` : `MCP: claude mcp add --transport http scene-loop ${shown}/mcp`);
   if (auth.generated) console.log("No SCENE_LOOP_SECRET set: sessions and tokens end when the server restarts.");
-  for (const n of names) registry.get(n).catch((e) => console.error(`${n}: ${e.message}`)); // opens and warms posters in the background
+  for (const [n, v] of videos) registry.get(n, v).catch((e) => console.error(`${n}/${v}: ${e.message}`)); // opens and warms posters in the background
 });
