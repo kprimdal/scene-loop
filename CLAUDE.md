@@ -27,3 +27,15 @@ Read `README.md` first. Kristian's own video tool, built in the open.
 - Lab notes and measurements go to video-lab (`~/Websites/Primux/video-lab`), one experiment per
   folder with a `findings.md`.
 - Don't push without Kristian's go.
+
+## Producing a video
+
+- **Narration is rendered last, once.** Paid text-to-speech (ElevenLabs) only runs after Kristian
+  has approved the script word for word. Until then, preview with a free local voice (`say` on
+  the Mac, `piper` if installed), or one short paid sample when the choice of voice itself is the
+  question. Rule set 2026-10-02 after a demo narration was rendered twice because the script
+  changed after the first render.
+- Script first, then screen recording, then assembly. The narration length sets each scene's
+  duration, so a changed script means re-timing every scene after it.
+- Keep per-scene narration as separate audio files named after the scene id, so a change to one
+  block re-renders one block.
