@@ -30,6 +30,17 @@ scene-loop (your Mac, or your own server / Docker)
   claude.ai on the web and mobile call connectors from Anthropic's cloud, so they only work when
   someone runs scene-loop on a public server with a login in front.
 
+## Page code
+
+`public/app.js` boots the page; `public/js/util.js` holds DOM and formatting helpers; `state.js`
+holds shared state, API access and timecode helpers; `projects.js` handles navigation and the
+overview; `instructions.js` owns the project.md drawer; `data.js` refreshes the current video;
+`stage.js` owns the preview, timeline and transport; `filmstrip.js` selects scenes; `versions.js`
+shows, compares and restores versions; `comments.js` pins frame comments; `panel.js` renders scene
+activity and notes; `renders.js` starts and lists renders; `script.js` edits and agrees the script;
+`keys.js` owns keyboard shortcuts; `live.js` applies server-sent updates; and `tools.js` exposes the
+page tools through WebMCP and `window.sceneLoop`.
+
 ## Projects and access
 
 - Several projects per instance, each holding videos (step 7): `list_projects`, `create_project`,
@@ -49,7 +60,7 @@ scene-loop (your Mac, or your own server / Docker)
    dir is a projects root with one folder per project, opened lazily. `list_projects`,
    `create_project` (from `templates/project`) and a `project` argument on the rest, optional
    when there is one project. The page fetches the same list from `/api/tools` and calls
-   `POST /api/tools/<name>`; only `show_scene` stays in `public/app.js`. The page has a project
+   `POST /api/tools/<name>`; only `show_scene` stays in `public/js/tools.js`. The page has a project
    switcher (`?project=`).
 2. **MCP endpoint** `/mcp`. Done 2026-10-01, hand-rolled in `lib/mcp.mjs`: JSON-RPC over POST,
    one JSON response per request, no session id, `initialize`, `notifications/initialized`,

@@ -12,7 +12,7 @@ Read `README.md` first. Kristian's own video tool, built in the open.
   as separate programs. Note any new third-party code in `NOTICE.md`.
 - **No npm install today.** Plain Node 22 ESM, no build step. Adding a dependency is a decision.
 - **The agent is the chat next to the page** (Claude Code desktop or the ChatGPT desktop app's
-  built-in browser) through the page tools in `public/app.js` (WebMCP + `window.sceneLoop`). The
+  built-in browser) through the page tools in `public/js/tools.js` (WebMCP + `window.sceneLoop`). The
   server never calls a model and holds no keys.
 - **Direction:** HTML scenes with CSS/WAAPI motion, rendered by our own renderer (`lib/chrome.mjs`,
   `lib/clock.js`, `lib/render.mjs`: Chrome over CDP, frozen clock, ffmpeg, per-scene clip cache).
