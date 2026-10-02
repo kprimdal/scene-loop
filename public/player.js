@@ -30,8 +30,10 @@ class ScenePlayer extends HTMLElement {
     return this._t;
   }
 
+  // Every set of src loads, even to the same URL: the page sets it only when the build
+  // behind it changed (a new version, theme, duration or order).
   attributeChangedCallback(name, old, src) {
-    if (src && src !== old) this._load(src);
+    if (src) this._load(src);
   }
 
   async _load(src) {

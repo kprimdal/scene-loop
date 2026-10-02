@@ -96,7 +96,12 @@ $("#newProject").onclick = async () => {
 async function refresh() {
   if (!S.project) return;
   S.data = await api("/api/project");
-  S.sel ??= S.data.scenes[0].id;
+  if (!S.data.scenes.some((s) => s.id === S.sel)) {
+    // first open, or the selected scene was removed: move to the first one, chat included
+    S.sel = S.data.scenes[0].id;
+    S.compare = null;
+    if (S.tab === "scene") loadChat();
+  }
   document.title = `${S.data.title} · Scene loop`;
   $("#meta").textContent = `${S.data.scenes.length} scenes · ${S.data.duration.toFixed(1)}s`;
   renderFilmstrip();
@@ -109,7 +114,9 @@ async function refresh() {
 // ---------- player ----------
 async function loadPlayer(force = false) {
   const sc = scene();
-  const key = S.mode === "scene" ? `scene:${sc.id}:v${viewed(sc)}` : `whole:${S.wholeMode}:${S.data.scenes.map((s) => (S.wholeMode === "approved" ? s.approved ?? latest(s) : latest(s))).join(",")}`;
+  // Keyed on what the build depends on: the scene and version, or every picked version, plus
+  // the project stamp (storyboard and theme), so a theme, duration or order change reloads.
+  const key = (S.mode === "scene" ? `scene:${sc.id}:v${viewed(sc)}` : `whole:${S.wholeMode}:${S.data.scenes.map((s) => (S.wholeMode === "approved" ? s.approved ?? latest(s) : latest(s))).join(",")}`) + `:${S.data.stamp}`;
   if (key === S.loadedKey && !force) return;
   const [mode, sub] = key.split(":");
   const sameView = S.loadedKey?.startsWith(`${mode}:${sub}:`);

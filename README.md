@@ -74,7 +74,7 @@ model itself and holds no keys.
 
 Needs Node 22, ffmpeg and Chrome. No npm install. Best is chrome-headless-shell
 (`npx @puppeteer/browsers install chrome-headless-shell@stable`), which scene-loop finds in
-`~/.cache`; a normal Google Chrome or Chromium works too. `CHROME_PATH` picks a specific one.
+`~/.cache`; a normal Google Chrome or Chromium works too. `CHROME_PATH` picks a specific one, `CHROME_FLAGS` adds flags.
 It listens on 127.0.0.1 only, with no login. Run it on your own machine, or your own server or
 Docker if you want it elsewhere. Nobody hosts it for you.
 
@@ -136,8 +136,8 @@ as CSS animations" and compare the stills.
 
 Rendering: each scene renders to its own clip, `.build/clips/<id>-v<version>-<key>.mp4`, frames
 split over parallel Chrome pages (`SCENE_LOOP_PARALLEL`, default up to 8). A clip is reused until
-the scene, the theme, the size or its place on the frame grid changes, so after one edit only that
-scene renders again. The whole video is the clips joined with ffmpeg crossfades (`transitionIn:
+the scene, the theme, the size, a file in `assets/` or its place on the frame grid changes, so after
+one edit only that scene renders again (an asset change renders every scene again). The whole video is the clips joined with ffmpeg crossfades (`transitionIn:
 { "duration": 0.6 }` by default, `{ "type": "cut" }` for a hard cut) and the soundtrack.
 
 The server is `server.mjs`; the tools are defined once in `lib/tools.mjs` and served on `/mcp`

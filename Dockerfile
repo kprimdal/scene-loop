@@ -24,7 +24,11 @@ RUN printf '%s\n' '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd">
       '<alias><family>serif</family><prefer><family>Liberation Serif</family></prefer></alias>' \
       '</fontconfig>' > /etc/fonts/local.conf
 
+# No Chromium sandbox in the container: it needs user namespaces, which Docker's default
+# seccomp profile blocks, so Chromium would refuse to start. The browser only ever loads the
+# projects' own scenes, and the server runs as the unprivileged node user.
 ENV CHROME_PATH=/usr/bin/chromium \
+    CHROME_FLAGS=--no-sandbox \
     NODE_ENV=production \
     SCENE_LOOP_HOST=0.0.0.0
 

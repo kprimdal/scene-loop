@@ -12,7 +12,11 @@ docker build -t scene-loop .
 
 Debian slim with Node 22, Debian's Chromium, ffmpeg, git and fonts, and the app in `/app`.
 Debian's Chromium rather than Google Chrome because Google ships no Linux build for arm64.
-`CHROME_PATH` points at it; set it to use another browser.
+`CHROME_PATH` points at it; set it to use another browser. The image runs Chromium with
+`--no-sandbox` (through `CHROME_FLAGS`): its sandbox needs user namespaces, which Docker's default
+seccomp profile blocks. The browser only loads the projects' own scenes, as the unprivileged node
+user. If you run the container with a seccomp profile that allows user namespaces, set
+`CHROME_FLAGS=` to get the sandbox back.
 
 Measured 2026-10-01 on an M-series Mac (arm64, Docker Desktop 28) with the base image already
 pulled, when the image still fetched HyperFrames (215 MB, since removed): about 60 seconds from

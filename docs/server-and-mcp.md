@@ -69,8 +69,8 @@ scene-loop (your Mac, or your own server / Docker)
    stills (seek, `Page.captureScreenshot`) and clips (JPEG frames piped into ffmpeg, a scene
    split into chunks of at most 30 frames over parallel pages, segments joined without
    re-encoding), and joins clips with `xfade` and the soundtrack. Clips are cached in
-   `.build/clips/<id>-v<version>-<key>.mp4`; the key hashes the theme, size, fps, frame span and
-   the clock. `public/player.js` is the preview: an iframe over the build, the same clock, the
+   `.build/clips/<id>-v<version>-<key>.mp4`; the key hashes the theme, size, fps, frame span,
+   the clock and the files in `assets/` (names, sizes, mtimes). `public/player.js` is the preview: an iframe over the build, the same clock, the
    soundtrack in the parent page. The HyperFrames player, runtime and shader transitions are gone.
    Render progress is frames done (90%) plus the ffmpeg join (10%). Numbers, AI for begyndere
    (9 scenes, 55 s, M4 Pro): whole render 24 to 28 s against 425 s with HyperFrames, 6 s when
