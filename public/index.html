@@ -13,21 +13,36 @@
         <span class="mark"></span>
         <strong>Scene loop</strong>
       </div>
-      <select id="projectSel" class="project-sel" title="Project"></select>
-      <button class="btn" id="newProject" title="Create a project from the template" hidden>+ New project</button>
-      <span class="muted small" id="meta"></span>
+      <nav class="crumbs viewer-only" id="crumbs">
+        <a class="crumb-all" id="allProjects" href="/?all=1" title="Every project and video">All projects</a>
+        <span class="sep" id="allSep">/</span>
+        <select id="projectSel" class="project-sel" title="Project"></select>
+        <span class="sep">/</span>
+        <select id="videoSel" class="project-sel" title="Video"></select>
+      </nav>
+      <button class="btn viewer-only" id="instructionsBtn" title="The project's instructions for the chat: pronunciation, voice, tone (I)">Instructions</button>
+      <span class="muted small viewer-only" id="meta"></span>
       <div class="spacer"></div>
-      <span class="muted small" id="renderState"></span>
-      <details class="renders">
+      <button class="btn overview-only" id="newProject" title="Create a project with a starter project.md">+ New project</button>
+      <span class="muted small viewer-only" id="renderState"></span>
+      <details class="renders viewer-only">
         <summary class="btn">Renders</summary>
         <div id="renderList" class="menu"></div>
       </details>
-      <button class="btn dark" id="renderBtn">Render mp4</button>
+      <button class="btn dark viewer-only" id="renderBtn">Render mp4</button>
     </header>
+
+    <section class="overview" id="overview" hidden>
+      <div class="ov-head">
+        <h1>Projects</h1>
+        <span class="muted" id="ovCount"></span>
+      </div>
+      <div class="chips" id="tagChips"></div>
+      <div class="ov-grid" id="ovGrid"></div>
+    </section>
 
     <main class="main">
       <section class="left">
-        <div class="empty-projects" id="empty" hidden></div>
         <div class="scene-label"><span id="sceneLabel"></span> <span class="muted" id="title"></span></div>
         <div class="stage-wrap">
           <div class="stage" id="stage">
@@ -42,6 +57,7 @@
             <button data-mode="scene" class="on">This scene</button>
             <button data-mode="whole">Whole video</button>
           </div>
+          <button class="btn script-btn" id="scriptBtn" title="Read the whole script (S)">Script</button>
           <button class="icon" id="playBtn" title="Play / pause (space)">▶</button>
           <span class="time" id="time">0.00 / 0.00</span>
           <div class="track-wrap">
@@ -51,6 +67,7 @@
           <button class="btn dark" id="commentBtn" title="Pin a comment on this frame (C)">Comment</button>
         </div>
         <p class="narration" id="narration"></p>
+        <section class="script" id="script" hidden></section>
 
         <section class="versions-sec" id="versionsSec" hidden>
           <div class="versions-head">
@@ -105,6 +122,25 @@
         <button class="btn accent" id="popSave">Add</button>
       </div>
     </div>
+    <div class="drawer-shade" id="drawerShade" hidden></div>
+    <aside class="drawer" id="drawer" hidden>
+      <div class="drawer-head">
+        <div>
+          <b>Instructions</b>
+          <div class="muted small" id="drawerSub"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="x" id="drawerClose" title="Close (Esc)">×</button>
+      </div>
+      <p class="muted small drawer-note">The chat reads this before it writes a script or sends a voiceover, for every video in the project: how names are said, where they go in a sentence, tone, brand. The frontmatter holds the title and the tags.</p>
+      <textarea id="insText" spellcheck="false"></textarea>
+      <div class="drawer-foot">
+        <span class="muted small" id="insState"></span>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="insCancel">Cancel</button>
+        <button class="btn dark" id="insSave" title="Save as a new project version (⌘S)">Save</button>
+      </div>
+    </aside>
     <div class="toast" id="toast" hidden></div>
     <script src="/app.js" type="module"></script>
   </body>

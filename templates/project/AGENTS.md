@@ -14,7 +14,9 @@ app sends you the comments with stills. Your turn's file changes become the scen
 - Something you draw yourself (a canvas, a counting number) registers
   `window.__seek["<scene id>"] = function (t) { ... }` and draws the state at scene time `t`.
 - Check your change with get_stills or show_scene before you reply.
-- Put project-wide changes (font, colours) in theme.css, not in every scene.
+- Put video-wide changes (font, colours) in theme.css, not in every scene.
+- The project instructions (first in get_rules) say how names are pronounced and where they may
+  sit in a sentence. Follow them in every script and in anything you send to a voice service.
 
 GSAP eases as CSS: `power1.out` cubic-bezier(0.25,0.46,0.45,0.94), `power2.out`
 cubic-bezier(0.215,0.61,0.355,1), `power3.out` cubic-bezier(0.165,0.84,0.44,1), `power4.out`
