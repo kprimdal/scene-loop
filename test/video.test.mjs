@@ -88,3 +88,16 @@ test("list_scenes flags anchors that do not resolve", async () => {
   assert.equal(w[0].spec, "word:nothere");
   assert.equal(w[0].resolved, false);
 });
+
+test("narration audio is flagged stale after the script changes", async () => {
+  const wav = join(root, "take.wav");
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-t", "1", "-c:a", "pcm_s16le", wav]);
+  await video.updateScene("s01-intro", { narration: "First take text.", model: "test" });
+  const set = await video.setNarrationAudio("s01-intro", { path: wav, model: "test" });
+  assert.equal(set.audio.stale, false);
+  assert.equal((await video.listScenes()).find((s) => s.id === "s01-intro").audio.stale, false);
+  await video.updateScene("s01-intro", { narration: "Second take text.", model: "test" });
+  assert.equal((await video.listScenes()).find((s) => s.id === "s01-intro").audio.stale, true);
+  await video.removeNarrationAudio("s01-intro");
+  assert.equal(existsSync(join(video.dir, "assets", "narration", "s01-intro.take.json")), false);
+});

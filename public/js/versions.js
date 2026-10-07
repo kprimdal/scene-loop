@@ -20,7 +20,7 @@ export function renderVersions() {
   const scriptMark = S.data.scriptStatus.state === "agreed" ? "agreed" : S.data.scriptStatus.state === "changed" ? "changed" : "not agreed";
   $("#narration").replaceChildren(
     h("span", {}, h("b", {}, "Script "), sc.narration ?? "", h("span", { class: `script-mark ${S.data.scriptStatus.state}` }, scriptMark)),
-    sc.audio ? h("span", { class: "narration-audio" }, h("audio", { controls: true, preload: "none", src: sc.audio.url }), h("span", { class: "muted" }, audioTime(sc.audio.seconds))) : null,
+    sc.audio ? h("span", { class: "narration-audio" }, h("audio", { controls: true, preload: "none", src: sc.audio.url }), h("span", { class: "muted" }, audioTime(sc.audio.seconds) + (sc.audio.stale ? " · stale: script changed since the take" : ""))) : null,
   );
   const box = $("#versions");
   box.replaceChildren(

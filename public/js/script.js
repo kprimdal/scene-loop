@@ -118,7 +118,7 @@ export function renderScript() {
         h(
           "div",
           { class: "script-body" },
-          h("div", { class: "script-row-head" }, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), h("span", { class: "muted script-count" }, `${countWords(narration)} words · ${narration.length} chars · ${s.audio ? audioTime(s.audio.seconds) : "no audio"}${s.words ? ` · ${s.words.count} words timed` : ""}`), h("button", { class: "btn ghost small", onclick: () => (selectScene(s.id, true), setScript(false)) }, "Show scene")),
+          h("div", { class: "script-row-head" }, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), h("span", { class: "muted script-count" }, `${countWords(narration)} words · ${narration.length} chars · ${s.audio ? audioTime(s.audio.seconds) : "no audio"}${s.audio?.stale ? " · audio stale: script changed since the take" : ""}${s.words ? ` · ${s.words.count} words timed` : ""}`), h("button", { class: "btn ghost small", onclick: () => (selectScene(s.id, true), setScript(false)) }, "Show scene")),
           ta,
         ),
       );
