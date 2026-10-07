@@ -7,6 +7,6 @@
   "license": "SEE LICENSE IN LICENSE.md",
   "author": "Kristian Primdal",
   "bin": { "scene-loop": "server.mjs" },
-  "scripts": { "start": "node server.mjs" },
+  "scripts": { "start": "node server.mjs", "test": "node --test" },
   "engines": { "node": ">=22" }
 }

@@ -231,12 +231,27 @@ scene references that are missing on disk.
 ## Rendering
 
 Each scene renders to its own clip, `.build/clips/<id>-v<version>-<key>.mp4`, frames split over
-parallel Chrome pages (`SCENE_LOOP_PARALLEL`, default up to 8). A clip is reused until the scene,
-the theme, the size, its words or lead, a file in `assets/` (narration audio excepted: it is mixed
-when the clips are joined) or its place on the frame grid changes, so after one edit only that
-scene renders again. The whole video is the clips joined with ffmpeg crossfades (`transitionIn:
-{ "duration": 0.6 }` by default, `{ "type": "cut" }` for a hard cut) and the soundtrack. A 55 s
-video renders in about 25 s on a Mac, and in about 13 s when one scene changed.
+parallel Chrome pages (`SCENE_LOOP_PARALLEL`, default half the cores, 2 to 8). A clip is reused
+until the scene, the theme, the size, its words or lead, an asset file the scene or the theme
+refers to, or its place on the frame grid changes, so after one edit only that scene renders
+again, and a replaced webcam clip re-renders the scenes that use it. The whole video is the clips
+joined with ffmpeg crossfades (`transitionIn: { "duration": 0.6 }` by default, `{ "type": "cut" }`
+for a hard cut) and the soundtrack. A 55 s video renders in about 25 s on a Mac, and in about
+13 s when one scene changed.
+
+Stretches of a scene in which nothing but `<video>` elements move (a slide with a webcam box
+between two fades) are not screenshotted frame by frame: the stretch is captured once with the
+videos blacked out, plus one mask per video, and ffmpeg lays the video frames in
+(`lib/composite.mjs`). A 2-minute, 3-scene slides-and-webcam video went from 85 s to 20 s on a
+Mac. Scenes with a GSAP timeline, a `window.__seek` drawing function, an animation without an
+end, or a video under a CSS filter, blend mode, transform or `object-position` render frame by
+frame as before; `SCENE_LOOP_COMPOSITE=0` turns the shortcut off. A page load that times out is
+retried once with twice the time (`SCENE_LOOP_LOAD_TIMEOUT`, default 60 s, doubled for pages
+with video), and a failed chunk fails the render job (`get_render` carries the error) instead of
+the server.
+
+`npm test` runs the checks in `test/` (plain `node --test`, which finds them; the Chrome and ffmpeg ones skip or
+fail loudly when those are missing).
 
 The server is `server.mjs`; the tools are served on `/mcp` (Streamable HTTP, stateless, no SDK)
 and to the page. `docs/server-and-mcp.md` has the plan and the client notes.
