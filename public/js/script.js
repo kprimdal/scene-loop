@@ -22,6 +22,14 @@ export const scriptMetrics = (values) => {
   return { words, chars };
 };
 
+// Each textarea is as tall as its text, so the page scrolls and the rows never do.
+const fit = (ta) => {
+  ta.style.height = "auto";
+  ta.style.height = `${ta.scrollHeight + ta.offsetHeight - ta.clientHeight}px`;
+};
+const fitAll = () => document.querySelectorAll("#script .script-row textarea").forEach(fit);
+addEventListener("resize", () => S.script && fitAll());
+
 export function updateScriptCounts() {
   const textareas = [...document.querySelectorAll("#script .script-row textarea")];
   for (const ta of textareas) {
@@ -81,7 +89,7 @@ export function renderScript() {
       const narration = s.narration ?? "";
       const ta = h("textarea", { rows: Math.max(2, narration.split("\n").length), spellcheck: true, "aria-label": `Narration for ${s.id}` }, narration);
       ta.dataset.original = narration;
-      ta.addEventListener("input", updateScriptCounts);
+      ta.addEventListener("input", () => (fit(ta), updateScriptCounts()));
       ta.addEventListener("blur", () => saveScriptNarration(s, ta));
       ta.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.preventDefault(), ta.blur());
@@ -89,6 +97,7 @@ export function renderScript() {
           e.preventDefault();
           ta.value = ta.dataset.original;
           ta.dataset.cancelled = "true";
+          fit(ta);
           updateScriptCounts();
           ta.blur();
         }
@@ -106,5 +115,6 @@ export function renderScript() {
       );
     }),
   );
+  fitAll();
 }
 $("#scriptBtn").onclick = () => setScript();

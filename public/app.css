@@ -233,7 +233,7 @@ body.scripting .transport { margin-top: 4px; }
 .script-row h3 { margin: 0; font-size: 13px; font-weight: 650; }
 .script-row h3 span { color: var(--muted); font-weight: 500; }
 .script-count { margin-left: auto; font-size: 11px; white-space: nowrap; }
-.script-row textarea { box-sizing: border-box; display: block; width: 100%; min-height: 66px; resize: vertical; border: 1px solid transparent; border-radius: 7px; padding: 7px 9px; margin-left: -9px; color: var(--ink); background: transparent; font: 16px/1.55 system-ui, sans-serif; }
+.script-row textarea { box-sizing: border-box; display: block; width: 100%; min-height: 66px; resize: none; overflow: hidden; border: 1px solid transparent; border-radius: 7px; padding: 7px 9px; margin-left: -9px; color: var(--ink); background: transparent; font: 16px/1.55 system-ui, sans-serif; }
 .script-row textarea:hover { border-color: var(--line); background: #fff; }
 .script-row textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); background: #fff; }
 .script-row textarea:disabled { color: var(--muted); }
