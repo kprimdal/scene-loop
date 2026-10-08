@@ -106,10 +106,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .narration b { color: var(--ink); font-weight: 550; }
 .narration-audio { display: flex; align-items: center; gap: 8px; margin-top: 7px; font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .narration-audio audio { width: min(320px, 100%); height: 28px; }
-.script-mark { display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; }
-.script-mark.agreed { color: #17633a; background: #ddf5e7; }
-.script-mark.changed { color: #8a5010; background: #fff0cf; }
-.script-mark.not-agreed { color: var(--muted); background: #e9e9ec; }
 
 .versions-sec[hidden] { display: none; }
 .versions-head { max-width: var(--stage-w); margin: 22px auto 8px; display: flex; align-items: baseline; gap: 10px; }
@@ -226,9 +222,6 @@ body.scripting .transport { margin-top: 4px; }
 .script[hidden] { display: none; }
 .script-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .script-head h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -0.01em; }
-.script-status { margin-top: 2px; font-size: 11px; color: var(--muted); }
-.script-status.agreed { color: #17633a; }
-.script-status.changed { color: #8a5010; }
 .script-totals { font-size: 12px; }
 .script-row { display: grid; grid-template-columns: 92px 1fr; gap: 16px; padding: 12px 12px 14px; border-radius: var(--radius); border: 1px solid transparent; }
 .script-row:hover { background: var(--paper); border-color: var(--line); }

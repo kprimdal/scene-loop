@@ -55,10 +55,9 @@ Read `README.md` first. Kristian's own video tool, built in the open.
   the project must show `instructions: true`. On 2026-10-02 the server ran the previous day's
   HyperFrames build for five hours because main had not been pushed; the script, the narration
   and the first cut all happened outside the tool as a result.
-- The script is agreed in the tool, not in chat. Put the narration into the scenes first, open
-  the Script view, and let Kristian read and edit it there; he presses "Script agreed" when it
-  is right. `get_rules` and `list_scenes` report `scriptStatus` (not agreed, agreed, changed
-  since) and the tools cannot set it. No paid voice before it says agreed. Comments on scenes
+- The script is read in the tool, not in chat. Put the narration into the scenes first, open
+  the Script view, and let Kristian read and edit it there. The tool keeps no agreed/not agreed
+  state (removed 2026-10-08); his word in chat is the go for paid voice. Comments on scenes
   are the review; exported cuts opened as artifact pages are not.
 - Run one dry take of a screen recording before the real one: the brief's failure modes (the
   wrong tool answering, a connector pulling in material, a 15-minute wait) show up on the first

@@ -17,10 +17,9 @@ export function renderVersions() {
   $("#viewing").replaceChildren(
     S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
   );
-  const scriptMark = S.data.scriptStatus.state === "agreed" ? "agreed" : S.data.scriptStatus.state === "changed" ? "changed" : "not agreed";
   $("#narration").replaceChildren(
-    h("span", {}, h("b", {}, "Script "), sc.narration ?? "", h("span", { class: `script-mark ${S.data.scriptStatus.state}` }, scriptMark)),
-    sc.audio ? h("span", { class: "narration-audio" }, h("audio", { controls: true, preload: "none", src: sc.audio.url }), h("span", { class: "muted" }, audioTime(sc.audio.seconds))) : null,
+    h("span", {}, h("b", {}, "Script "), sc.narration ?? ""),
+    ...(sc.audio ? [h("span", { class: "narration-audio" }, h("audio", { controls: true, preload: "none", src: sc.audio.url }), h("span", { class: "muted" }, audioTime(sc.audio.seconds)))] : []),
   );
   const box = $("#versions");
   box.replaceChildren(

@@ -2,7 +2,7 @@
 
 Make videos scene by scene with the AI chat you already use. Claude or ChatGPT sits on the left and
 builds the video; scene-loop sits on the right in the chat app's built-in browser, where you read
-and agree the script, pin comments on the frame, compare versions, play the whole video and render
+and edit the script, pin comments on the frame, compare versions, play the whole video and render
 it.
 
 I built this for my own explainer and course videos. It's early and it changes a lot.
@@ -13,10 +13,8 @@ The order matters, because the narration sets every scene's length and paid voic
 take.
 
 1. **Script.** The chat writes one block of narration per scene (`create_scene`, `update_scene`).
-   You read it in the Script view, edit lines in place, and press **Script agreed**. Until then
-   `get_rules` and `list_scenes` tell the chat "Script not agreed: do not send narration to a paid
-   voice service yet", and any later change to a line turns that into "changed since". The chat
-   cannot agree the script; only you can.
+   You read it in the Script view and edit lines in place until it is right. Narration comes
+   after that, because a changed line means a new take and new timing for every scene after it.
 2. **Narration.** The chat renders one audio file per scene with whatever voice service it has
    (scene-loop holds no keys) and stores it with `set_narration_audio`. `set_narration_words` adds
    word timings from the same take (raw ElevenLabs Scribe or whisper-cli output, aligned to the
@@ -36,7 +34,7 @@ take.
   shows every project and its videos.
 - A Script view: every scene's narration in one column, editable in place, with word and
   character counts, the estimated spoken length against the scene durations, each scene's audio
-  length and whether its words are timed, and the Script agreed button.
+  length and whether its words are timed.
 - Filmstrip of scenes, a preview with This scene / Whole video, a timecode readout, frame stepping
   with the arrow keys, and an activity panel per scene with a player for the scene's narration.
 - Pause, drag a box on the frame, write a comment. The chat gets the comment with a still and the
@@ -143,9 +141,8 @@ nginx, Caddy and Cloudflare Tunnel.
 A video:
 
 ```
-storyboard.json        title, size, colours, soundtrack, the script agreement (who, when, a hash
-                       of every narration line), and the scenes with start, duration, transition,
-                       narration (the script) and narrationLead
+storyboard.json        title, size, colours, soundtrack, and the scenes with start, duration,
+                       transition, narration (the script) and narrationLead
 scenes/<id>/scene.html one scene: <template>, a <style>, a root div with
                        data-composition-id="<id>"; motion is CSS animations (or Web
                        Animations), anchored to words or timed in seconds from the scene start
@@ -168,7 +165,7 @@ the chat log records when they changed.
 
 One audio file per scene, named after the scene id, so a changed line re-renders one block. The
 chat makes the audio; scene-loop stores it (`set_narration_audio` takes an absolute path or
-base64), measures it, and warns when the script is not agreed yet.
+base64) and measures it.
 
 `fit_scenes_to_narration` sets each scene with audio to lead (0.35 s of picture before the first
 word) + audio + tail (0.6 s), rounded up to the frame grid; scenes without audio keep their
