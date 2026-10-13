@@ -1,0 +1,15 @@
+#!/bin/bash
+# Starts worker.mjs with whatever node is current, for launchd (docs/render-worker.md). A plist
+# that names a node binary breaks when nvm or Homebrew moves node; this loads nvm's default
+# version when nvm is there and otherwise takes node from PATH. A clean checkout on main is
+# brought up to date first, so a restart also picks up a new worker.
+set -u
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" >/dev/null 2>&1
+export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
+if [ "$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)" = main ] && [ -z "$(git -C "$repo" status --porcelain 2>/dev/null)" ]; then
+  git -C "$repo" pull -q --ff-only origin main || echo "scene-loop-worker: git pull failed, starting $(git -C "$repo" rev-parse --short HEAD) as it is" >&2
+fi
+command -v node >/dev/null || { echo "scene-loop-worker: no node on PATH or in nvm" >&2; exit 1; }
+exec node "$repo/worker.mjs" "$@"
