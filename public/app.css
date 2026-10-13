@@ -194,6 +194,10 @@ body.overview-mode .viewer-only, body:not(.overview-mode) .overview-only { displ
 .vrow { display: grid; grid-template-columns: 112px 1fr auto; gap: 12px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; border-radius: 6px; }
 .vrow:last-child { border-bottom: 0; }
 .vrow:hover { background: var(--bg); }
+.vrow:has(.vdel) { grid-template-columns: 112px 1fr auto auto; }
+.vdel { width: 26px; height: 26px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; opacity: 0; }
+.vrow:hover .vdel, .vdel:focus-visible { opacity: 1; }
+.vdel:hover { color: #c2410c; border-color: var(--line); background: #fff; }
 .vrow img, .vrow .noimg { width: 112px; aspect-ratio: 16 / 9; border-radius: 5px; border: 1px solid var(--line); object-fit: cover; background: #fff; display: block; }
 .vrow .noimg { background: repeating-linear-gradient(45deg, #fff, #fff 6px, #f4f4f4 6px, #f4f4f4 12px); }
 .vrow b { font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

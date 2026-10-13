@@ -72,6 +72,18 @@ export async function newVideo(project) {
 }
 $("#newProject").onclick = newProject;
 
+async function deleteVideo(e, project, v) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!confirm(`Delete "${v.title}" (${v.name})?\n\nIt moves to ${project}/.trash on the server, where it can be restored.`)) return;
+  try {
+    await api(`/api/videos/${encodeURIComponent(project)}/${encodeURIComponent(v.name)}`, { method: "DELETE" });
+    toast(`${v.name} moved to ${project}/.trash`);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
 // ---------- overview ----------
 export function renderOverview() {
   const tags = new Map();
@@ -118,6 +130,7 @@ export function renderOverview() {
                   v.poster ? h("img", { src: v.poster, alt: "", loading: "lazy" }) : h("div", { class: "noimg" }),
                   h("div", { style: "min-width:0" }, h("b", {}, v.title), h("div", { class: "muted small" }, v.name)),
                   h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${v.scenes} scene${v.scenes === 1 ? "" : "s"}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered")),
+                  p.layout === "project" ? h("button", { class: "vdel", title: "Delete video", "aria-label": `Delete ${v.title}`, onclick: (e) => deleteVideo(e, p.name, v) }, "×") : null,
                 );
               })
             : h("div", { class: "novideos" }, "No videos yet."),
