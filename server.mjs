@@ -101,6 +101,7 @@ function inside(root, p) {
 // ?video= (or the only one). The page's agent tools go through /api/tools instead.
 const routes = [
   ["GET", /^\/api\/projects$/, async () => ({ projects: await registry.list(), single: registry.single, root: registry.root })],
+  ["DELETE", /^\/api\/videos\/([^/]+)\/([^/]+)$/, async (m) => registry.deleteVideo(decodeURIComponent(m[1]), decodeURIComponent(m[2]))],
   ["GET", /^\/api\/whoami$/, async () => ({ reviewer: REVIEWER })],
   ["GET", /^\/api\/tools$/, async () => toolList()],
   ["POST", /^\/api\/tools\/([\w-]+)$/, async (m, q, b, ctx) => withoutFiles(await callTool(m[1], b.args ?? {}, { registry, via: ["webmcp", "page-js"].includes(b.via) ? b.via : "api", origin: ctx.origin, defaults: { project: ctx.projectName, video: ctx.videoName } }))],
