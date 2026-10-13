@@ -235,9 +235,9 @@ scene renders again. The whole video is the clips joined with ffmpeg crossfades 
 { "duration": 0.6 }` by default, `{ "type": "cut" }` for a hard cut) and the soundtrack. A 55 s
 video renders in about 25 s on a Mac, and in about 13 s when one scene changed.
 
-A faster computer can take part of the work. Run `worker.mjs` on it and list it in
-`SCENE_LOOP_WORKERS` on the server; a render that finds it awake sends it the long scenes and keeps
-the short ones, and renders everything itself when it does not answer. `docs/render-worker.md`
+A faster computer can take the work. Run `worker.mjs` on it and list it in `SCENE_LOOP_WORKERS` on
+the server; a render that finds it awake sends it every scene whose fonts come from files, and
+renders everything itself when it does not answer. `docs/render-worker.md`
 has the setup.
 
 The server is `server.mjs`; the tools are served on `/mcp` (Streamable HTTP, stateless, no SDK)

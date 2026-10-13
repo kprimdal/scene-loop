@@ -2,9 +2,10 @@
 
 A server on a small VPS renders slowly; the laptop next to it is often several times faster but
 not always awake. `worker.mjs` runs on that laptop and renders scene clips for the server. A render
-checks the worker's `/health` (1.5 s timeout) when it starts. If it answers, the clips go into one
-queue, longest first: the worker takes from the long end, the server from the short end. If it
-does not answer, the server renders everything itself, as it always has.
+checks the worker's `/health` (1.5 s timeout) when it starts. If it answers, the worker renders
+every clip it may (longest first), and the server only the scenes that must stay on it (see Fonts)
+and whatever the worker leaves if it drops out. If it does not answer, the server renders
+everything itself, as it always has.
 
 What crosses the network is files and finished clips, never frames:
 
