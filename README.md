@@ -250,9 +250,9 @@ the server.
 `npm test` runs the checks in `test/` (plain `node --test`, which finds them; the Chrome and ffmpeg ones skip or
 fail loudly when those are missing).
 
-A faster computer can take part of the work. Run `worker.mjs` on it and list it in
-`SCENE_LOOP_WORKERS` on the server; a render that finds it awake sends it the long scenes and keeps
-the short ones, and renders everything itself when it does not answer. `docs/render-worker.md`
+A faster computer can take the work. Run `worker.mjs` on it and list it in `SCENE_LOOP_WORKERS` on
+the server; a render that finds it awake sends it every scene whose fonts come from files, and
+renders everything itself when it does not answer. `docs/render-worker.md`
 has the setup.
 
 The server is `server.mjs`; the tools are served on `/mcp` (Streamable HTTP, stateless, no SDK)
