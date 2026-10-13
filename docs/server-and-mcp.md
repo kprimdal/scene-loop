@@ -140,6 +140,10 @@ page tools through WebMCP and `window.sceneLoop`.
    (`script`). The status is computed: not agreed, agreed, or changed since. `get_rules` and
    `list_scenes` lead with it; the page's `/api/script/agreement` route is the only way to set it.
    `write_scene_html` now resolves the comments it names even when the html is unchanged.
+   The agreement itself was removed again on 2026-10-08: the status line, the Script agreed
+   button, the `/api/script/agreement` route, `scriptStatus` in the tool results and the `script`
+   key in `storyboard.json`. The Script view stays as the place to read and edit the lines; the
+   go for paid narration is given in chat.
 9. **Narration, clips and word anchors as tools.** Done 2026-10-02. One audio file per scene
    under `assets/narration/<id>.<ext>` (`set_narration_audio`, `remove_narration_audio`),
    `fit_scenes_to_narration` (lead 0.35 s, tail 0.6 s, frame grid, `narrationLead` stored per

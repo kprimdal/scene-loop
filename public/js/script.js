@@ -16,17 +16,19 @@ export function setScript(on = !S.script) {
   else loadPlayer();
 }
 
-export const scriptStatusText = (status) => {
-  if (status.state === "not-agreed") return "Not agreed";
-  const agreed = `Agreed by ${status.agreedBy} ${new Date(status.agreedAt).toLocaleString()}`;
-  return status.state === "changed" ? `${agreed}, changed since` : agreed;
-};
-
 export const scriptMetrics = (values) => {
   const words = values.reduce((n, text) => n + countWords(text), 0);
   const chars = values.reduce((n, text) => n + String(text ?? "").length, 0);
   return { words, chars };
 };
+
+// Each textarea is as tall as its text, so the page scrolls and the rows never do.
+const fit = (ta) => {
+  ta.style.height = "auto";
+  ta.style.height = `${ta.scrollHeight + ta.offsetHeight - ta.clientHeight}px`;
+};
+const fitAll = () => document.querySelectorAll("#script .script-row textarea").forEach(fit);
+addEventListener("resize", () => S.script && fitAll());
 
 export function updateScriptCounts() {
   const textareas = [...document.querySelectorAll("#script .script-row textarea")];
@@ -66,40 +68,28 @@ export function saveScriptNarration(s, ta) {
   return scriptSavePending;
 }
 
-export async function toggleScriptAgreement() {
-  try {
-    await scriptSavePending;
-    await api("/api/script/agreement", { body: {} });
-    await refresh();
-  } catch (e) {
-    toast(`Could not change script agreement: ${e.message}`);
-  }
-}
-
 export function renderScript() {
   // A project event (an agent's write, stills landing) must not rebuild the rows under a
   // reviewer who is typing: wait for the blur, which saves or cancels and then re-renders.
   const active = document.activeElement;
   if (active?.tagName === "TEXTAREA" && $("#script").contains(active)) return void (S.scriptStale = true);
   S.scriptStale = false;
-  const status = S.data.scriptStatus;
   const { words, chars } = scriptMetrics(S.data.scenes.map((s) => s.narration ?? ""));
   const text = S.data.scenes.map((s, i) => `${i + 1}. ${s.title} (${tc(s.start)})\n${s.narration ?? ""}`).join("\n\n");
   $("#script").replaceChildren(
     h(
       "div",
       { class: "script-head" },
-      h("div", {}, h("h2", {}, "Script"), h("div", { class: `script-status ${status.state}` }, scriptStatusText(status))),
+      h("h2", {}, "Script"),
       h("span", { class: "muted script-totals", id: "scriptTotals" }, `${words} words · ${chars} chars · est. ${mmss(words / 2.4)} spoken · scenes ${mmss(S.data.scenes.reduce((n, s) => n + s.duration, 0))}`),
       h("div", { class: "spacer" }),
-      h("button", { class: `btn small ${status.state === "agreed" ? "dark" : "accent"}`, onclick: toggleScriptAgreement, title: status.state === "agreed" ? "Clear the current agreement" : "Agree the script exactly as written" }, status.state === "agreed" ? "Clear agreement" : "Script agreed"),
       h("button", { class: "btn ghost small", onclick: () => navigator.clipboard.writeText(text).then(() => toast("Script copied.")) }, "Copy"),
     ),
     ...S.data.scenes.map((s, i) => {
       const narration = s.narration ?? "";
       const ta = h("textarea", { rows: Math.max(2, narration.split("\n").length), spellcheck: true, "aria-label": `Narration for ${s.id}` }, narration);
       ta.dataset.original = narration;
-      ta.addEventListener("input", updateScriptCounts);
+      ta.addEventListener("input", () => (fit(ta), updateScriptCounts()));
       ta.addEventListener("blur", () => saveScriptNarration(s, ta));
       ta.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.preventDefault(), ta.blur());
@@ -107,6 +97,7 @@ export function renderScript() {
           e.preventDefault();
           ta.value = ta.dataset.original;
           ta.dataset.cancelled = "true";
+          fit(ta);
           updateScriptCounts();
           ta.blur();
         }
@@ -124,5 +115,6 @@ export function renderScript() {
       );
     }),
   );
+  fitAll();
 }
 $("#scriptBtn").onclick = () => setScript();
