@@ -69,9 +69,15 @@ SCENE_LOOP_TOKEN=<token>                   # or SCENE_LOOP_WORKER_TOKEN, sent as
 Stills for versions and comments always render on the server: they are small and someone is
 waiting for them.
 
-## Mixed machines
+## Fonts
 
-Chrome on macOS and on Linux draw text differently (antialiasing, hinting) and fall back to
-different system fonts. A video with scenes from both can look slightly uneven. Load fonts from
-`assets/` in the theme instead of relying on system fonts, and compare one scene rendered on each
-machine before trusting a mixed render.
+Chrome on macOS and on Linux draw installed fonts differently, and `system-ui` is a different
+font altogether (DejaVu Sans on a Linux server, SF Pro on a Mac). Fonts loaded from a file with
+`@font-face` come out the same on both: same layout and letterforms, only the antialiasing
+differs. So fonts belong in `assets/fonts`, declared in `theme.css`.
+
+The stills check every version: Chrome reports which fonts drew each element's text, and text in
+an installed font is listed as `systemFonts` in `get_stills` and `list_scenes`. A render keeps
+those scenes on the server and only sends the worker scenes whose text all comes from files, so a
+video never mixes the two machines' fonts. (A version made before the check gets it at its first
+render with a worker awake.)
