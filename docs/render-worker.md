@@ -37,19 +37,21 @@ SCENE_LOOP_TOKEN=<token> node worker.mjs --port 4310 --host 0.0.0.0
 It needs Node 22, ffmpeg and Chrome on the machine, found the same way as on the server
 (`chrome-headless-shell` first). On a Mac it holds `caffeinate -i` while a clip renders, so the
 Mac does not idle-sleep under it and sleeps as usual the rest of the time. Run it from launchd so
-it starts at login:
+it starts at login, through `bin/scene-loop-worker`: it finds node itself (nvm's default version,
+or PATH), so switching node versions does not break the plist, and it pulls main first when the
+checkout is a clean main, so a restart picks up a new worker.
 
 ```xml
 <!-- ~/Library/LaunchAgents/app.scene-loop.worker.plist -->
 <plist version="1.0"><dict>
   <key>Label</key><string>app.scene-loop.worker</string>
   <key>ProgramArguments</key><array>
-    <string>/opt/homebrew/bin/node</string><string>/path/to/scene-loop/worker.mjs</string>
+    <string>/bin/bash</string><string>/path/to/scene-loop/bin/scene-loop-worker</string>
     <string>--port</string><string>4310</string>
   </array>
   <key>EnvironmentVariables</key><dict>
     <key>SCENE_LOOP_TOKEN</key><string>...</string>
-    <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
   </dict>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>/tmp/scene-loop-worker.log</string>
