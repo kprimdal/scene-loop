@@ -200,7 +200,7 @@ const routes = [
   ["GET", /^\/api\/build\/whole$/, async (m, q, b, ctx) => (await ctx.p()).wholeBuildUrl(), "guest"],
   ["POST", /^\/api\/scene\/([\w-]+)\/comments$/, async (m, q, b, { user, guest, p }) => (guest && commentLimit(user), (await p()).addComment(m[1], b, user.name, user.id)), "guest"],
   // A commenter removes only their own comments.
-  ["DELETE", /^\/api\/scene\/([\w-]+)\/comments\/(\w+)$/, async (m, q, b, ctx) => (await ctx.p()).deleteComment(m[1], m[2], ctx.guest ? { id: ctx.user.id, name: ctx.user.name } : null), "guest"],
+  ["DELETE", /^\/api\/scene\/([\w-]+)\/comments\/(\w+)$/, async (m, q, b, ctx) => (await ctx.p()).deleteComment(m[1], m[2], ctx.guest ? { id: ctx.user.id } : null), "guest"],
   ["POST", /^\/api\/scene\/([\w-]+)\/restore$/, async (m, q, b, ctx) => (await ctx.p()).restore(m[1], b.v)],
   ["POST", /^\/api\/render$/, async (m, q, b, ctx) => (await ctx.p()).render()],
 ];
@@ -247,8 +247,15 @@ async function handle(req, res, user) {
   if (pm) {
     if (!allows(decodeURIComponent(pm[2]))) return send(res, 404, { error: "not found" });
     const d = registry.dirOfVideo(decodeURIComponent(pm[2]), decodeURIComponent(pm[3]));
-    const f = inside(pm[1] === "p" ? d : join(d, "renders"), pm[4]);
-    return f ? serveFile(req, res, f) : send(res, 403, {});
+    const top = pm[1] === "p" ? d : join(d, "renders");
+    const f = inside(top, pm[4]);
+    if (!f) return send(res, 403, {});
+    // Dot folders hold the app's own state. Nobody gets the version history over HTTP; a
+    // commenter gets only what the page shows them: builds, stills and comment stills.
+    const parts = f.slice(top.length + 1).split(sep);
+    if (parts.includes(".history")) return send(res, 404, { error: "not found" });
+    if (guest && parts.some((x) => x.startsWith(".")) && !(parts[0] === ".build" || (parts[0] === ".state" && ["stills", "comments"].includes(parts[1])))) return send(res, 404, { error: "not found" });
+    return serveFile(req, res, f);
   }
   const f = inside(join(appDir, "public"), url.pathname === "/" ? "index.html" : url.pathname.slice(1));
   return f ? serveFile(req, res, f) : send(res, 403, {});

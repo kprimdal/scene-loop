@@ -160,6 +160,9 @@ test("a commenter sees only their project and none of the owner's tools", async 
   assert.equal((await anna("/p/film/film/storyboard.json")).status, 200);
   assert.equal((await anna("/p/film/film/..%2Ffilm2%2Fstoryboard.json")).status, 403, "no step into a project whose name starts the same");
   assert.equal((await anna("/p/film/film/..%2F.people.json")).status, 403);
+  for (const path of ["/p/film/film/.history/HEAD", "/p/film/film/.state/scenes/s01-intro.json", "/p/film/film/.state/chat/s01-intro.jsonl", "/p/film/film/scenes/.hidden"])
+    assert.equal((await anna(path)).status, 404, path);
+  assert.equal((await owner("/p/film/film/.history/HEAD")).status, 404, "nobody gets the history over HTTP");
   assert.deepEqual((await anna("/api/tools")).json, []);
   assert.equal((await anna("/api/tools/update_scene?project=film", { json: { args: { scene: "s01-intro", narration: "x" } } })).status, 403);
   assert.equal((await anna("/api/render?project=film", { json: {} })).status, 403);
@@ -182,6 +185,10 @@ test("comments carry who wrote them; a commenter removes only their own", async 
   assert.equal((await del(anna, k.json.id)).status, 400);
   assert.equal((await del(anna, r.json.id)).status, 200);
   assert.equal((await del(owner, k.json.id)).status, 200, "an owner removes anyone's");
+  // An agent's comment carries no byId; a commenter named like it still can't remove it.
+  const agent = await mcp(SHARED, "add_comment", { project: "film", scene: "s01-intro", t: 3, text: "from an agent" });
+  assert.equal(agent.data.byId, undefined);
+  assert.equal((await del(anna, agent.data.id)).status, 400);
 });
 
 test("writes from another site or not as JSON are refused", async () => {
@@ -223,10 +230,55 @@ test("too many wrong passwords: per email and address, and per account", async (
 
   for (let i = 0; i < 20; i++) await browser({ ip: `10.9.0.${i + 1}` })("/login", { form: { email: "ben@example.com", password: "wrong wrong wrong" } });
   const ben = browser({ ip: "10.9.1.1" });
-  assert.equal((await ben("/login", { form: { email: "ben@example.com", password: PW.ben } })).status, 429, "the account is locked");
+  const locked = await ben("/login", { form: { email: "ben@example.com", password: PW.ben } });
+  assert.equal(locked.status, 401, "a locked commenter stays out");
+  for (let i = 0; i < 20; i++) await browser({ ip: `10.8.0.${i + 1}` })("/login", { form: { email: "ghost@example.com", password: "wrong wrong wrong" } });
+  const ghost = await browser({ ip: "10.8.1.1" })("/login", { form: { email: "ghost@example.com", password: PW.ben } });
+  const msg = (r) => r.text.match(/class="err">([^<]*)/)[1];
+  assert.equal(ghost.status, locked.status, "locked and unknown answer alike");
+  assert.equal(msg(ghost), msg(locked));
   assert.match((await owner("/people")).text, /Locked until/);
   await owner("/people", { form: { action: "unlock", id: benId } });
   assert.equal((await ben("/login", { form: { email: "ben@example.com", password: PW.ben } })).status, 302);
+});
+
+test("strangers can't lock an owner out: the right password and code still get in", async () => {
+  for (let i = 0; i < 20; i++) await browser({ ip: `10.7.0.${i + 1}` })("/login", { form: { email: "owner@example.com", password: "wrong wrong wrong" } });
+  assert.match((await owner("/people")).text, /Locked until/);
+  const b = browser({ ip: "10.7.1.1" });
+  const t0 = Date.now();
+  const first = await b("/login", { form: { email: "owner@example.com", password: PW.owner } });
+  assert.ok(Date.now() - t0 >= 1900, "a locked account is slowed down");
+  const mfa = field(first.text, "mfa");
+  assert.ok(mfa, "the password step passes");
+  const done = await b("/login", { form: { step: "code", mfa, code: totp(ownerSecret, step() + 1) } });
+  assert.equal(done.status, 302);
+  assert.equal((await b("/api/whoami")).json.reviewer, "Owner");
+  const ownerId = idOf((await owner("/people")).text, "owner@example.com");
+  await owner("/people", { form: { action: "unlock", id: ownerId } });
+});
+
+test("next after login stays on this site", async () => {
+  const b = browser({ ip: "192.0.2.80" });
+  for (const next of ["/\t/evil.com", "//evil.com", "/\\evil.com", "https://evil.com", "/%09/evil.com"]) {
+    const r = await b("/login", { form: { email: "anna@example.com", password: PW.anna, next } });
+    assert.ok(r.location === "/" || r.location?.startsWith("/?") || r.location === "/%09/evil.com", `${JSON.stringify(next)} went to ${r.location}`);
+    assert.ok(!r.location.startsWith("//"));
+    await b("/logout");
+  }
+  const ok = await b("/login", { form: { email: "anna@example.com", password: PW.anna, next: "/?project=film2&video=film2" } });
+  assert.equal(ok.location, "/?project=film2&video=film2");
+});
+
+test("logging out ends the session on the server, not just in the browser", async () => {
+  const b = browser({ ip: "192.0.2.81" });
+  await b("/login", { form: { email: "anna@example.com", password: PW.anna } });
+  const stolen = { ...b.jar };
+  assert.equal((await b("/api/whoami")).status, 200);
+  await b("/logout");
+  const replay = await fetch(base + "/api/whoami", { headers: { Cookie: Object.entries(stolen).map(([k, v]) => `${k}=${v}`).join("; ") } });
+  assert.equal(replay.status, 401);
+  assert.equal((await anna("/api/whoami")).status, 200, "her other sessions stay");
 });
 
 test("a person changes their password; other devices are logged out", async () => {
@@ -259,9 +311,24 @@ test("agent tokens belong to owners, carry the name, and can be revoked", async 
   const view = (await owner("/api/project?project=film")).json;
   assert.equal(view.scenes.find((s) => s.id === "s01-intro").versions.at(-1).agent, "claude (Owner)");
   assert.match((await owner("/people", { form: { action: "new-token", id: annaId, label: "x" } })).text, /Only owners have agent access/);
+  // An agent token is for /mcp: it can't add an owner, see invite links or mint tokens.
+  const bearer = { Authorization: `Bearer ${token}` };
+  for (const path of ["/people", "/account", "/api/projects", "/api/whoami"]) assert.equal((await fetch(base + path, { headers: bearer })).status, 401, path);
+  const forged = await fetch(base + "/people", { method: "POST", headers: { ...bearer, Origin: base, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ action: "add", name: "Mallory", email: "m@example.com", role: "owner" }) });
+  assert.equal(forged.status, 401);
+  assert.equal((await fetch(base + "/people", { headers: { Authorization: `Bearer ${SHARED}` } })).status, 401, "SCENE_LOOP_TOKEN neither");
+  assert.doesNotMatch((await owner("/people")).text, /Mallory/);
   const tid = (await owner("/account")).text.match(/name="id" value="p_\w+"><input type="hidden" name="action" value="revoke-token"><input type="hidden" name="token" value="(t_\w+)"/)[1];
   await owner("/account", { form: { action: "revoke-token", token: tid } });
   assert.equal((await mcp(token, "list_projects")).status, 401);
+});
+
+test("/authorize fetches client metadata from public addresses only, and shows none of it", async () => {
+  for (const id of ["https://100.64.0.1/client.json", "https://127.0.0.1/client.json", "https://localhost/client.json", "https://[::1]/client.json", "https://169.254.169.254/latest", "https://10.0.0.1/c"]) {
+    const r = await browser()(`/authorize?${new URLSearchParams({ response_type: "code", client_id: id, redirect_uri: "https://x.example/cb", code_challenge: "x", code_challenge_method: "S256" })}`);
+    assert.equal(r.status, 400, id);
+    assert.match(r.text, /private address/, id);
+  }
 });
 
 test("OAuth: only an owner approves, and log out everywhere ends the connector", async () => {
@@ -275,6 +342,7 @@ test("OAuth: only an owner approves, and log out everywhere ends the connector",
   const tok = await fetch(base + "/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: params.redirect_uri, code_verifier: verifier, client_id: reg.client_id }) }).then((r) => r.json());
   assert.ok(tok.access_token);
   assert.equal((await mcp(tok.access_token, "list_projects")).status, 200);
+  assert.equal((await fetch(base + "/people", { headers: { Authorization: `Bearer ${tok.access_token}` } })).status, 401, "an OAuth token is for /mcp only");
   await owner("/account", { form: { action: "logout" } });
   assert.equal((await mcp(tok.access_token, "list_projects")).status, 401);
   const refresh = await fetch(base + "/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: tok.refresh_token }) }).then((r) => r.json());

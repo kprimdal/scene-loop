@@ -136,3 +136,27 @@ test("the older env settings move in once, merged by name", () => {
     done();
   }
 });
+
+test("client metadata may only come from public addresses", async () => {
+  const { publicAddress } = await import("../lib/auth.mjs");
+  for (const a of ["8.8.8.8", "1.1.1.1", "172.32.0.1", "2606:4700::1", "::ffff:8.8.8.8"]) assert.equal(publicAddress(a), true, a);
+  for (const a of ["10.1.2.3", "100.64.0.1", "100.127.255.254", "127.0.0.1", "169.254.169.254", "172.16.0.1", "192.168.1.1", "198.18.0.1", "0.0.0.0", "224.0.0.1",
+    "::1", "::", "::ffff:127.0.0.1", "::ffff:7f00:1", "::ffff:10.0.0.1", "fd7a:115c:a1e0::1", "fe80::1", "64:ff9b::a00:1", "2001:db8::1", "not-an-ip"])
+    assert.equal(publicAddress(a), false, a);
+});
+
+test("a logged-out session id stays refused until it would have expired", () => {
+  const { file, done } = scratch();
+  try {
+    const people = createPeople(file);
+    const now = Math.floor(Date.now() / 1000);
+    people.revokeSession("old", now - 10);
+    people.revokeSession("abc", now + 3600);
+    assert.equal(people.isRevoked("abc"), true);
+    assert.equal(people.isRevoked("xyz"), false);
+    people.revokeSession("def", now + 3600);
+    assert.equal(people.isRevoked("old"), false, "expired ids are dropped");
+  } finally {
+    done();
+  }
+});

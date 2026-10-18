@@ -90,11 +90,21 @@ Comments carry `by` (the name) and `byId` (the person), so the chat sees who wro
 `get_pending_comments`. An agent that comes in with a person's token or OAuth login has its writes
 labelled with the name (`claude (Anna)` on the version, in the activity log and the history).
 
-Sessions last 30 days, 7 for owners. A wrong password counts against the address (30 an hour),
-against the email from that address (5 in 15 minutes) and against the account (20 lock it for an
-hour, then two, four and so on, until an owner unlocks it). Behind a proxy on the same machine
-every request comes from 127.0.0.1, so tell scene-loop which header carries the real address
-(`SCENE_LOOP_TRUST_PROXY`). Writes from another site are refused, with or without a login.
+Sessions last 30 days, 7 for owners; logging out ends the session on the server, not only in
+the browser. The pages, People and Account take a browser session and nothing else: an agent's
+bearer token works on `/mcp` only. A wrong password counts against the address (30 an hour),
+against the email from that address (5 in 15 minutes) and against the email (20 lock it for an
+hour, then two, four and so on, until an owner unlocks it). A lock slows every try and keeps a
+commenter out, but an owner's right password and code still get in, so nobody can lock the
+owners out; a locked account answers exactly like an unknown one. Behind a proxy on the same
+machine every request comes from 127.0.0.1, so tell scene-loop which header carries the real
+address (`SCENE_LOOP_TRUST_PROXY`); it warns once in the log when a proxy is there and the
+setting is not. Writes must come from scene-loop's own page (its `Origin`, or a browser's
+`Sec-Fetch-Site: same-origin`), with or without a login.
+
+The people file never goes into a video's version history, and the server never serves it or a
+`.history` folder. A commenter gets no dot folder but the builds, stills and comment stills the
+page shows them.
 
 | Setting | What it does |
 | --- | --- |

@@ -84,6 +84,12 @@ test("with --no-login the page stays open, but another site cannot post to it", 
   assert.equal((await fetch(`${base}/api/whoami`)).status, 200);
   const evil = await fetch(`${base}/api/videos/film/film`, { method: "DELETE", headers: { Origin: "https://evil.example" } });
   assert.equal(evil.status, 403);
-  const plain = await fetch(`${base}/api/scene/s01-intro/comments`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ t: 1, text: "x" }) });
+  const plain = await fetch(`${base}/api/scene/s01-intro/comments`, { method: "POST", headers: { "Content-Type": "text/plain", Origin: base }, body: JSON.stringify({ t: 1, text: "x" }) });
   assert.equal(plain.status, 415);
+  const bare = await fetch(`${base}/api/scene/s01-intro/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: 1, text: "x" }) });
+  assert.equal(bare.status, 403, "no Origin and no Sec-Fetch-Site: not from our page");
+  const sfs = await fetch(`${base}/api/scene/s01-intro/comments`, { method: "POST", headers: { "Content-Type": "application/json", "Sec-Fetch-Site": "same-origin" }, body: JSON.stringify({ t: 1, text: "x" }) });
+  assert.equal(sfs.status, 200);
+  const cross = await fetch(`${base}/api/scene/s01-intro/comments`, { method: "POST", headers: { "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site" }, body: JSON.stringify({ t: 1, text: "x" }) });
+  assert.equal(cross.status, 403);
 });

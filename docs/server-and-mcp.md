@@ -2,8 +2,8 @@
 
 Decided 2026-10-01 (Kristian): scene-loop is used through an MCP connector. Claude does the creative
 work on the user's own plan. Everything scene-loop does is a tool call: storing, versioning,
-rendering. **We run it locally.** Anyone else, Ronni for a Zinkshoppen project included, runs their
-own copy on their machine, their own server or in Docker. We will not host it for anyone else.
+rendering. **We run it locally.** Anyone else, a colleague working on a client project included, runs
+their own copy on their machine, their own server or in Docker. We will not host it for anyone else.
 
 ## Shape
 
