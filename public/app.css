@@ -250,3 +250,4 @@ body.scripting .transport { margin-top: 4px; }
   .script-row-head { flex-wrap: wrap; }
   .script-count { width: 100%; margin-left: 0; }
 }
+form.logout { margin: 0; display: contents; }

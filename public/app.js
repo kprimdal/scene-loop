@@ -15,8 +15,9 @@ const me = await api("/api/whoami");
 ({ reviewer: S.reviewer, guest: S.guest } = me);
 document.body.classList.toggle("guest", S.guest); // a commenter: watch and comment only
 // People (owners), the person's own account, and the way out when there is a login.
-for (const [text, href, title] of [me.owner && me.login && ["People", "/people", "Who may log in, and to which projects"], me.account && [me.reviewer, "/account", "Your account"], me.login && ["Log out", "/logout"]].filter(Boolean))
-  $("header.top").append(h("a", { class: "btn", href, title: title ?? text }, text));
+for (const [text, href, title] of [me.owner && me.login && ["People", "/people", "Who may log in, and to which projects"], me.account && [me.reviewer, "/account", "Your account"]].filter(Boolean))
+  $("header.top").append(h("a", { class: "btn", href, title }, text));
+if (me.login) $("header.top").append(h("form", { method: "post", action: "/logout", class: "logout" }, h("button", { class: "btn" }, "Log out"))); // a POST, so no other site can log you out
 await loadProjects();
 if (pickView()) {
   renderCrumbs();

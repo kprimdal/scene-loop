@@ -250,11 +250,13 @@ async function handle(req, res, user) {
     const top = pm[1] === "p" ? d : join(d, "renders");
     const f = inside(top, pm[4]);
     if (!f) return send(res, 403, {});
-    // Dot folders hold the app's own state. Nobody gets the version history over HTTP; a
-    // commenter gets only what the page shows them: builds, stills and comment stills.
+    // Nobody gets the version history over HTTP. A commenter gets only what the page shows
+    // them: the builds (which link assets/ and scenes/), stills, comment stills and assets/;
+    // not project.md, AGENTS.md, the storyboard or the app's state.
     const parts = f.slice(top.length + 1).split(sep);
     if (parts.includes(".history")) return send(res, 404, { error: "not found" });
-    if (guest && parts.some((x) => x.startsWith(".")) && !(parts[0] === ".build" || (parts[0] === ".state" && ["stills", "comments"].includes(parts[1])))) return send(res, 404, { error: "not found" });
+    const shown = pm[1] === "renders" || ["assets", ".build"].includes(parts[0]) || (parts[0] === ".state" && ["stills", "comments"].includes(parts[1]));
+    if (guest && !shown) return send(res, 404, { error: "not found" });
     return serveFile(req, res, f);
   }
   const f = inside(join(appDir, "public"), url.pathname === "/" ? "index.html" : url.pathname.slice(1));

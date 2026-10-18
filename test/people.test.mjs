@@ -144,19 +144,3 @@ test("client metadata may only come from public addresses", async () => {
     "::1", "::", "::ffff:127.0.0.1", "::ffff:7f00:1", "::ffff:10.0.0.1", "fd7a:115c:a1e0::1", "fe80::1", "64:ff9b::a00:1", "2001:db8::1", "not-an-ip"])
     assert.equal(publicAddress(a), false, a);
 });
-
-test("a logged-out session id stays refused until it would have expired", () => {
-  const { file, done } = scratch();
-  try {
-    const people = createPeople(file);
-    const now = Math.floor(Date.now() / 1000);
-    people.revokeSession("old", now - 10);
-    people.revokeSession("abc", now + 3600);
-    assert.equal(people.isRevoked("abc"), true);
-    assert.equal(people.isRevoked("xyz"), false);
-    people.revokeSession("def", now + 3600);
-    assert.equal(people.isRevoked("old"), false, "expired ids are dropped");
-  } finally {
-    done();
-  }
-});

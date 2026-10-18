@@ -157,7 +157,13 @@ test("a commenter sees only their project and none of the owner's tools", async 
   assert.equal((await anna("/api/project")).status, 200, "their one project is the default");
   for (const path of ["/api/project?project=secret", "/api/chat/s01-intro?project=secret", "/p/secret/secret/storyboard.json", "/renders/secret/secret/x.mp4"])
     assert.equal((await anna(path)).status, 404, path);
-  assert.equal((await anna("/p/film/film/storyboard.json")).status, 200);
+  // Only what the page shows: builds (with their assets/ and scenes/ links), stills, comment stills.
+  const build = (await anna("/api/build/scene/s01-intro?project=film&v=1")).json.url;
+  assert.equal((await anna(build)).status, 200, build);
+  assert.equal((await anna(build.replace("index.html", "scenes/s01-intro/scene.html"))).status, 200);
+  for (const path of ["/p/film/film/storyboard.json", "/p/film/film/project.md", "/p/film/film/AGENTS.md", "/p/film/film/scenes/s01-intro/scene.html"])
+    assert.equal((await anna(path)).status, 404, path);
+  assert.equal((await owner("/p/film/film/AGENTS.md")).status, 200, "an owner gets the files");
   assert.equal((await anna("/p/film/film/..%2Ffilm2%2Fstoryboard.json")).status, 403, "no step into a project whose name starts the same");
   assert.equal((await anna("/p/film/film/..%2F.people.json")).status, 403);
   for (const path of ["/p/film/film/.history/HEAD", "/p/film/film/.state/scenes/s01-intro.json", "/p/film/film/.state/chat/s01-intro.jsonl", "/p/film/film/scenes/.hidden"])
@@ -246,11 +252,11 @@ test("strangers can't lock an owner out: the right password and code still get i
   for (let i = 0; i < 20; i++) await browser({ ip: `10.7.0.${i + 1}` })("/login", { form: { email: "owner@example.com", password: "wrong wrong wrong" } });
   assert.match((await owner("/people")).text, /Locked until/);
   const b = browser({ ip: "10.7.1.1" });
-  const t0 = Date.now();
   const first = await b("/login", { form: { email: "owner@example.com", password: PW.owner } });
-  assert.ok(Date.now() - t0 >= 1900, "a locked account is slowed down");
   const mfa = field(first.text, "mfa");
   assert.ok(mfa, "the password step passes");
+  // while locked, one password try per 30 s for the account, from any address
+  assert.equal((await browser({ ip: "10.7.1.2" })("/login", { form: { email: "owner@example.com", password: PW.owner } })).status, 429);
   const done = await b("/login", { form: { step: "code", mfa, code: totp(ownerSecret, step() + 1) } });
   assert.equal(done.status, 302);
   assert.equal((await b("/api/whoami")).json.reviewer, "Owner");
@@ -258,13 +264,28 @@ test("strangers can't lock an owner out: the right password and code still get i
   await owner("/people", { form: { action: "unlock", id: ownerId } });
 });
 
+test("wrong authenticator codes are capped per account, from any address", async () => {
+  const mfa = field((await browser({ ip: "10.6.0.1" })("/login", { form: { email: "owner@example.com", password: PW.owner } })).text, "mfa");
+  for (let i = 0; i < 10; i++) assert.equal((await browser({ ip: `10.6.1.${i % 3}` })("/login", { form: { step: "code", mfa, code: "000000" } })).status, 401);
+  const right = await browser({ ip: "10.6.2.1" })("/login", { form: { step: "code", mfa, code: totp(ownerSecret, step() + 1) } });
+  assert.equal(right.status, 429, "the code step is closed for the account, even with the right code");
+  const pw = await browser({ ip: "10.6.2.2" })("/login", { form: { email: "owner@example.com", password: PW.owner } });
+  assert.ok(field(pw.text, "mfa"), "the password step still shows the code form");
+  assert.match((await owner("/people")).text, /Locked until/);
+  await owner("/people", { form: { action: "unlock", id: idOf((await owner("/people")).text, "owner@example.com") } });
+  assert.equal((await browser({ ip: "10.6.2.3" })("/login", { form: { step: "code", mfa, code: "000000" } })).status, 401, "unlock opens it again");
+});
+
 test("next after login stays on this site", async () => {
   const b = browser({ ip: "192.0.2.80" });
-  for (const next of ["/\t/evil.com", "//evil.com", "/\\evil.com", "https://evil.com", "/%09/evil.com"]) {
+  for (const next of ["/\t/evil.com", "//evil.com", "/\\evil.com", "https://evil.com", "/%09/evil.com", "/.//evil.com", "/..//evil.com", "/%2e//evil.com", "/a/..//evil.com"]) {
     const r = await b("/login", { form: { email: "anna@example.com", password: PW.anna, next } });
     assert.ok(r.location === "/" || r.location?.startsWith("/?") || r.location === "/%09/evil.com", `${JSON.stringify(next)} went to ${r.location}`);
     assert.ok(!r.location.startsWith("//"));
-    await b("/logout");
+    // with a session, GET /login sends you on at once
+    const again = await b(`/login?next=${encodeURIComponent(next)}`);
+    assert.ok(!again.location.startsWith("//") && !again.location.includes("evil.com/"), `GET ${JSON.stringify(next)} went to ${again.location}`);
+    await b("/logout", { method: "POST" });
   }
   const ok = await b("/login", { form: { email: "anna@example.com", password: PW.anna, next: "/?project=film2&video=film2" } });
   assert.equal(ok.location, "/?project=film2&video=film2");
@@ -275,7 +296,11 @@ test("logging out ends the session on the server, not just in the browser", asyn
   await b("/login", { form: { email: "anna@example.com", password: PW.anna } });
   const stolen = { ...b.jar };
   assert.equal((await b("/api/whoami")).status, 200);
-  await b("/logout");
+  assert.equal((await b("/logout")).status, 200, "GET only shows the button");
+  assert.equal((await b("/api/whoami")).status, 200, "and logs nobody out");
+  assert.equal((await b("/logout", { method: "POST", origin: "https://evil.example" })).status, 403);
+  assert.equal((await b("/api/whoami")).status, 200);
+  await b("/logout", { method: "POST" });
   const replay = await fetch(base + "/api/whoami", { headers: { Cookie: Object.entries(stolen).map(([k, v]) => `${k}=${v}`).join("; ") } });
   assert.equal(replay.status, 401);
   assert.equal((await anna("/api/whoami")).status, 200, "her other sessions stay");
