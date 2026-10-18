@@ -137,6 +137,21 @@ test("the older env settings move in once, merged by name", () => {
   }
 });
 
+test("failed-login counters for made-up emails are swept after an hour", async () => {
+  const { createLimits } = await import("../lib/auth.mjs");
+  const limits = createLimits(() => "192.0.2.1");
+  for (let i = 0; i < 3; i++) for (const e of ["ghost1@example.com", "ghost2@example.com"]) limits.fail({}, e);
+  assert.ok(limits.size() > 0);
+  limits.sweep(Date.now() + 30 * 60_000);
+  assert.ok(limits.size() > 0, "kept within the hour");
+  limits.sweep(Date.now() + 2 * 3_600_000);
+  assert.equal(limits.size(), 0);
+  for (let i = 0; i < 20; i++) limits.fail({}, "locked@example.com");
+  assert.ok(limits.locked("locked@example.com"));
+  limits.sweep(Date.now() + 30 * 60_000);
+  assert.ok(limits.locked("locked@example.com"), "a lock is kept until it runs out");
+});
+
 test("client metadata may only come from public addresses", async () => {
   const { publicAddress } = await import("../lib/auth.mjs");
   for (const a of ["8.8.8.8", "1.1.1.1", "172.32.0.1", "2606:4700::1", "::ffff:8.8.8.8"]) assert.equal(publicAddress(a), true, a);

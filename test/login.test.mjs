@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { TEMPLATE_DIR } from "../lib/projects.mjs";
@@ -161,6 +161,13 @@ test("a commenter sees only their project and none of the owner's tools", async 
   const build = (await anna("/api/build/scene/s01-intro?project=film&v=1")).json.url;
   assert.equal((await anna(build)).status, 200, build);
   assert.equal((await anna(build.replace("index.html", "scenes/s01-intro/scene.html"))).status, 200);
+  // a scene that loads a file of its own (next to scene.html) and one from assets/
+  mkdirSync(join(root, "film", "assets"), { recursive: true });
+  writeFileSync(join(root, "film", "assets", "logo.svg"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+  writeFileSync(join(root, "film", "scenes", "s01-intro", "pic.svg"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+  const disk = (await anna("/api/build/scene/s01-intro?project=film&v=disk")).json.url.split("?")[0];
+  for (const f of ["scenes/s01-intro/pic.svg", "assets/logo.svg"]) assert.equal((await anna(disk.replace("index.html", f))).status, 200, f);
+  assert.equal((await anna("/p/film/film/assets/logo.svg")).status, 200);
   for (const path of ["/p/film/film/storyboard.json", "/p/film/film/project.md", "/p/film/film/AGENTS.md", "/p/film/film/scenes/s01-intro/scene.html"])
     assert.equal((await anna(path)).status, 404, path);
   assert.equal((await owner("/p/film/film/AGENTS.md")).status, 200, "an owner gets the files");
@@ -274,6 +281,24 @@ test("wrong authenticator codes are capped per account, from any address", async
   assert.match((await owner("/people")).text, /Locked until/);
   await owner("/people", { form: { action: "unlock", id: idOf((await owner("/people")).text, "owner@example.com") } });
   assert.equal((await browser({ ip: "10.6.2.3" })("/login", { form: { step: "code", mfa, code: "000000" } })).status, 401, "unlock opens it again");
+});
+
+test("a browser that logged in before gets past a lock a stranger keeps up", async () => {
+  assert.ok(owner.jar.sl_device, "a login leaves a device cookie");
+  for (let i = 0; i < 20; i++) await browser({ ip: `10.5.0.${i + 1}` })("/login", { form: { email: "owner@example.com", password: "wrong wrong wrong" } });
+  // the stranger takes the slot of these 30 seconds
+  await browser({ ip: "10.5.1.1" })("/login", { form: { email: "owner@example.com", password: "wrong wrong wrong" } });
+  assert.equal((await browser({ ip: "10.5.1.2" })("/login", { form: { email: "owner@example.com", password: PW.owner } })).status, 429, "a new browser waits for the slot");
+  const mine = browser({ ip: "10.5.1.3" });
+  mine.jar.sl_device = owner.jar.sl_device;
+  const r = await mine("/login", { form: { email: "owner@example.com", password: PW.owner } });
+  assert.ok(field(r.text, "mfa"), "the owner's own browser gets the code form");
+  const wrongPw = await mine("/login", { form: { email: "owner@example.com", password: "not it at all" } });
+  assert.equal(wrongPw.status, 401, "it still needs the password");
+  const other = browser({ ip: "10.5.1.4" });
+  other.jar.sl_device = anna.jar.sl_device;
+  assert.equal((await other("/login", { form: { email: "owner@example.com", password: PW.owner } })).status, 429, "another person's device cookie doesn't count");
+  await owner("/people", { form: { action: "unlock", id: idOf((await owner("/people")).text, "owner@example.com") } });
 });
 
 test("next after login stays on this site", async () => {
