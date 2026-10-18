@@ -59,6 +59,7 @@ without a login. Outside Docker it's the same: `--host 0.0.0.0` needs `SCENE_LOO
 | `SCENE_LOOP_PASSWORD` or `--password` | Turns the login on. The web UI asks for it; the OAuth flow asks for it before a connector gets a token. |
 | `SCENE_LOOP_SECRET` | Signs sessions, client ids, codes and tokens. Without it a random one is made at start and everyone is logged out on restart. |
 | `SCENE_LOOP_TOKEN` | A fixed bearer token for `/mcp`, for Claude Code (`--header "Authorization: Bearer …"`). Optional. With `--no-login` and no password it is the only check: the page stays open, `/mcp` wants the token. That is the setting for a private network such as a tailnet. |
+| `SCENE_LOOP_TOKENS` | One `/mcp` token per person, `Name=token` pairs, comma-separated (16 characters or more each). Works next to or instead of `SCENE_LOOP_TOKEN`. An agent that comes in with one has its writes labelled with the name (`claude (Anna)` on the version, in the activity log and the history) and its comments carry `by`, and one person's token can be removed without changing anyone else's. |
 | `SCENE_LOOP_URL` or `--url` | The public URL. Without it, scene-loop works it out from `X-Forwarded-Proto`, `X-Forwarded-Host` and `Host`. |
 
 Changing the password or the secret logs everyone out and invalidates every token, except

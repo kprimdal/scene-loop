@@ -22,7 +22,8 @@ import { randomUUID, timingSafeEqual, createHash } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { spawn } from "node:child_process";
 import { renderClip, PARALLEL } from "./lib/render.mjs";
-import { findChrome } from "./lib/chrome.mjs";
+import { findChrome, confine } from "./lib/chrome.mjs";
+import { GSAP } from "./lib/assemble.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
@@ -35,6 +36,10 @@ if (!TOKEN && !["127.0.0.1", "::1", "localhost"].includes(HOST)) {
   console.error(`--host ${HOST} reaches beyond this machine: set SCENE_LOOP_TOKEN (the same token the server has).`);
   process.exit(1);
 }
+// The pages come from another machine: each may load only its own mirror's files (and GSAP for
+// old scenes), not the rest of this computer or its network. A scene that needs more fails
+// here and the server renders it itself.
+confine(ROOT, [GSAP]);
 const OUT = join(ROOT, ".out");
 mkdirSync(OUT, { recursive: true });
 for (const f of readdirSync(OUT)) rmSync(join(OUT, f), { force: true }); // clips nobody fetched before a restart

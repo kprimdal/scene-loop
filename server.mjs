@@ -50,6 +50,7 @@ try {
   auth = createAuth({
     password: flag("--password") ?? process.env.SCENE_LOOP_PASSWORD,
     token: process.env.SCENE_LOOP_TOKEN,
+    tokens: process.env.SCENE_LOOP_TOKENS,
     secret: process.env.SCENE_LOOP_SECRET,
     publicUrl: flag("--url") ?? process.env.SCENE_LOOP_URL,
     host: HOST,

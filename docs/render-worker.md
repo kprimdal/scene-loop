@@ -62,6 +62,14 @@ checkout is a clean main, so a restart picks up a new worker.
 
 Closing the lid still sleeps the Mac mid-clip; the server notices within 20 s and takes over.
 
+The pages a worker renders come from another machine, so each one is confined to its own
+mirror: it loads that mirror's files, `data:` and `blob:` URLs and GSAP from jsDelivr, and
+nothing else. Not other files on the computer (Chrome runs with file access from files, which
+the scenes' relative URLs need), not another video's mirror, not localhost or the network. A
+scene that tries fails on the worker with `blocked <url>` in `get_render`'s `worker.error`, and
+the server renders it itself. Someone with root on the server can still send the worker pages
+to render, but those pages see only what the server sent with them.
+
 ## The server
 
 ```
