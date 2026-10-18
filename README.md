@@ -127,7 +127,9 @@ localhost needs that password: the web UI gets a login page, and `/mcp` takes a 
 runs the OAuth flow a claude.ai custom connector expects. On a private network (a tailnet) you
 can run `--no-login` and still set `SCENE_LOOP_TOKEN`: the page stays open and `/mcp` wants the
 token. Put it behind TLS. [docs/self-host.md](docs/self-host.md) has the image, the settings, and
-nginx, Caddy and Cloudflare Tunnel.
+nginx, Caddy and Cloudflare Tunnel. To let someone outside comment on one project under their own
+name, `SCENE_LOOP_SHARE_PORT` opens a second listener for Cloudflare Access; the same page has
+the setup.
 
 ## Project format
 

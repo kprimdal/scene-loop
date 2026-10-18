@@ -11,7 +11,8 @@ import "./js/live.js";
 
 await import("./js/tools.js");
 
-S.reviewer = (await api("/api/whoami")).reviewer;
+({ reviewer: S.reviewer, guest: S.guest } = await api("/api/whoami"));
+document.body.classList.toggle("guest", S.guest); // on a shared link: watch and comment only
 await loadProjects();
 if (pickView()) {
   renderCrumbs();

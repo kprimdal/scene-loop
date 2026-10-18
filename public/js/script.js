@@ -87,7 +87,7 @@ export function renderScript() {
     ),
     ...S.data.scenes.map((s, i) => {
       const narration = s.narration ?? "";
-      const ta = h("textarea", { rows: Math.max(2, narration.split("\n").length), spellcheck: true, "aria-label": `Narration for ${s.id}` }, narration);
+      const ta = h("textarea", { rows: Math.max(2, narration.split("\n").length), spellcheck: true, readonly: S.guest, "aria-label": `Narration for ${s.id}` }, narration);
       ta.dataset.original = narration;
       ta.addEventListener("input", () => (fit(ta), updateScriptCounts()));
       ta.addEventListener("blur", () => saveScriptNarration(s, ta));

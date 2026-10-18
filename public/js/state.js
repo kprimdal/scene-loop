@@ -15,6 +15,7 @@ export const S = {
   loadedKey: null,
   chat: [],
   reviewer: "You",
+  guest: false, // on a shared link: no agent tools, renders, restores or instructions
 };
 
 // Every API call carries the current project and video (?project=&video=), from the URL.

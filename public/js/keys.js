@@ -12,7 +12,7 @@ window.addEventListener("keydown", (e) => {
   if (/TEXTAREA|INPUT/.test(document.activeElement?.tagName) || e.repeat || e.metaKey || e.ctrlKey) return;
   if (!$("#drawer").hidden) return;
   if (e.key === "Escape") return closePop();
-  if (e.key === "i" && !S.overview) return openInstructions();
+  if (e.key === "i" && !S.overview && !S.guest) return openInstructions();
   if (S.overview) return;
   if (e.key === "s") return setScript();
   if (e.key === " ") (e.preventDefault(), player.paused === false ? player.pause() : player.play());

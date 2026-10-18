@@ -154,3 +154,29 @@ the right address whatever the proxy sends.
 Cloudflare Access in front of the tunnel works for the web UI but stops claude.ai, which can't
 pass Access's login. Use scene-loop's own login, or exempt `/mcp`, `/.well-known/*`,
 `/register`, `/authorize` and `/token`.
+
+## Share one project with someone outside
+
+To let a client or a colleague watch one project and pin comments under their own name, without
+giving them the rest of the server, open a second listener for a Cloudflare Tunnel with Access in
+front. It runs in the same process as the main one, on loopback only:
+
+```
+SCENE_LOOP_SHARE_PORT=4302
+SCENE_LOOP_SHARE_PROJECTS=client-film                     # comma-separated project names
+SCENE_LOOP_SHARE_PEOPLE=anna@client.com=Anna,me@example.com=Me
+SCENE_LOOP_ACCESS_TEAM=yourteam                           # yourteam.cloudflareaccess.com
+SCENE_LOOP_ACCESS_AUD=<the Access application's audience tag>
+```
+
+In Cloudflare: an Access application for the hostname with a policy that allows those emails
+(one-time PIN login is enough), a tunnel ingress rule from the hostname to
+`http://127.0.0.1:4302`, and the hostname's DNS record. Every request on the share listener must
+carry an Access JWT for someone on `SCENE_LOOP_SHARE_PEOPLE`; scene-loop checks its signature
+against the team's keys, its audience and its expiry, and the email names the reviewer. Others
+get a 403, the same as a request that did not come through Access.
+
+On that listener a person sees only the shared projects (the overview, the files, the live
+events), watches, reads the script, and adds and removes their own comments. There is no `/mcp`,
+no agent tools, no renders, restores, deletes or instructions. Comments carry `by`, so the chat
+sees who wrote each one in `get_pending_comments`.

@@ -113,7 +113,7 @@ export function renderOverview() {
           { class: "pcard-head" },
           h("div", {}, h("h2", {}, p.title), h("div", { class: "muted small" }, `${p.name} · ${p.videos.length} video${p.videos.length === 1 ? "" : "s"}`)),
           h("div", { class: "spacer" }),
-          h("button", { class: "btn small", title: "The project's instructions for the chat", onclick: () => openInstructions(p.name) }, p.instructions ? "Instructions" : "Add instructions"),
+          h("button", { class: "btn small owner-only", title: "The project's instructions for the chat", onclick: () => openInstructions(p.name) }, p.instructions ? "Instructions" : "Add instructions"),
         ),
         p.tags.length ? h("div", { class: "tags" }, p.tags.map((t) => h("span", { class: "tag" }, t))) : null,
         h(
@@ -130,12 +130,12 @@ export function renderOverview() {
                   v.poster ? h("img", { src: v.poster, alt: "", loading: "lazy" }) : h("div", { class: "noimg" }),
                   h("div", { style: "min-width:0" }, h("b", {}, v.title), h("div", { class: "muted small" }, v.name)),
                   h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${v.scenes} scene${v.scenes === 1 ? "" : "s"}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered")),
-                  p.layout === "project" ? h("button", { class: "vdel", title: "Delete video", "aria-label": `Delete ${v.title}`, onclick: (e) => deleteVideo(e, p.name, v) }, "×") : null,
+                  p.layout === "project" ? h("button", { class: "vdel owner-only", title: "Delete video", "aria-label": `Delete ${v.title}`, onclick: (e) => deleteVideo(e, p.name, v) }, "×") : null,
                 );
               })
             : h("div", { class: "novideos" }, "No videos yet."),
         ),
-        p.layout === "project" ? h("div", { class: "pcard-foot" }, h("button", { class: "btn ghost small", onclick: () => newVideo(p.name) }, "+ New video")) : null,
+        p.layout === "project" ? h("div", { class: "pcard-foot owner-only" }, h("button", { class: "btn ghost small", onclick: () => newVideo(p.name) }, "+ New video")) : null,
       ),
     ),
   );

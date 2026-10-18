@@ -173,6 +173,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* overview: every project and its videos */
 .overview { overflow-y: auto; padding: 22px 24px 40px; min-height: 0; }
 .overview[hidden], .main[hidden], .filmstrip[hidden] { display: none; }
+body.guest .owner-only { display: none !important; }
 body.overview-mode { grid-template-rows: auto minmax(0, 1fr); }
 body.overview-mode .viewer-only, body:not(.overview-mode) .overview-only { display: none; }
 .ov-head { max-width: 1180px; margin: 0 auto 12px; display: flex; align-items: baseline; gap: 12px; }

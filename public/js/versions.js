@@ -42,7 +42,7 @@ export function renderVersions() {
           { class: "acts" },
           isView ? null : h("button", { class: "btn", onclick: () => viewVersion(v.v) }, "View"),
           sc.versions.length > 1 ? h("button", { class: "btn ghost", onclick: () => openCompare(v.v) }, "Compare") : null,
-          v.v !== latest(sc) ? h("button", { class: "btn ghost", title: "Bring this version back as a new version", onclick: () => restore(v.v) }, "Restore") : null,
+          v.v !== latest(sc) ? h("button", { class: "btn ghost owner-only", title: "Bring this version back as a new version", onclick: () => restore(v.v) }, "Restore") : null,
         ),
         h("div", { class: "what" }, comments.length || v.note ? [...comments.map((c) => `“${c.text}”`), ...(v.note ? [`Note: ${v.note}`] : [])].join("  ") : v.v === 1 ? "First version." : v.from ? `Restored from v${v.from}.` : (v.subject ?? "").replace(/^[\w-]+ v\d+: /, "")),
       );

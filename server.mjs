@@ -9,6 +9,8 @@
 //   videos/<video>/ (create_project, create_video). A <dir> with a storyboard.json is one
 //   video, and a root whose folders have one is one video per project; both still work.
 //   A --host beyond loopback needs a login (SCENE_LOOP_PASSWORD); see lib/auth.mjs.
+//   SCENE_LOOP_SHARE_PORT opens a second, loopback-only listener for a Cloudflare Tunnel with
+//   Access in front: named people watch and comment on a few projects; see lib/share.mjs.
 import { createServer } from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve, normalize } from "node:path";
@@ -17,6 +19,7 @@ import { createRegistry } from "./lib/projects.mjs";
 import { toolList, callTool, withoutFiles } from "./lib/tools.mjs";
 import { createMcp } from "./lib/mcp.mjs";
 import { createAuth } from "./lib/auth.mjs";
+import { createShare } from "./lib/share.mjs";
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const VERSION = "0.2.0";
@@ -33,11 +36,14 @@ if (!existsSync(rootArg) || !statSync(rootArg).isDirectory()) {
 }
 
 // ---------- live events (SSE) ----------
-const clients = new Set();
+// res -> the projects it may hear about (null: all). A comment line every 25 s keeps the
+// stream open through proxies that drop idle connections (Cloudflare does after 100 s).
+const clients = new Map();
 function emit(type, data) {
   const msg = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const c of clients) c.write(msg);
+  for (const [c, only] of clients) if (!only || only.has(data?.project)) c.write(msg);
 }
+setInterval(() => { for (const c of clients.keys()) c.write(": ping\n\n"); }, 25_000).unref();
 
 let auth;
 try {
@@ -52,6 +58,23 @@ try {
 } catch (e) {
   console.error(e.message);
   process.exit(1);
+}
+
+let share = null;
+if (process.env.SCENE_LOOP_SHARE_PORT) {
+  try {
+    share = createShare({
+      port: Number(process.env.SCENE_LOOP_SHARE_PORT),
+      projects: process.env.SCENE_LOOP_SHARE_PROJECTS,
+      people: process.env.SCENE_LOOP_SHARE_PEOPLE,
+      team: process.env.SCENE_LOOP_ACCESS_TEAM,
+      aud: process.env.SCENE_LOOP_ACCESS_AUD,
+      certsUrl: process.env.SCENE_LOOP_ACCESS_CERTS,
+    });
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 }
 
 const registry = createRegistry(rootArg, { reviewer: REVIEWER, emit });
@@ -98,52 +121,88 @@ function inside(root, p) {
 }
 
 // UI routes. Each gets (match, query, body, ctx); ctx.p() is the video from ?project= and
-// ?video= (or the only one). The page's agent tools go through /api/tools instead.
+// ?video= (or the only one), ctx.guest the person on the share listener (null on the main one).
+// The page's agent tools go through /api/tools instead. Routes marked "guest" are the only
+// ones the share listener answers.
 const routes = [
-  ["GET", /^\/api\/projects$/, async () => ({ projects: await registry.list(), single: registry.single, root: registry.root })],
+  ["GET", /^\/api\/projects$/, async (m, q, b, ctx) => (ctx.guest
+    ? { projects: (await registry.list()).filter((p) => share.allows(p.name)).map(({ dir, ...p }) => p), single: false, root: null }
+    : { projects: await registry.list(), single: registry.single, root: registry.root }), "guest"],
   ["DELETE", /^\/api\/videos\/([^/]+)\/([^/]+)$/, async (m) => registry.deleteVideo(decodeURIComponent(m[1]), decodeURIComponent(m[2]))],
-  ["GET", /^\/api\/whoami$/, async () => ({ reviewer: REVIEWER })],
-  ["GET", /^\/api\/tools$/, async () => toolList()],
+  ["GET", /^\/api\/whoami$/, async (m, q, b, ctx) => ({ reviewer: ctx.guest?.name ?? REVIEWER, guest: Boolean(ctx.guest) }), "guest"],
+  ["GET", /^\/api\/tools$/, async (m, q, b, ctx) => (ctx.guest ? [] : toolList()), "guest"],
   ["POST", /^\/api\/tools\/([\w-]+)$/, async (m, q, b, ctx) => withoutFiles(await callTool(m[1], b.args ?? {}, { registry, via: ["webmcp", "page-js"].includes(b.via) ? b.via : "api", origin: ctx.origin, defaults: { project: ctx.projectName, video: ctx.videoName } }))],
-  ["GET", /^\/api\/project$/, async (m, q, b, ctx) => (q.get("sync") ? await ctx.p().then((p) => p.commitManualEdits()) : null, (await ctx.p()).view())],
-  ["GET", /^\/api\/chat\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).chat(m[1])],
-  ["GET", /^\/api\/build\/scene\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).sceneBuildUrl(m[1], q.get("v"))],
-  ["GET", /^\/api\/build\/whole$/, async (m, q, b, ctx) => (await ctx.p()).wholeBuildUrl()],
-  ["POST", /^\/api\/scene\/([\w-]+)\/comments$/, async (m, q, b, ctx) => (await ctx.p()).addComment(m[1], b)],
-  ["DELETE", /^\/api\/scene\/([\w-]+)\/comments\/(\w+)$/, async (m, q, b, ctx) => (await ctx.p()).deleteComment(m[1], m[2])],
+  ["GET", /^\/api\/project$/, async (m, q, b, ctx) => (q.get("sync") ? await ctx.p().then((p) => p.commitManualEdits()) : null, (await ctx.p()).view()), "guest"],
+  ["GET", /^\/api\/chat\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).chat(m[1]), "guest"],
+  ["GET", /^\/api\/build\/scene\/([\w-]+)$/, async (m, q, b, ctx) => (await ctx.p()).sceneBuildUrl(m[1], q.get("v")), "guest"],
+  ["GET", /^\/api\/build\/whole$/, async (m, q, b, ctx) => (await ctx.p()).wholeBuildUrl(), "guest"],
+  ["POST", /^\/api\/scene\/([\w-]+)\/comments$/, async (m, q, b, ctx) => (await ctx.p()).addComment(m[1], b, ctx.guest?.name ?? REVIEWER), "guest"],
+  // A guest removes only their own comments.
+  ["DELETE", /^\/api\/scene\/([\w-]+)\/comments\/(\w+)$/, async (m, q, b, ctx) => (await ctx.p()).deleteComment(m[1], m[2], ctx.guest?.name), "guest"],
   ["POST", /^\/api\/scene\/([\w-]+)\/restore$/, async (m, q, b, ctx) => (await ctx.p()).restore(m[1], b.v)],
   ["POST", /^\/api\/render$/, async (m, q, b, ctx) => (await ctx.p()).render()],
 ];
 
-const server = createServer(async (req, res) => {
+// One handler for both listeners. guest is null on the main listener and { email, name } on
+// the share listener, where only "guest" routes and the shared projects' files answer.
+async function handle(req, res, guest) {
   const url = new URL(req.url, "http://x");
   const origin = auth.baseUrl(req);
+  if (url.pathname === "/mcp") return guest ? send(res, 404, { error: "not found" }) : await mcp(req, res, { origin });
+  if (url.pathname === "/api/events") {
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
+    res.write(": hi\n\n");
+    clients.set(res, guest ? share.projects : null);
+    req.on("close", () => clients.delete(res));
+    return;
+  }
+  let projectName = url.searchParams.get("project") || null;
+  const videoName = url.searchParams.get("video") || null;
+  if (guest) {
+    if (!projectName && share.projects.size === 1) projectName = [...share.projects][0];
+    if (projectName && !share.allows(projectName)) return send(res, 404, { error: "not found" });
+  }
+  const ctx = { origin, guest, projectName, videoName, p: () => (guest && !projectName ? Promise.reject(new Error("pass project")) : registry.resolve(projectName, videoName)) };
+  for (const [method, re, fn, open] of routes) {
+    const m = url.pathname.match(re);
+    if (m && req.method === method) {
+      if (guest && open !== "guest") return send(res, 403, { error: "Not on a shared link." });
+      return send(res, 200, await fn(m, url.searchParams, req.method === "GET" ? {} : await body(req), ctx));
+    }
+  }
+  // /p/<project>/<video>/... video files (builds, stills, assets); /renders/<project>/<video>/<file> renders
+  const pm = url.pathname.match(/^\/(p|renders)\/([^/]+)\/([^/]+)\/(.*)$/);
+  if (pm) {
+    if (guest && !share.allows(decodeURIComponent(pm[2]))) return send(res, 404, { error: "not found" });
+    const d = registry.dirOfVideo(decodeURIComponent(pm[2]), decodeURIComponent(pm[3]));
+    const f = inside(pm[1] === "p" ? d : join(d, "renders"), pm[4]);
+    return f ? serveFile(req, res, f) : send(res, 403, {});
+  }
+  const f = inside(join(appDir, "public"), url.pathname === "/" ? "index.html" : url.pathname.slice(1));
+  return f ? serveFile(req, res, f) : send(res, 403, {});
+}
+
+const server = createServer(async (req, res) => {
   try {
     if (await auth.gate(req, res)) return;
-    if (url.pathname === "/mcp") return await mcp(req, res, { origin });
-    if (url.pathname === "/api/events") {
-      res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
-      res.write(": hi\n\n");
-      clients.add(res);
-      req.on("close", () => clients.delete(res));
-      return;
+    await handle(req, res, null);
+  } catch (e) {
+    send(res, 400, { error: e.message });
+  }
+});
+
+// The share listener: loopback only, for the tunnel. Every request carries a Cloudflare Access
+// JWT for someone on the list; a write must come from a page on the same host.
+const shareServer = share && createServer(async (req, res) => {
+  try {
+    const guest = await share.who(req);
+    if (!guest) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      return res.end("Not on the list for this link.\n");
     }
-    const projectName = url.searchParams.get("project") || null;
-    const videoName = url.searchParams.get("video") || null;
-    const ctx = { origin, projectName, videoName, p: () => registry.resolve(projectName, videoName) };
-    for (const [method, re, fn] of routes) {
-      const m = url.pathname.match(re);
-      if (m && req.method === method) return send(res, 200, await fn(m, url.searchParams, req.method === "GET" ? {} : await body(req), ctx));
-    }
-    // /p/<project>/<video>/... video files (builds, stills, assets); /renders/<project>/<video>/<file> renders
-    const pm = url.pathname.match(/^\/(p|renders)\/([^/]+)\/([^/]+)\/(.*)$/);
-    if (pm) {
-      const d = registry.dirOfVideo(decodeURIComponent(pm[2]), decodeURIComponent(pm[3]));
-      const f = inside(pm[1] === "p" ? d : join(d, "renders"), pm[4]);
-      return f ? serveFile(req, res, f) : send(res, 403, {});
-    }
-    const f = inside(join(appDir, "public"), url.pathname === "/" ? "index.html" : url.pathname.slice(1));
-    return f ? serveFile(req, res, f) : send(res, 403, {});
+    const from = req.headers.origin;
+    if (!["GET", "HEAD"].includes(req.method) && from && from.replace(/^\w+:\/\//, "") !== req.headers.host) return send(res, 403, { error: "cross-site request refused" });
+    await handle(req, res, guest);
   } catch (e) {
     send(res, 400, { error: e.message });
   }
@@ -158,3 +217,4 @@ server.listen(PORT, HOST, async () => {
   if (auth.generated) console.log("No SCENE_LOOP_SECRET set: sessions and tokens end when the server restarts.");
   for (const [n, v] of videos) registry.get(n, v).catch((e) => console.error(`${n}/${v}: ${e.message}`)); // opens and warms posters in the background
 });
+shareServer?.listen(share.port, "127.0.0.1", () => console.log(`Share listener on 127.0.0.1:${share.port} for ${[...share.projects].join(", ")} (Cloudflare Access, team ${process.env.SCENE_LOOP_ACCESS_TEAM})`));

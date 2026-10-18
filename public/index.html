@@ -20,16 +20,16 @@
         <span class="sep">/</span>
         <select id="videoSel" class="project-sel" title="Video"></select>
       </nav>
-      <button class="btn viewer-only" id="instructionsBtn" title="The project's instructions for the chat: pronunciation, voice, tone (I)">Instructions</button>
+      <button class="btn viewer-only owner-only" id="instructionsBtn" title="The project's instructions for the chat: pronunciation, voice, tone (I)">Instructions</button>
       <span class="muted small viewer-only" id="meta"></span>
       <div class="spacer"></div>
-      <button class="btn overview-only" id="newProject" title="Create a project with a starter project.md">+ New project</button>
+      <button class="btn overview-only owner-only" id="newProject" title="Create a project with a starter project.md">+ New project</button>
       <span class="muted small viewer-only" id="renderState"></span>
       <details class="renders viewer-only">
         <summary class="btn">Renders</summary>
         <div id="renderList" class="menu"></div>
       </details>
-      <button class="btn dark viewer-only" id="renderBtn">Render mp4</button>
+      <button class="btn dark viewer-only owner-only" id="renderBtn">Render mp4</button>
     </header>
 
     <section class="overview" id="overview" hidden>
@@ -91,7 +91,7 @@
         <div class="toolbar">
           <button class="btn" id="versionsBtn" title="Show the scene's versions under the player">Versions</button>
           <div class="spacer"></div>
-          <button class="btn ghost" id="copyPrompt" title="Copy a prompt for the chat next to this page" hidden>Copy prompt</button>
+          <button class="btn ghost owner-only" id="copyPrompt" title="Copy a prompt for the chat next to this page" hidden>Copy prompt</button>
         </div>
         <div class="chat" id="chat"></div>
         <div class="pending" id="pending"></div>
