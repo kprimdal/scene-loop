@@ -157,6 +157,13 @@ page tools through WebMCP and `window.sceneLoop`.
    trim), `list_clips`, `probe_media`, and `missingAssets` per scene in `list_scenes`. Audio and
    clips are not history versions; the chat log records them. The lab result behind the anchors
    is video-lab 006: a voice swap re-timed a scene with the html byte-identical.
+10. **People.** Built 2026-10-18. scene-loop is the only lock on a public hostname, so the shared
+   password and the Cloudflare Access share listener gave way to a people list
+   (`<root>/.people.json`, `lib/people.mjs`): owners and commenters, a project list per
+   commenter, invite links that set a password (scrypt), an authenticator code (TOTP) for owners,
+   agent tokens per owner stored hashed. `lib/auth.mjs` checks the session against the list on
+   every request; `lib/admin.mjs` is the People and Account pages. `--invite-owner` makes the
+   first owner. The old env settings move in once.
 
 ## MCP App
 

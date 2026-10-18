@@ -122,14 +122,15 @@ serves each as a project with one video of the same name. In both, a `project.md
 `storyboard.json` gives it instructions; without one the chat has no pronunciation rules.
 
 On a server: `docker compose up -d` with the `Dockerfile` and `docker-compose.yml` here, or
-`node server.mjs ~/videos --host 0.0.0.0` with `SCENE_LOOP_PASSWORD` set. Anything beyond
-localhost needs that password: the web UI gets a login page, and `/mcp` takes a bearer token or
-runs the OAuth flow a claude.ai custom connector expects. On a private network (a tailnet) you
-can run `--no-login` and still set `SCENE_LOOP_TOKEN`: the page stays open and `/mcp` wants the
-token. Put it behind TLS. [docs/self-host.md](docs/self-host.md) has the image, the settings, and
-nginx, Caddy and Cloudflare Tunnel. To let someone outside comment on one project under their own
-name, `SCENE_LOOP_SHARE_PORT` opens a second listener for Cloudflare Access; the same page has
-the setup.
+`node server.mjs ~/videos --host 0.0.0.0`, then `node server.mjs ~/videos --invite-owner
+you@example.com You` for the first owner's invite link. Anything beyond localhost needs a login:
+people log in with their own email and password, owners with an authenticator code too, and
+`/mcp` takes an owner's token or runs the OAuth flow a claude.ai custom connector expects. On the
+People page an owner adds someone to one or more projects as a commenter (watch, read the
+script, comment under their own name) and sends them the invite link, or removes them again. On
+a private network (a tailnet) you can run `--no-login` and set `SCENE_LOOP_TOKEN`: the page
+stays open and `/mcp` wants the token. Put it behind TLS. [docs/self-host.md](docs/self-host.md)
+has the image, the settings, and nginx, Caddy and Cloudflare Tunnel.
 
 ## Project format
 

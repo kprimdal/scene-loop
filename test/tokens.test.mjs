@@ -79,3 +79,11 @@ test("the token's name always ends the agent label, whatever model says", async 
   const view = await (await fetch(`${base}/api/project`)).json();
   assert.equal(view.scenes.find((s) => s.id === "s01-intro").versions.at(-1).agent, "gpt (Anna) (Ben)");
 });
+
+test("with --no-login the page stays open, but another site cannot post to it", async () => {
+  assert.equal((await fetch(`${base}/api/whoami`)).status, 200);
+  const evil = await fetch(`${base}/api/videos/film/film`, { method: "DELETE", headers: { Origin: "https://evil.example" } });
+  assert.equal(evil.status, 403);
+  const plain = await fetch(`${base}/api/scene/s01-intro/comments`, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ t: 1, text: "x" }) });
+  assert.equal(plain.status, 415);
+});
