@@ -5,6 +5,7 @@ import { renderVersions } from "./versions.js";
 import { loadChat, renderPanel } from "./panel.js";
 import { renderRenders } from "./renders.js";
 import { renderScript } from "./script.js";
+import { renderRecord } from "./record.js";
 import { loadPlayer } from "./stage.js";
 
 const Q = new URLSearchParams(location.search);
@@ -29,5 +30,6 @@ export async function refresh() {
   renderPanel();
   renderRenders();
   if (S.script) renderScript();
+  if (S.record) return renderRecord();
   await loadPlayer();
 }

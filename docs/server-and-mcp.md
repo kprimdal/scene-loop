@@ -164,6 +164,27 @@ page tools through WebMCP and `window.sceneLoop`.
    agent tokens per owner stored hashed. `lib/auth.mjs` checks the session against the list on
    every request; `lib/admin.mjs` is the People and Account pages. `--invite-owner` makes the
    first owner. The old env settings move in once.
+11. **Narration read to camera, and sound effects on words.** Built 2026-10-20. The Record view
+   (`public/js/record.js`) is a teleprompter at the top of the screen with the camera and mic
+   (`getUserMedia`, no echo cancellation, noise suppression or gain control) and MediaRecorder
+   (mp4 when Chrome has it, else webm). A take is POSTed raw to `/api/takes/<scene>` as
+   `video/mp4` or `video/webm` (like JSON, a type no form can send cross-site; owners only) and
+   kept under `assets/takes/<scene>/<n>.<ext>` with `takes.json`. `lib/takes.mjs` finds the
+   speech (levels in 20 ms windows give the room's floor and the voice; `silencedetect` at a
+   threshold between them; sounds under 0.15 s, like the space bar, are dropped), cuts the
+   narration (highpass 80 Hz, `afftdn` against the measured floor with its 25 ms lag measured
+   and trimmed, no loudnorm) and the camera clip `assets/cam/<scene>.mp4` (CFR, cover-scaled,
+   t=0 = scene t=0, first or last frame held where the take has none). `choose_take` writes the
+   audio through `setNarrationAudio` with the take's narration hash, removes words timed on
+   another take, and cuts the cam clip; `fit_scenes_to_narration`, `build_soundtrack`,
+   `update_scene` (duration) and `set_video` (size) re-cut the cam clips that no longer fit.
+   `list_takes`, `choose_take` and `add_take` are the tools. Sound effects: `data-sfx` cues
+   (`lib/sfx.mjs`) resolve with `anchor-core.js` like `data-at`, fall back to the element's CSS
+   animation delay, and `build_soundtrack` mixes them over the normalised voice (with
+   `storyboard.music` as a bed) through `amix` and a limiter. The kit in `sfx/` is synthesized
+   by `sfx/make_kit.py` and calibrated to -27 LUFS momentary (11 dB under the voice).
+   The same work found that `loudnorm` handed on timestamps that put the voice 30 to 70 ms late
+   in the m4a; `build_soundtrack` now re-stamps it, so a word lands where its anchor says.
 
 ## MCP App
 
