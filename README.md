@@ -15,8 +15,9 @@ take.
 1. **Script.** The chat writes one block of narration per scene (`create_scene`, `update_scene`).
    You read it in the Script view and edit lines in place until it is right. Narration comes
    after that, because a changed line means a new take and new timing for every scene after it.
-2. **Narration.** The chat renders one audio file per scene with whatever voice service it has
-   (scene-loop holds no keys) and stores it with `set_narration_audio`. `set_narration_words` adds
+2. **Narration.** Either you read it to camera in the Record view (below), or the chat renders
+   one audio file per scene with whatever voice service it has (scene-loop holds no keys) and
+   stores it with `set_narration_audio`. `set_narration_words` adds
    word timings from the same take (raw ElevenLabs Scribe or whisper-cli output, aligned to the
    script). `fit_scenes_to_narration` sets each scene's duration to lead + audio + tail on the
    frame grid. `build_soundtrack` lays the blocks into one `assets/narration.m4a` and selects it.
@@ -71,6 +72,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | Scenes | `list_scenes`, `create_scene`, `update_scene`, `reorder_scenes`, `remove_scene`, `get_scene_html`, `write_scene_html`, `get_stills`, `show_scene`, `restore_version` |
 | Review | `get_pending_comments`, `add_comment` |
 | Narration | `set_narration_audio`, `remove_narration_audio`, `set_narration_words`, `remove_narration_words`, `fit_scenes_to_narration`, `build_soundtrack` |
+| Takes | `list_takes`, `choose_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
 | Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render` |
 
@@ -153,6 +155,9 @@ assets/narration/      <id>.mp3|wav|m4a, one take per scene, and <id>.words.json
                        word timings
 assets/narration.m4a   the soundtrack build_soundtrack makes from them
 assets/clips/          <id>.mp4, screen-recording clips cut to scene length
+assets/takes/<id>/     <n>.mp4|webm, every take read to camera, and takes.json
+assets/cam/            <id>.mp4, the chosen take's camera clip, t=0 = the scene's t=0
+assets/sfx/            <name>.wav, sound effects that add to or replace the kit
 assets/                anything else a scene references as assets/...
 frame.md               optional design spec the agents read
 AGENTS.md              the scene contract the chat reads through get_rules
@@ -216,6 +221,53 @@ each `tl.fromTo(el, from, to, at)` becomes an animation with `animation-delay: <
 
 The template's `AGENTS.md` has the ease table; ask the chat to "rewrite this scene's GSAP timeline
 as CSS animations" and compare the stills.
+
+## Reading the narration to camera
+
+Record (next to Script) turns the page into a teleprompter: the scene's narration at the very
+top of the screen, next to the camera, large and white on black, with A−/A+ for the size and an
+optional slow scroll for long blocks. Below it the scene, "3 / 12", the takes, a small mirrored
+camera preview and a mic meter, and pickers for camera and microphone (remembered). It asks for
+1920x1080 at 30 fps, and turns the browser's echo cancellation, noise suppression and gain
+control off, because scene-loop cleans the audio itself.
+
+Space counts 3-2-1 and records; Space again stops and saves the take. R records again, Enter
+uses the latest take and moves to the next scene, ← → change scene, P plays the take, Esc
+closes. Every take is kept under `assets/takes/<scene>/`; the one in use is "used".
+
+Using a take (Enter, the Use button, or `choose_take`) finds the speech in it, cuts it out with
+a little air on both sides (highpass 80 Hz, a gentle denoise, no loudness change: the soundtrack
+does that) and stores it as the scene's narration audio, exactly as `set_narration_audio` would,
+so a script change after the take shows as stale. It also cuts `assets/cam/<scene>.mp4`: muted,
+at the video's size, constant frame rate, starting `narrationLead` before the first word, so its
+t=0 is the scene's t=0 and a plain `<video src="assets/cam/<scene>.mp4">` lines up with the
+soundtrack. When `fit_scenes_to_narration` or `build_soundtrack` changes a scene's length or
+lead, its cam clip is cut again from the take.
+
+After a session, ask the chat to time the words: it calls `list_takes`, sends each chosen take's
+narration audio to ElevenLabs Scribe itself, `set_narration_words`, `fit_scenes_to_narration`
+and `build_soundtrack`, then looks at the stills. Each take and choice lands in
+`.state/metrics.jsonl` (`take`, `take-chosen`), so a session's takes per scene and the time it
+took can be read back.
+
+The scene places the camera and moves it with CSS on words: full frame, a corner box, a split,
+or hidden. A scene can be written before the recording; the box stays empty until the clip
+exists.
+
+## Sound effects
+
+Any element can carry cues: `data-sfx="pop@word:fyrre whoosh@sentence:2-0.2 tick@1.25"`. Each
+is `name@spec[:gainDb]`, the spec a word anchor as in `data-at` or plain seconds, resolved
+against the scene's words and lead with the same fallbacks (down to the element's CSS animation
+delay). `build_soundtrack` mixes them in at their video time, 11 dB under the voice (the level
+from video-lab 001) plus the cue's gain, and `list_scenes` lists every cue with its time and any
+warning. A video without narration but with cues still gets a soundtrack. `storyboard.music`
+(`set_video`) adds a bed 15.5 dB under the voice with a 1 s fade in and a 2 s fade out.
+
+The kit in `sfx/` is our own, synthesized by `sfx/make_kit.py` (numpy) and calibrated so each
+sound's loudest 400 ms sits at -27 LUFS: whoosh, whoosh-long, swoosh, pop, pop-low, pop-high,
+tick, click, typing, ding, error, riser, thud, paper, glitch. `assets/sfx/<name>.wav` in a video
+adds a sound or replaces one, measured and brought to the kit's level.
 
 ## Clips from a screen recording
 

@@ -221,7 +221,7 @@ body.overview-mode .viewer-only, body:not(.overview-mode) .overview-only { displ
 /* script view: every scene's narration in one readable column */
 .script-btn.on { background: var(--ink); border-color: var(--ink); color: #fff; }
 body.scripting .stage-wrap, body.scripting .scene-label, body.scripting .narration, body.scripting .versions-sec { display: none; }
-body.scripting .transport > :not(#modeSeg):not(#scriptBtn) { visibility: hidden; }
+body.scripting .transport > :not(#modeSeg):not(#scriptBtn):not(#recordBtn) { visibility: hidden; }
 body.scripting .transport { margin-top: 4px; }
 .script { max-width: 900px; margin: 18px auto 0; }
 .script[hidden] { display: none; }
@@ -251,3 +251,41 @@ body.scripting .transport { margin-top: 4px; }
   .script-count { width: 100%; margin-left: 0; }
 }
 form.logout { margin: 0; display: contents; }
+
+/* record view: the narration as a teleprompter at the very top, next to the camera */
+.record { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; }
+.record[hidden] { display: none; }
+body.record-mode { overflow: hidden; }
+.rec-prompt { overflow-y: auto; scrollbar-width: none; padding: 18px 0 40px; border-top: 4px solid transparent; }
+.rec-prompt::-webkit-scrollbar { display: none; }
+body.rec-live .rec-prompt { border-top-color: #e5484d; }
+.rec-text { width: min(1500px, 92vw); margin: 0 auto; font-weight: 550; line-height: 1.32; letter-spacing: -0.005em; color: #fff; white-space: pre-wrap; text-align: left; }
+.rec-text.empty { color: #77797f; }
+.rec-count { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 61; width: 120px; height: 120px; border-radius: 50%; background: rgb(229 72 77 / 0.9); color: #fff; font: 700 76px/120px Inter, ui-sans-serif, system-ui, sans-serif; text-align: center; }
+.rec-count[hidden] { display: none; }
+.rec-bar { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-top: 1px solid #222; background: #0b0b0c; font-size: 13px; }
+.rec-where b { font-weight: 650; margin-right: 8px; }
+.rec-where span { color: #9a9ca2; }
+.rec-status { color: #c9cbd0; margin-left: 12px; }
+.rec-status.live { color: #ff6b6f; font-weight: 650; font-variant-numeric: tabular-nums; }
+.rec-btn { border: 1px solid #34363b; background: #17181a; color: #e8e9eb; padding: 5px 10px; border-radius: 8px; font-weight: 550; font-size: 12px; }
+.rec-btn:hover { border-color: #55575d; }
+.rec-scroll { display: inline-flex; align-items: center; gap: 4px; color: #c9cbd0; }
+.rec-bar select { max-width: 180px; background: #17181a; color: #e8e9eb; border: 1px solid #34363b; border-radius: 8px; padding: 5px 6px; font: inherit; font-size: 12px; }
+.rec-bar input[type="range"] { width: 90px; }
+.rec-bottom { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; padding: 12px 18px; background: #0b0b0c; }
+.rec-takes { display: flex; flex-direction: column; gap: 6px; max-height: 210px; overflow-y: auto; font-size: 13px; }
+.rec-take { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid #222; border-radius: 9px; color: #c9cbd0; }
+.rec-take b { color: #fff; }
+.rec-take.on { border-color: #2f6fed; background: #0f1a33; }
+.rec-used { color: #8fb0ff; font-weight: 650; font-size: 12px; }
+.rec-media { display: flex; flex-direction: column; gap: 6px; width: 352px; }
+.rec-screen { width: 352px; aspect-ratio: 16 / 9; background: #111; border-radius: 9px; overflow: hidden; }
+.rec-screen video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rec-screen video[hidden] { display: none; }
+.rec-screen video.mirror { transform: scaleX(-1); }
+.rec-meter { height: 6px; border-radius: 3px; background: #222; overflow: hidden; }
+.rec-meter span { display: block; height: 100%; width: 0; background: #1f8a5b; transition: width 60ms linear; }
+.rec-meter span.hot { background: #e5484d; }
+.rec-dev { font-size: 11px; color: #7a7c82; }
+.rec-keys { padding: 6px 18px 10px; background: #0b0b0c; color: #6d6f75; font-size: 12px; }

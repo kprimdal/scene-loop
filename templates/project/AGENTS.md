@@ -20,6 +20,30 @@ app sends you the comments with stills. Your turn's file changes become the scen
   animations, space-separate one anchor per animation (`data-at="word:brush word:washed"`). Code
   using `el.animate()` gets the time from `window.__at["<scene id>"]("word:brush", fallback)`.
   Keep a sensible authored animation delay as the fallback when word times are unavailable.
+- The camera: when the narration is read to camera (the Record view), a scene with a chosen take
+  has `assets/cam/<scene id>.mp4`, muted, at the video's size, and its t=0 is the scene's t=0
+  (it starts `narrationLead` before the first word and runs the whole scene). Place it with
+  `<video class="cam" src="assets/cam/<scene id>.mp4" muted playsinline></video>` and frame it with
+  CSS anchored to words like any element: full frame (`inset: 0; object-fit: cover`), a
+  picture-in-picture box in a corner (size, radius, `overflow: hidden` on a wrapper), a side
+  split, or off (opacity 0). Moving it with left/top/width/height or opacity is cheapest; a CSS
+  transform, filter or object-position on the video makes the scene render frame by frame
+  (slower, fine). A missing cam file leaves the box empty, so write the scene before the
+  recording.
+- After a recording session, in this order: `list_takes`; transcribe each chosen take's
+  narration audio with ElevenLabs Scribe (you hold the key, scene-loop holds none);
+  `set_narration_words` with the raw Scribe JSON; `fit_scenes_to_narration`; `build_soundtrack`
+  (it re-cuts the cam clips); then check the stills.
+- Sound effects: `data-sfx` on any element, space-separated cues `name@spec[:gainDb]`:
+  `data-sfx="pop@word:fyrre whoosh@sentence:2-0.2 tick@1.25 thud@word:nu:-4"`. The spec is a
+  `data-at` anchor (an alternative may be plain seconds: `word:fyrre|1.2`) or plain scene seconds.
+  An anchor that is not heard falls back like `data-at`, down to the element's CSS animation
+  delay. `build_soundtrack` mixes them at 11 dB under the voice, the gain on top; `list_scenes`
+  shows each cue's time and warnings. Kit: whoosh, whoosh-long, swoosh (a 3D move), pop,
+  pop-low, pop-high, tick, click, typing (1.5 s, a fake chat window typing), ding (success),
+  error (a soft no), riser (1.2 s: anchor it 1.2 s before the word, `riser@word:x-1.2`), thud,
+  paper, glitch. `assets/sfx/<name>.wav` adds or replaces a sound for this video. Few and quiet:
+  an explainer, not a game.
 - Check your change with get_stills or show_scene before you reply.
 - Put video-wide changes (font, colours) in theme.css, not in every scene.
 - The project instructions (first in get_rules) say how names are pronounced and where they may

@@ -6,6 +6,7 @@ export const S = {
   overview: false,
   tag: null, // overview tag filter
   script: false, // script view instead of the stage
+  record: false, // the record view (teleprompter and camera) over everything
   data: null,
   mode: "scene",
   sel: null,

@@ -232,6 +232,15 @@ async function handle(req, res, user) {
     }
   }
   const ctx = { origin, user, guest, allows, projectName, videoName, p: () => (guest && !projectName ? Promise.reject(new Error("pass project")) : registry.resolve(projectName, videoName)) };
+  // A take from the Record view: the recording itself as the body, video/mp4 or video/webm
+  // (a type no form or simple cross-site request can send, like the JSON the other writes want).
+  const take = url.pathname.match(/^\/api\/takes\/([\w-]+)$/);
+  if (take && req.method === "POST") {
+    if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
+    const type = req.headers["content-type"] ?? "";
+    if (!/^(video|audio)\/(mp4|webm)\b/.test(type)) return send(res, 415, { error: "send the recording as video/mp4 or video/webm" });
+    return send(res, 200, await (await ctx.p()).addTake(take[1], { stream: req, mime: type, model: user.name }));
+  }
   for (const [method, re, fn, open] of routes) {
     const m = url.pathname.match(re);
     if (m && req.method === method) {

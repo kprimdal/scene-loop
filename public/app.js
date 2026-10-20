@@ -7,6 +7,7 @@ import { refresh } from "./js/data.js";
 import { loadChat } from "./js/panel.js";
 import { tick } from "./js/stage.js";
 import "./js/keys.js";
+import "./js/record.js";
 import "./js/live.js";
 
 await import("./js/tools.js");

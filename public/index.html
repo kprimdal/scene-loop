@@ -58,6 +58,7 @@
             <button data-mode="whole">Whole video</button>
           </div>
           <button class="btn script-btn" id="scriptBtn" title="Read the whole script (S)">Script</button>
+          <button class="btn owner-only" id="recordBtn" title="Read the narration to camera, scene by scene">Record</button>
           <button class="icon" id="playBtn" title="Play / pause (space)">▶</button>
           <span class="time" id="time">0.00 / 0.00</span>
           <div class="track-wrap">
@@ -136,6 +137,7 @@
         <button class="btn dark" id="insSave" title="Save as a new project version (⌘S)">Save</button>
       </div>
     </aside>
+    <section class="record" id="record" aria-label="Record the narration to camera" hidden></section>
     <div class="toast" id="toast" hidden></div>
     <script src="/app.js" type="module"></script>
   </body>
