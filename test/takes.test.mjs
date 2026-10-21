@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { Readable } from "node:stream";
-import { parseSilences, speechRange, threshold, levels } from "../lib/takes.mjs";
+import { silences as findSilences, speechRange, threshold, levels, analyzeTake } from "../lib/takes.mjs";
 import { createRegistry } from "../lib/projects.mjs";
 
 test("speechRange drops short sounds (the space bar) and keeps pauses inside the speech", () => {
@@ -15,7 +15,26 @@ test("speechRange drops short sounds (the space bar) and keeps pauses inside the
   assert.deepEqual(speechRange(silences, 4), { start: 1.2, end: 3 });
   assert.deepEqual(speechRange([], 2), { start: 0, end: 2 });
   assert.equal(speechRange([{ start: 0, end: 2 }], 2), null);
-  assert.deepEqual(parseSilences("[silencedetect] silence_start: -0.002\n[silencedetect] silence_end: 1.2 | silence_duration: 1.2\n[silencedetect] silence_start: 3.4\n", 4), [{ start: 0, end: 1.2 }, { start: 3.4, end: 4 }]);
+  const db = [...Array(60).fill(-60), ...Array(10).fill(-30), ...Array(10).fill(-60), ...Array(20).fill(-30), ...Array(20).fill(-60)];
+  assert.deepEqual(findSilences(db, -45), [{ start: 0, end: 1.2 }, { start: 2, end: 2.4 }]);
+  assert.deepEqual(findSilences(db, -45, { min: 0.1 }).at(-1), { start: 2, end: 2.4 });
+});
+
+// Kristian's room, 2026-10-21: the pauses sit around -50 dB RMS, and the noise's sample peaks
+// rise over a threshold set from RMS levels, so silencedetect found no silence and every take
+// was speech from 0 to its end. Gaussian-ish noise at -50 dB under two bursts of "speech", and
+// 0.1 s of digital silence where the recorder starts.
+test("speech is found over room noise at -50 dB", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "sl-noise-"));
+  try {
+    const file = join(dir, "noisy.wav");
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "aevalsrc='if(lt(t,0.1),0,0.00548*(random(0)+random(1)+random(2)+random(3)-2)+if(between(t,0.8,1.6)+between(t,2.2,3.4),0.03*sin(2*PI*180*t),0))':s=48000:d=4.5", file]);
+    const a = await analyzeTake(file);
+    assert.ok(Math.abs(a.level.floorDb + 50) < 1.5, JSON.stringify(a.level));
+    assert.ok(Math.abs(a.speech.start - 0.8) < 0.05 && Math.abs(a.speech.end - 3.4) < 0.05, JSON.stringify(a.speech));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("the threshold sits between the room and the voice", () => {
