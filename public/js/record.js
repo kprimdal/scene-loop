@@ -9,10 +9,11 @@ import { saveScriptNarration, recordAgainOf, keepTake } from "./script.js";
 // screen, next to the camera, so the eyes stay near the lens. Space counts 3-2-1 and records,
 // Space again stops and uploads the take (POST /api/takes/<scene>); Enter uses the latest take
 // (choose_take: narration audio and the camera clip) and moves on. Every take is kept.
-// Two layouts. Lens (the default): one sentence at a time in a narrow column right under the
-// camera, the next one dim below it, so the eyes stay on the lens instead of travelling along
-// full-width lines; it moves on when the reviewer pauses after speaking, or on ↓ / PageDown (a
-// presenter clicker). Full text: the whole block, optionally scrolling.
+// Two layouts. Lens (the default): the whole block in a narrow column right under the camera,
+// scrolling up like a teleprompter, so the line being read stays at the top near the lens and
+// the next lines are always in view. While recording it moves at the reviewer's pace (words a
+// second) while they talk and waits when they stop; ↓ ↑, PageDown (a clicker) and the trackpad
+// move it by hand at any time; by hand is the default. Full text: the whole block, optionally scrolling.
 // The script is fixed after recording: E edits the line in place, N goes to the next scene
 // whose line changed since its take, K keeps the take after a spelling fix.
 const LS = (k, d) => { try { return JSON.parse(localStorage.getItem(`sl.rec.${k}`)) ?? d; } catch { return d; } };
@@ -24,8 +25,8 @@ const R = {
   last: null, // { scene, n, url } the take just recorded
   takes: {}, // scene id -> list_takes entry
   font: LS("font", 46), scroll: LS("scroll", false), speed: LS("speed", 28),
-  layout: LS("layout", "lens"), lensFont: LS("lensFont", 60), col: LS("col", 620), pos: LS("pos", "center"),
-  si: 0, sentenceAt: 0, heard: false, quietSince: null, // the sentence shown in the lens layout, and the pause after it
+  layout: LS("layout", "lens"), lensFont: LS("lensFont2", 40), col: LS("col2", 520), pos: LS("pos", "center"),
+  wps: LS("wps", 2.4), lensScroll: LS("lensScroll", "hand"), y: 0, yShown: 0, voiceAt: 0, pxPerWord: 0, // the lens scroll: pace, position, last voice
   live: { dbs: [], thr: null, at: 0 }, // the room, measured from the meter: the pause threshold
   editing: false,
 };
@@ -35,8 +36,6 @@ const cur = () => scenes()[R.i];
 const reasons = (s) => R.takes[s.id]?.recordAgain ?? recordAgainOf(s);
 const redo = (s) => reasons(s).length > 0;
 
-// A block of narration as sentences: after . ! ? … (and a closing quote), and at line breaks.
-export const sentences = (text) => String(text ?? "").split(/(?<=[.!?…]["'»”)]*)\s+|\s*\n+\s*/).map((x) => x.trim()).filter(Boolean);
 
 export function setRecord(on = !S.record) {
   if (!S.data?.scenes.length) return;
@@ -75,7 +74,9 @@ function build() {
       h("button", { class: "rec-btn", title: "Edit this scene's line (E)", onclick: (e) => (e.target.blur(), edit()) }, "Edit"),
       h("select", { id: "recLayout", title: "Text layout", onchange: (e) => (keep("layout", (R.layout = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "lens" }, "Under the lens"), h("option", { value: "full" }, "Full text")),
       h("select", { id: "recPos", class: "lens-only", title: "Where the camera is", onchange: (e) => (keep("pos", (R.pos = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "left" }, "Camera left"), h("option", { value: "center" }, "Camera centre"), h("option", { value: "right" }, "Camera right")),
-      h("input", { type: "range", id: "recCol", class: "lens-only", min: 280, max: 1400, step: 20, title: "Column width", oninput: (e) => (keep("col", (R.col = Number(e.target.value))), layout()), onchange: (e) => e.target.blur() }),
+      h("input", { type: "range", id: "recCol", class: "lens-only", min: 280, max: 1400, step: 20, title: "Column width", oninput: (e) => (keep("col2", (R.col = Number(e.target.value))), layout()), onchange: (e) => e.target.blur() }),
+      h("label", { class: "rec-scroll lens-only rec-pace", title: "Words a second the text moves" }, "Pace ", h("input", { type: "range", id: "recWps", min: 1.2, max: 4, step: 0.1, oninput: (e) => keep("wps", (R.wps = Number(e.target.value))), onchange: (e) => e.target.blur() })),
+      h("select", { id: "recLensScroll", class: "lens-only", title: "How the text moves while recording", onchange: (e) => (keep("lensScroll", (R.lensScroll = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "hand" }, "Scroll by hand"), h("option", { value: "voice" }, "Scroll with my voice"), h("option", { value: "steady" }, "Scroll steadily")),
       h("button", { class: "rec-btn", title: "Smaller text", onclick: () => font(-4) }, "A−"),
       h("button", { class: "rec-btn", title: "Larger text", onclick: () => font(4) }, "A+"),
       h("label", { class: "rec-scroll full-only", title: "Scroll the text slowly while recording, for long blocks" }, h("input", { type: "checkbox", id: "recScroll", onchange: (e) => (keep("scroll", (R.scroll = e.target.checked)), e.target.blur()) }), " Scroll"),
@@ -104,6 +105,8 @@ function build() {
   $("#recLayout").value = R.layout;
   $("#recPos").value = R.pos;
   $("#recCol").value = R.col;
+  $("#recWps").value = R.wps;
+  $("#recLensScroll").value = R.lensScroll;
   $("#recPreview").muted = true;
   $("#recPlayback").addEventListener("ended", () => showPlayback(false));
   showScene();
@@ -111,8 +114,8 @@ function build() {
 
 function font(d) {
   const k = R.layout === "lens" ? "lensFont" : "font";
-  R[k] = Math.max(24, Math.min(140, R[k] + d));
-  keep(k, R[k]);
+  R[k] = Math.max(20, Math.min(140, R[k] + d));
+  keep(k === "lensFont" ? "lensFont2" : k, R[k]);
   layout();
 }
 
@@ -120,57 +123,40 @@ function font(d) {
 function layout() {
   const lens = R.layout === "lens";
   $("#record").classList.toggle("lens", lens);
+  $("#record").classList.toggle("hand", R.lensScroll === "hand");
   $("#recPrompt").dataset.pos = R.pos;
   $("#recText").style.setProperty("--rec-col", `${R.col}px`);
   $("#recText").style.fontSize = `${lens ? R.lensFont : R.font}px`;
-  $("#recKeys").textContent = `Space record / stop · R record again · Enter use the take, next scene · ← → scene${lens ? " · ↓ ↑ sentence (PageDown, a clicker)" : ""} · E edit the line · N next to record again · K keep the take · P play the take · Esc close`;
+  $("#recPrompt").style.setProperty("--read", `${Math.round(R.lensFont * 0.5) + 14}px`);
+  R.pxPerWord = 0;
+  $("#recKeys").textContent = `Space record / stop · R record again · Enter use the take, next scene · ← → scene · ↓ ↑ move the text${lens ? ` (PageDown, a clicker, the mouse)${R.lensScroll === "voice" ? "; it scrolls while you talk" : ""}` : ""} · E edit the line · N next to record again · K keep the take · P play the take · Esc close`;
   showText();
 }
 
 function showScene() {
-  R.si = 0;
+  R.y = R.yShown = 0;
   $("#recPrompt").scrollTop = 0;
   showPlayback(false);
   layout();
   showInfo();
 }
 
-// The scene's text: the whole block, or (lens) the current sentence and the next one dim.
-// Left alone while the reviewer edits it.
+// The scene's text: the whole block, in either layout. Left alone while the reviewer edits it.
 function showText() {
   const el = $("#recText");
   if (!el || R.editing) return;
   const s = cur();
   const text = s.narration?.trim() || "(This scene has no narration.)";
   el.classList.toggle("empty", !s.narration?.trim());
-  if (R.layout !== "lens") {
-    if (el.dataset.key !== "full" || el.textContent !== text) (el.textContent = text), (el.dataset.key = "full");
-    return;
-  }
-  const list = sentences(text);
-  R.si = Math.max(0, Math.min(list.length - 1, R.si));
-  const key = JSON.stringify([list, R.si]);
-  if (el.dataset.key === key) return;
-  el.dataset.key = key;
-  el.replaceChildren(
-    h("div", { class: "rec-now" }, list[R.si] ?? ""),
-    h("div", { class: "rec-next" }, list[R.si + 1] ?? ""),
-    h("div", { class: "rec-step" }, list.length > 1 ? `${R.si + 1} / ${list.length}` : ""),
-  );
+  if (el.dataset.key !== text) (el.textContent = text), (el.dataset.key = text), (R.pxPerWord = 0);
 }
 
-// The next (d = 1) or previous sentence in the lens layout; in the full text, a page of scroll.
+// ↓ ↑: a line (lens) or part of a page (full) down or up, by hand, recording or not.
 function sentence(d) {
   if (R.editing) return;
-  if (R.layout !== "lens") return void $("#recPrompt").scrollBy({ top: d * $("#recPrompt").clientHeight * 0.4, behavior: "smooth" });
-  const n = sentences(cur().narration).length;
-  const i = Math.max(0, Math.min(n - 1, R.si + d));
-  if (i === R.si) return;
-  R.si = i;
-  R.sentenceAt = performance.now();
-  R.heard = false;
-  R.quietSince = null;
-  showText();
+  const box = $("#recPrompt");
+  const line = parseFloat(getComputedStyle($("#recText")).lineHeight) || R.lensFont * 1.3;
+  box.scrollBy({ top: d * (R.layout === "lens" ? line : box.clientHeight * 0.4), behavior: "smooth" });
 }
 
 // The counts, the takes and the status; the scroll position and a playing take stay as they are.
@@ -227,7 +213,9 @@ function renderTakes() {
   const el = $("#recTakes");
   const t = R.takes[cur().id];
   if (!t?.takes.length) return el.replaceChildren(h("div", { class: "muted" }, "No takes for this scene yet."));
+  const unused = t.takes.filter((k) => !k.chosen).length;
   el.replaceChildren(
+    ...(unused > 1 ? [h("div", { class: "rec-takes-head" }, h("button", { class: "rec-btn ghost", onclick: (e) => (e.target.blur(), removeTakes(cur().id, null)) }, `Delete the ${unused} unused takes`))] : []),
     ...t.takes.slice().reverse().map((k) =>
       h(
         "div",
@@ -237,6 +225,7 @@ function renderTakes() {
         h("div", { class: "spacer" }),
         h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), play(k.url)) }, "Play"),
         k.chosen ? h("span", { class: "rec-used" }, "used") : h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), choose(cur().id, k.n)) }, "Use"),
+        k.chosen ? null : h("button", { class: "rec-btn ghost", title: "Delete this take", onclick: (e) => (e.target.blur(), removeTakes(cur().id, [k.n])) }, "Delete"),
       ),
     ),
   );
@@ -323,7 +312,7 @@ function meter() {
     room(db, now);
     if (R.state === "recording") {
       const box = $("#recPrompt");
-      if (R.layout === "lens") follow(db, now);
+      if (R.layout === "lens") crawl(db, now, now - last);
       else if (R.scroll && box.scrollHeight > box.clientHeight) box.scrollTop += (R.speed * (now - last)) / 1000;
       status();
     }
@@ -348,15 +337,23 @@ function room(db, now) {
 }
 const pauseThreshold = () => R.live.thr ?? Object.values(R.takes).flatMap((t) => t.takes).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]?.level?.thresholdDb ?? -45;
 
-// Lens layout while recording: the next sentence comes up when the reviewer pauses after
-// speaking: under the threshold for 350 ms, once half the sentence's spoken length (2.4 words
-// a second) has passed.
-function follow(db, now) {
-  if (db > pauseThreshold()) return void ((R.heard = true), (R.quietSince = null));
-  if (!R.heard) return;
-  R.quietSince ??= now;
-  const said = (countWords(sentences(cur().narration)[R.si]) / 2.4) * 1000;
-  if (now - R.quietSince >= 350 && now - R.sentenceAt >= said / 2) sentence(1);
+// Lens layout while recording, unless it scrolls by hand (the default): the text moves up at
+// the reviewer's pace while they talk (and
+// 450 ms after, so a breath does not stop it) and waits when they stop. A hand scroll (↓ ↑,
+// PageDown, the trackpad) moves the position it goes on from.
+function crawl(db, now, dt) {
+  const box = $("#recPrompt"), el = $("#recText");
+  if (Math.abs(box.scrollTop - R.yShown) > 2) R.y = box.scrollTop; // moved by hand
+  if (db > pauseThreshold()) R.voiceAt = now;
+  if (!R.pxPerWord) {
+    const cs = getComputedStyle(el);
+    const height = el.scrollHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    R.pxPerWord = height / Math.max(1, countWords(cur().narration ?? ""));
+  }
+  if (R.lensScroll === "hand") return void (R.yShown = R.y = box.scrollTop);
+  if (R.lensScroll === "steady" || now - R.voiceAt < 450) R.y = Math.min(R.y + R.pxPerWord * R.wps * (dt / 1000), box.scrollHeight - box.clientHeight);
+  box.scrollTop = R.y;
+  R.yShown = box.scrollTop;
 }
 
 // ---------- the script after recording ----------
@@ -417,7 +414,7 @@ function start() {
   if (R.editing) return;
   showPlayback(false);
   $("#recPrompt").scrollTop = 0;
-  R.si = 0;
+  R.y = R.yShown = 0;
   showText();
   R.state = "countdown";
   const el = $("#recCount");
@@ -440,9 +437,8 @@ function record() {
   R.recorder.ondataavailable = (e) => e.data.size && R.chunks.push(e.data);
   R.recorder.onstop = () => upload(s.id, new Blob(R.chunks, { type: (R.recorder.mimeType || R.mime || "video/webm").split(";")[0] }));
   R.recorder.start(1000);
-  R.startedAt = R.sentenceAt = performance.now();
-  R.heard = false;
-  R.quietSince = null;
+  R.startedAt = performance.now();
+  R.voiceAt = 0;
   R.state = "recording";
   document.body.classList.add("rec-live");
   status();
@@ -486,6 +482,21 @@ async function choose(sceneId, n) {
     toast(`${sceneId}: take ${n} is the narration (${audioTime(r.audio?.seconds ?? 0)})${r.cam ? " and the camera clip" : ""}.`);
   } catch (e) {
     toast(`Could not use take ${n} for ${sceneId}: ${e.message}`);
+  }
+  loadTakes();
+}
+
+// Delete takes that are not in use (all of the scene's unused ones when takes is null), after a
+// confirm: the files go.
+async function removeTakes(sceneId, takes) {
+  const what = takes ? `take ${takes.join(", ")}` : "every unused take";
+  if (!confirm(`Delete ${what} of ${sceneId}? The files are deleted.`)) return;
+  try {
+    const r = await api("/api/tools/delete_takes", { body: { args: { scene: sceneId, ...(takes ? { takes } : { unused: true }), model: S.reviewer }, via: "page-js" } });
+    if (R.last?.scene === sceneId && r.deleted.includes(R.last.n)) R.last = null;
+    toast(`${sceneId}: deleted take ${r.deleted.join(", ")} (${(r.freedBytes / 1e6).toFixed(0)} MB).`);
+  } catch (e) {
+    toast(`Could not delete: ${e.message}`);
   }
   loadTakes();
 }
