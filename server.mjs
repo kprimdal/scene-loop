@@ -239,7 +239,9 @@ async function handle(req, res, user) {
     if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
     const type = req.headers["content-type"] ?? "";
     if (!/^(video|audio)\/(mp4|webm)\b/.test(type)) return send(res, 415, { error: "send the recording as video/mp4 or video/webm" });
-    return send(res, 200, await (await ctx.p()).addTake(take[1], { stream: req, mime: type, model: user.name }));
+    // The camera and microphone it was recorded with, by their labels (which of three mics was it?).
+    const devices = { camera: url.searchParams.get("camera")?.slice(0, 200) || null, mic: url.searchParams.get("mic")?.slice(0, 200) || null };
+    return send(res, 200, await (await ctx.p()).addTake(take[1], { stream: req, mime: type, model: user.name, devices }));
   }
   for (const [method, re, fn, open] of routes) {
     const m = url.pathname.match(re);

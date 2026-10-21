@@ -1,4 +1,4 @@
-import { $, h, toast, mmss, audioTime, countWords } from "./util.js";
+import { $, h, toast, mmss, audioTime, countWords, wordDiff } from "./util.js";
 import { S, api, tc } from "./state.js";
 import { player, loadPlayer } from "./stage.js";
 import { refresh } from "./data.js";
@@ -68,6 +68,45 @@ export function saveScriptNarration(s, ta) {
   return scriptSavePending;
 }
 
+// Why a recorded scene should be recorded again: its line changed since the take (the old take
+// stays in the video until then, or keep_take after a spelling fix), or the take says
+// something on camera that could not be cut (a restart, an "øh").
+export const recordAgainOf = (s) => s.recordAgain ?? (s.audio?.stale ? ["the line changed since the take"] : []);
+export const changedSinceTake = (s) => recordAgainOf(s).length > 0;
+
+export async function keepTake(s) {
+  try {
+    const r = await api("/api/tools/keep_take", { body: { args: { scene: s.id, model: S.reviewer }, via: "page-js" } });
+    toast(r.warning ?? (r.kept ? `${s.id}: the take is kept with the new text.` : r.note));
+    await refresh();
+    return r;
+  } catch (e) {
+    toast(`Could not keep the take for ${s.id}: ${e.message}`);
+  }
+}
+
+// The line as said in the take against the line as written before it was adopted: words the
+// take added or changed are marked, words it left out struck through.
+function spokenDiff(s) {
+  if (s.narrationWritten == null || s.narrationWritten === s.narration) return null;
+  const parts = wordDiff(s.narrationWritten, s.narration ?? "");
+  const clear = async () => {
+    try {
+      await api("/api/tools/update_scene", { body: { args: { scene: s.id, narrationWritten: null, note: `script: ${s.id} checked`, model: S.reviewer }, via: "page-js" } });
+      await refresh();
+    } catch (e) {
+      toast(`Could not save ${s.id}: ${e.message}`);
+    }
+  };
+  return h(
+    "div",
+    { class: "script-diff", title: "What the take says, against the line as written before it" },
+    h("span", { class: "script-diff-label" }, "Said in the take"),
+    h("span", { class: "script-diff-text" }, ...parts.flatMap((p, i) => [i ? " " : "", p.op === "same" ? p.text : h(p.op === "ins" ? "ins" : "del", {}, p.text)])),
+    S.guest ? null : h("button", { class: "btn ghost small", title: "Names and spelling are right: stop showing the difference", onclick: clear }, "Checked"),
+  );
+}
+
 export function renderScript() {
   // A project event (an agent's write, stills landing) must not rebuild the rows under a
   // reviewer who is typing: wait for the blur, which saves or cancels and then re-renders.
@@ -76,6 +115,12 @@ export function renderScript() {
   S.scriptStale = false;
   const { words, chars } = scriptMetrics(S.data.scenes.map((s) => s.narration ?? ""));
   const text = S.data.scenes.map((s, i) => `${i + 1}. ${s.title} (${tc(s.start)})\n${s.narration ?? ""}`).join("\n\n");
+  const changed = S.data.scenes.filter(changedSinceTake);
+  const jump = () => {
+    const rows = changed.map((s) => $(`#script .script-row[data-id="${s.id}"]`));
+    const next = rows.find((r) => r.getBoundingClientRect().top > 80) ?? rows[0];
+    next?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   $("#script").replaceChildren(
     h(
       "div",
@@ -83,6 +128,7 @@ export function renderScript() {
       h("h2", {}, "Script"),
       h("span", { class: "muted script-totals", id: "scriptTotals" }, `${words} words · ${chars} chars · est. ${mmss(words / 2.4)} spoken · scenes ${mmss(S.data.scenes.reduce((n, s) => n + s.duration, 0))}`),
       h("div", { class: "spacer" }),
+      changed.length ? h("button", { class: "btn small script-redo-count", title: "Scenes to record again: a line changed since its take (the old take stays in the video until then), or the take says something on camera that could not be cut. Click for the next one.", onclick: jump }, `${changed.length} to record again`) : null,
       h("button", { class: "btn ghost small", onclick: () => navigator.clipboard.writeText(text).then(() => toast("Script copied.")) }, "Copy"),
     ),
     ...S.data.scenes.map((s, i) => {
@@ -102,15 +148,27 @@ export function renderScript() {
           ta.blur();
         }
       });
+      const redo = changedSinceTake(s);
       return h(
         "div",
-        { class: `script-row ${s.id === S.sel ? "on" : ""}`, "data-id": s.id },
+        { class: `script-row ${s.id === S.sel ? "on" : ""} ${redo ? "redo" : ""}`, "data-id": s.id },
         h("div", { class: "tc" }, tc(s.start), h("span", {}, `${s.duration.toFixed(2)} s`)),
         h(
           "div",
           { class: "script-body" },
-          h("div", { class: "script-row-head" }, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), h("span", { class: "muted script-count" }, `${countWords(narration)} words · ${narration.length} chars · ${s.audio ? audioTime(s.audio.seconds) : "no audio"}${s.audio?.stale ? " · audio stale: script changed since the take" : ""}${s.words ? ` · ${s.words.count} words timed` : ""}`), h("button", { class: "btn ghost small", onclick: () => (selectScene(s.id, true), setScript(false)) }, "Show scene")),
+          h("div", { class: "script-row-head" }, h("h3", {}, `${i + 1}. ${s.title} `, h("span", {}, s.id)), h("span", { class: "muted script-count" }, `${countWords(narration)} words · ${narration.length} chars · ${s.audio ? audioTime(s.audio.seconds) : "no audio"}${s.words ? ` · ${s.words.count} words timed` : ""}`), h("button", { class: "btn ghost small", onclick: () => (selectScene(s.id, true), setScript(false)) }, "Show scene")),
           ta,
+          redo
+            ? h(
+                "div",
+                { class: "script-redo" },
+                h("b", {}, "Record again:"),
+                h("span", {}, recordAgainOf(s).join("; ") + "."),
+                h("span", { class: "muted" }, "The old take stays in the video until then."),
+                S.guest ? null : h("button", { class: "btn ghost small", title: "Keep the take as it is: after a spelling fix (a typo, a name), or to accept what it says on camera", onclick: () => keepTake(s) }, "Keep the take"),
+              )
+            : null,
+          spokenDiff(s),
         ),
       );
     }),

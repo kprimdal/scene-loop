@@ -19,7 +19,8 @@ take.
    one audio file per scene with whatever voice service it has (scene-loop holds no keys) and
    stores it with `set_narration_audio`. `set_narration_words` adds
    word timings from the same take (raw ElevenLabs Scribe or whisper-cli output, aligned to the
-   script). `fit_scenes_to_narration` sets each scene's duration to lead + audio + tail on the
+   script). When you read it yourself, the script does not have to be final: record, then the
+   script follows what you said, and you fix lines and record only those again. `fit_scenes_to_narration` sets each scene's duration to lead + audio + tail on the
    frame grid. `build_soundtrack` lays the blocks into one `assets/narration.m4a` and selects it.
 3. **Scenes.** HTML, with motion anchored to words (`data-at="word:brush"`) rather than seconds,
    so a new take re-times a scene without touching it. Screen recordings are cut to scene length
@@ -72,7 +73,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | Scenes | `list_scenes`, `create_scene`, `update_scene`, `reorder_scenes`, `remove_scene`, `get_scene_html`, `write_scene_html`, `get_stills`, `show_scene`, `restore_version` |
 | Review | `get_pending_comments`, `add_comment` |
 | Narration | `set_narration_audio`, `remove_narration_audio`, `set_narration_words`, `remove_narration_words`, `fit_scenes_to_narration`, `build_soundtrack` |
-| Takes | `list_takes`, `choose_take`, `add_take` |
+| Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
 | Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render` |
 
@@ -224,16 +225,23 @@ as CSS animations" and compare the stills.
 
 ## Reading the narration to camera
 
-Record (next to Script) turns the page into a teleprompter: the scene's narration at the very
-top of the screen, next to the camera, large and white on black, with A−/A+ for the size and an
-optional slow scroll for long blocks. Below it the scene, "3 / 12", the takes, a small mirrored
+Record (next to Script) turns the page into a teleprompter. Under the lens (the default) shows
+one sentence at a time in a narrow column right under the camera, the next one dim below it, so
+your eyes stay near the lens instead of travelling along full-width lines. The column's width and
+whether the camera sits left, centre or right are remembered. It moves to the next sentence when
+you pause after speaking (the mic under the room's pause threshold for 350 ms, once half the
+sentence's spoken length has passed); ↓ or PageDown (a presenter clicker) moves on by hand, ↑ or
+PageUp back. Full text shows the whole block at the top of the screen with an optional slow
+scroll. A−/A+ set the size for each. Below it the scene, "3 / 12", the takes, a small mirrored
 camera preview and a mic meter, and pickers for camera and microphone (remembered). It asks for
 1920x1080 at 30 fps, and turns the browser's echo cancellation, noise suppression and gain
 control off, because scene-loop cleans the audio itself.
 
 Space counts 3-2-1 and records; Space again stops and saves the take. R records again, Enter
 uses the latest take and moves to the next scene, ← → change scene, P plays the take, Esc
-closes. Every take is kept under `assets/takes/<scene>/`; the one in use is "used".
+closes. Every take is kept under `assets/takes/<scene>/`; the one in use is "used", with the
+camera and microphone it was recorded with. A take whose loudest sample is under -24 dBFS gets a
+warning under the meter: move the mic closer or raise its input level.
 
 Using a take (Enter, the Use button, or `choose_take`) finds the speech in it, cuts it out with
 a little air on both sides (highpass 80 Hz, a gentle denoise, no loudness change: the soundtrack
@@ -244,11 +252,46 @@ t=0 is the scene's t=0 and a plain `<video src="assets/cam/<scene>.mp4">` lines 
 soundtrack. When `fit_scenes_to_narration` or `build_soundtrack` changes a scene's length or
 lead, its cam clip is cut again from the take.
 
-After a session, ask the chat to time the words: it calls `list_takes`, sends each chosen take's
-narration audio to ElevenLabs Scribe itself, `set_narration_words`, `fit_scenes_to_narration`
-and `build_soundtrack`, then looks at the stills. Each take and choice lands in
-`.state/metrics.jsonl` (`take`, `take-chosen`), so a session's takes per scene and the time it
-took can be read back.
+Speech is found on the same 20 ms RMS levels the threshold comes from (a third of the way from
+the room's floor to the voice); ffmpeg's silencedetect compares sample peaks, and in a real room
+the noise peaks over an RMS threshold, so a whole take came back as speech.
+
+### Record first, fix the script after
+
+You do not have to read word for word, and the script does not have to be final. After a
+session, ask the chat to time the words: it calls `list_takes`, sends each chosen take's
+narration audio to ElevenLabs Scribe itself and passes the result to `set_narration_words`. For
+a recorded take that adopts what you said: the scene's narration becomes the take's words, with
+the script's spelling and punctuation wherever the words match and numbers as the script wrote
+them ("40" said as "fyrre"). The line as written is kept (`narrationWritten`), and the Script
+view shows the spoken line with the changed words marked, so you can proofread names; Checked
+hides the difference. Every word in `words.json` then has the time it was heard.
+
+The same step cuts what the take should not say: a restart ("Men er... Men har den læst", or a
+sentence said twice: the later one stays) and filler sounds ("øh" in the transcript, or a voiced
+hum no word covers; whisper drops them). A take's narration becomes several ranges of it,
+joined with a 40 ms crossfade, and the camera clip makes the same cuts as jump cuts; the words
+are re-timed to the cut audio. Cuts at the start or end of the speech always happen. A cut in
+the middle only happens where the scene does not show the camera clip at that moment (checked
+in the scene page, picture-in-picture counts as showing); otherwise the scene gets a comment by
+scene-loop at that time and a reason to record it again. `choose_take` with `keep` sets the
+ranges by hand; `list_takes` shows them, what was cut and what was flagged.
+
+Then edit lines freely. A changed line never blocks anything: the old take stays in the video
+until you record that scene again. The Script view marks it "Record again" and counts the scenes
+at the top; the Record view lists them with their reasons (N goes to the next one) and edits
+the current line in place (E, then Enter or Esc saves). A small fix you do not want to record
+again, like a misheard name, is "Keep the take" (K, or `keep_take`): the take counts as current
+and its words take the new spelling. It also accepts a filler that was flagged on camera.
+
+After a change the chat checks `anchorWarnings` and `sfxWarnings` (in the `set_narration_words`
+result and `list_scenes`), re-anchors what a rephrased line lost, runs `fit_scenes_to_narration`
+for the scenes whose audio changed and `build_soundtrack`, then looks at the stills. Scenes whose
+audio did not change keep their duration, camera clip and render clip, even when they move in
+time.
+
+Each take and choice lands in `.state/metrics.jsonl` (`take`, `take-chosen`), so a session's
+takes per scene and the time it took can be read back.
 
 The scene places the camera and moves it with CSS on words: full frame, a corner box, a split,
 or hidden. A scene can be written before the recording; the box stays empty until the clip

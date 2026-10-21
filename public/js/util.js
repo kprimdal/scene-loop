@@ -33,3 +33,21 @@ export const audioTime = (seconds) => {
   return `${minutes}:${(value - minutes * 60).toFixed(1).padStart(4, "0")}`;
 };
 export const countWords = (text) => String(text ?? "").trim().split(/\s+/).filter(Boolean).length;
+
+// A word diff from `from` to `to`, for the Script view: [{ op: "same" | "ins" | "del", text }].
+// Words match when they agree in letters and digits, so a moved comma is no change.
+export function wordDiff(from, to) {
+  const norm = (w) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  const a = String(from ?? "").split(/\s+/).filter(Boolean), b = String(to ?? "").split(/\s+/).filter(Boolean);
+  const A = a.map(norm), B = b.map(norm);
+  const lcs = Array.from({ length: a.length + 1 }, () => new Int32Array(b.length + 1));
+  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = A[i] === B[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && A[i] === B[j]) out.push({ op: "same", text: b[j++] }), i++;
+    else if (i < a.length && (j >= b.length || lcs[i + 1][j] >= lcs[i][j + 1])) out.push({ op: "del", text: a[i++] });
+    else out.push({ op: "ins", text: b[j++] });
+  }
+  return out;
+}
