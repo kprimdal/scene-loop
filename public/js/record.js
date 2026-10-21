@@ -3,6 +3,7 @@ import { S, api } from "./state.js";
 import { player } from "./stage.js";
 import { selectScene } from "./filmstrip.js";
 import { saveScriptNarration, recordAgainOf, keepTake } from "./script.js";
+import { sentences, phrases } from "./phrases.js";
 
 // ---------- record view ----------
 // The reviewer reads each scene's narration to camera. The text sits at the very top of the
@@ -24,7 +25,7 @@ const R = {
   last: null, // { scene, n, url } the take just recorded
   takes: {}, // scene id -> list_takes entry
   font: LS("font", 46), scroll: LS("scroll", false), speed: LS("speed", 28),
-  layout: LS("layout", "lens"), lensFont: LS("lensFont", 60), col: LS("col", 620), pos: LS("pos", "center"),
+  layout: LS("layout", "lens"), lensFont: LS("lensFont2", 40), col: LS("col2", 520), pos: LS("pos", "center"),
   si: 0, sentenceAt: 0, heard: false, quietSince: null, // the sentence shown in the lens layout, and the pause after it
   live: { dbs: [], thr: null, at: 0 }, // the room, measured from the meter: the pause threshold
   editing: false,
@@ -35,8 +36,6 @@ const cur = () => scenes()[R.i];
 const reasons = (s) => R.takes[s.id]?.recordAgain ?? recordAgainOf(s);
 const redo = (s) => reasons(s).length > 0;
 
-// A block of narration as sentences: after . ! ? … (and a closing quote), and at line breaks.
-export const sentences = (text) => String(text ?? "").split(/(?<=[.!?…]["'»”)]*)\s+|\s*\n+\s*/).map((x) => x.trim()).filter(Boolean);
 
 export function setRecord(on = !S.record) {
   if (!S.data?.scenes.length) return;
@@ -75,7 +74,7 @@ function build() {
       h("button", { class: "rec-btn", title: "Edit this scene's line (E)", onclick: (e) => (e.target.blur(), edit()) }, "Edit"),
       h("select", { id: "recLayout", title: "Text layout", onchange: (e) => (keep("layout", (R.layout = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "lens" }, "Under the lens"), h("option", { value: "full" }, "Full text")),
       h("select", { id: "recPos", class: "lens-only", title: "Where the camera is", onchange: (e) => (keep("pos", (R.pos = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "left" }, "Camera left"), h("option", { value: "center" }, "Camera centre"), h("option", { value: "right" }, "Camera right")),
-      h("input", { type: "range", id: "recCol", class: "lens-only", min: 280, max: 1400, step: 20, title: "Column width", oninput: (e) => (keep("col", (R.col = Number(e.target.value))), layout()), onchange: (e) => e.target.blur() }),
+      h("input", { type: "range", id: "recCol", class: "lens-only", min: 280, max: 1400, step: 20, title: "Column width", oninput: (e) => (keep("col2", (R.col = Number(e.target.value))), layout()), onchange: (e) => e.target.blur() }),
       h("button", { class: "rec-btn", title: "Smaller text", onclick: () => font(-4) }, "A−"),
       h("button", { class: "rec-btn", title: "Larger text", onclick: () => font(4) }, "A+"),
       h("label", { class: "rec-scroll full-only", title: "Scroll the text slowly while recording, for long blocks" }, h("input", { type: "checkbox", id: "recScroll", onchange: (e) => (keep("scroll", (R.scroll = e.target.checked)), e.target.blur()) }), " Scroll"),
@@ -111,8 +110,8 @@ function build() {
 
 function font(d) {
   const k = R.layout === "lens" ? "lensFont" : "font";
-  R[k] = Math.max(24, Math.min(140, R[k] + d));
-  keep(k, R[k]);
+  R[k] = Math.max(20, Math.min(140, R[k] + d));
+  keep(k === "lensFont" ? "lensFont2" : k, R[k]);
   layout();
 }
 
@@ -147,7 +146,7 @@ function showText() {
     if (el.dataset.key !== "full" || el.textContent !== text) (el.textContent = text), (el.dataset.key = "full");
     return;
   }
-  const list = sentences(text);
+  const list = phrases(text);
   R.si = Math.max(0, Math.min(list.length - 1, R.si));
   const key = JSON.stringify([list, R.si]);
   if (el.dataset.key === key) return;
@@ -163,7 +162,7 @@ function showText() {
 function sentence(d) {
   if (R.editing) return;
   if (R.layout !== "lens") return void $("#recPrompt").scrollBy({ top: d * $("#recPrompt").clientHeight * 0.4, behavior: "smooth" });
-  const n = sentences(cur().narration).length;
+  const n = phrases(cur().narration).length;
   const i = Math.max(0, Math.min(n - 1, R.si + d));
   if (i === R.si) return;
   R.si = i;
@@ -355,7 +354,7 @@ function follow(db, now) {
   if (db > pauseThreshold()) return void ((R.heard = true), (R.quietSince = null));
   if (!R.heard) return;
   R.quietSince ??= now;
-  const said = (countWords(sentences(cur().narration)[R.si]) / 2.4) * 1000;
+  const said = (countWords(phrases(cur().narration)[R.si]) / 2.4) * 1000;
   if (now - R.quietSince >= 350 && now - R.sentenceAt >= said / 2) sentence(1);
 }
 

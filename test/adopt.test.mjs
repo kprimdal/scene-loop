@@ -94,7 +94,9 @@ test("keep the take: a spelling fix re-hashes and re-spells the words without a 
   assert.equal((await video.keepTake(id, {})).kept, false, "nothing to keep");
   // more than spelling: the take does not have the new word
   await video.updateScene(id, { narration: "Hello Kristian, welcome to our big show.", model: "test" });
-  const more = await video.keepTake(id, {});
+  await assert.rejects(video.keepTake(id, {}), /6 words and the line now has 7.*Record the scene again/);
+  assert.equal((await taken()).stale, true, "a refused keep leaves the scene to record again");
+  const more = await video.keepTake(id, { force: true });
   assert.deepEqual(more.unmatched, ["big"]);
   assert.match(more.warning, /record the scene again/);
   // the Script view's Checked clears the written line
