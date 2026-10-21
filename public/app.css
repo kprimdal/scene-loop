@@ -277,6 +277,7 @@ body.rec-live .rec-prompt { border-top-color: #e5484d; }
 .record.lens .rec-prompt[data-pos="left"] .rec-text { margin-left: 4vw; }
 .record.lens .rec-prompt[data-pos="right"] .rec-text { margin-right: 4vw; }
 .rec-scroll input[type="range"] { width: 90px; vertical-align: middle; }
+.record.hand .rec-pace { display: none; }
 .rec-edit { box-sizing: border-box; display: block; width: 100%; resize: none; overflow: hidden; border: 1px solid #3a3c42; border-radius: 10px; padding: 10px 12px; background: #111214; color: #fff; font: 550 46px/1.32 system-ui, sans-serif; text-align: left; }
 .rec-edit:focus { outline: 2px solid #2f6fed; }
 .rec-btn.rec-redo { border-color: #8a5a00; background: #2a1d00; color: #ffcf6b; }

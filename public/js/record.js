@@ -13,7 +13,7 @@ import { saveScriptNarration, recordAgainOf, keepTake } from "./script.js";
 // scrolling up like a teleprompter, so the line being read stays at the top near the lens and
 // the next lines are always in view. While recording it moves at the reviewer's pace (words a
 // second) while they talk and waits when they stop; ↓ ↑, PageDown (a clicker) and the trackpad
-// move it by hand at any time. Full text: the whole block, optionally scrolling.
+// move it by hand at any time; by hand is the default. Full text: the whole block, optionally scrolling.
 // The script is fixed after recording: E edits the line in place, N goes to the next scene
 // whose line changed since its take, K keeps the take after a spelling fix.
 const LS = (k, d) => { try { return JSON.parse(localStorage.getItem(`sl.rec.${k}`)) ?? d; } catch { return d; } };
@@ -26,7 +26,7 @@ const R = {
   takes: {}, // scene id -> list_takes entry
   font: LS("font", 46), scroll: LS("scroll", false), speed: LS("speed", 28),
   layout: LS("layout", "lens"), lensFont: LS("lensFont2", 40), col: LS("col2", 520), pos: LS("pos", "center"),
-  wps: LS("wps", 2.4), steady: LS("steady", false), y: 0, yShown: 0, voiceAt: 0, pxPerWord: 0, // the lens scroll: pace, position, last voice
+  wps: LS("wps", 2.4), lensScroll: LS("lensScroll", "hand"), y: 0, yShown: 0, voiceAt: 0, pxPerWord: 0, // the lens scroll: pace, position, last voice
   live: { dbs: [], thr: null, at: 0 }, // the room, measured from the meter: the pause threshold
   editing: false,
 };
@@ -75,8 +75,8 @@ function build() {
       h("select", { id: "recLayout", title: "Text layout", onchange: (e) => (keep("layout", (R.layout = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "lens" }, "Under the lens"), h("option", { value: "full" }, "Full text")),
       h("select", { id: "recPos", class: "lens-only", title: "Where the camera is", onchange: (e) => (keep("pos", (R.pos = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "left" }, "Camera left"), h("option", { value: "center" }, "Camera centre"), h("option", { value: "right" }, "Camera right")),
       h("input", { type: "range", id: "recCol", class: "lens-only", min: 280, max: 1400, step: 20, title: "Column width", oninput: (e) => (keep("col2", (R.col = Number(e.target.value))), layout()), onchange: (e) => e.target.blur() }),
-      h("label", { class: "rec-scroll lens-only", title: "Words a second the text moves while you talk" }, "Pace ", h("input", { type: "range", id: "recWps", min: 1.2, max: 4, step: 0.1, oninput: (e) => keep("wps", (R.wps = Number(e.target.value))), onchange: (e) => e.target.blur() })),
-      h("label", { class: "rec-scroll lens-only", title: "Keep moving when you are quiet, instead of waiting for you" }, h("input", { type: "checkbox", id: "recSteady", onchange: (e) => (keep("steady", (R.steady = e.target.checked)), e.target.blur()) }), " Steady"),
+      h("label", { class: "rec-scroll lens-only rec-pace", title: "Words a second the text moves" }, "Pace ", h("input", { type: "range", id: "recWps", min: 1.2, max: 4, step: 0.1, oninput: (e) => keep("wps", (R.wps = Number(e.target.value))), onchange: (e) => e.target.blur() })),
+      h("select", { id: "recLensScroll", class: "lens-only", title: "How the text moves while recording", onchange: (e) => (keep("lensScroll", (R.lensScroll = e.target.value)), e.target.blur(), layout()) }, h("option", { value: "hand" }, "Scroll by hand"), h("option", { value: "voice" }, "Scroll with my voice"), h("option", { value: "steady" }, "Scroll steadily")),
       h("button", { class: "rec-btn", title: "Smaller text", onclick: () => font(-4) }, "A−"),
       h("button", { class: "rec-btn", title: "Larger text", onclick: () => font(4) }, "A+"),
       h("label", { class: "rec-scroll full-only", title: "Scroll the text slowly while recording, for long blocks" }, h("input", { type: "checkbox", id: "recScroll", onchange: (e) => (keep("scroll", (R.scroll = e.target.checked)), e.target.blur()) }), " Scroll"),
@@ -106,7 +106,7 @@ function build() {
   $("#recPos").value = R.pos;
   $("#recCol").value = R.col;
   $("#recWps").value = R.wps;
-  $("#recSteady").checked = R.steady;
+  $("#recLensScroll").value = R.lensScroll;
   $("#recPreview").muted = true;
   $("#recPlayback").addEventListener("ended", () => showPlayback(false));
   showScene();
@@ -123,12 +123,13 @@ function font(d) {
 function layout() {
   const lens = R.layout === "lens";
   $("#record").classList.toggle("lens", lens);
+  $("#record").classList.toggle("hand", R.lensScroll === "hand");
   $("#recPrompt").dataset.pos = R.pos;
   $("#recText").style.setProperty("--rec-col", `${R.col}px`);
   $("#recText").style.fontSize = `${lens ? R.lensFont : R.font}px`;
   $("#recPrompt").style.setProperty("--read", `${Math.round(R.lensFont * 0.5) + 14}px`);
   R.pxPerWord = 0;
-  $("#recKeys").textContent = `Space record / stop · R record again · Enter use the take, next scene · ← → scene · ↓ ↑ move the text${lens ? " (PageDown, a clicker); it scrolls while you talk" : ""} · E edit the line · N next to record again · K keep the take · P play the take · Esc close`;
+  $("#recKeys").textContent = `Space record / stop · R record again · Enter use the take, next scene · ← → scene · ↓ ↑ move the text${lens ? ` (PageDown, a clicker, the mouse)${R.lensScroll === "voice" ? "; it scrolls while you talk" : ""}` : ""} · E edit the line · N next to record again · K keep the take · P play the take · Esc close`;
   showText();
 }
 
@@ -333,7 +334,8 @@ function room(db, now) {
 }
 const pauseThreshold = () => R.live.thr ?? Object.values(R.takes).flatMap((t) => t.takes).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]?.level?.thresholdDb ?? -45;
 
-// Lens layout while recording: the text moves up at the reviewer's pace while they talk (and
+// Lens layout while recording, unless it scrolls by hand (the default): the text moves up at
+// the reviewer's pace while they talk (and
 // 450 ms after, so a breath does not stop it) and waits when they stop. A hand scroll (↓ ↑,
 // PageDown, the trackpad) moves the position it goes on from.
 function crawl(db, now, dt) {
@@ -345,7 +347,8 @@ function crawl(db, now, dt) {
     const height = el.scrollHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     R.pxPerWord = height / Math.max(1, countWords(cur().narration ?? ""));
   }
-  if (R.steady || now - R.voiceAt < 450) R.y = Math.min(R.y + R.pxPerWord * R.wps * (dt / 1000), box.scrollHeight - box.clientHeight);
+  if (R.lensScroll === "hand") return void (R.yShown = R.y = box.scrollTop);
+  if (R.lensScroll === "steady" || now - R.voiceAt < 450) R.y = Math.min(R.y + R.pxPerWord * R.wps * (dt / 1000), box.scrollHeight - box.clientHeight);
   box.scrollTop = R.y;
   R.yShown = box.scrollTop;
 }
