@@ -272,12 +272,11 @@ body.rec-live .rec-prompt { border-top-color: #e5484d; }
 .rec-text { width: min(1500px, 92vw); margin: 0 auto; font-weight: 550; line-height: 1.32; letter-spacing: -0.005em; color: #fff; white-space: pre-wrap; text-align: left; }
 .rec-text.empty { color: #77797f; }
 .record.lens .full-only, .record:not(.lens) .lens-only { display: none; }
-.record.lens .rec-text { width: min(var(--rec-col, 520px), 92vw); text-align: center; line-height: 1.22; }
+.record.lens .rec-prompt { padding: 0; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--read, 34px), #000 72%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 var(--read, 34px), #000 72%, transparent 100%); }
+.record.lens .rec-text { width: min(var(--rec-col, 520px), 92vw); text-align: left; line-height: 1.3; padding: var(--read, 34px) 0 80vh; }
 .record.lens .rec-prompt[data-pos="left"] .rec-text { margin-left: 4vw; }
 .record.lens .rec-prompt[data-pos="right"] .rec-text { margin-right: 4vw; }
-.rec-now { font-weight: 600; }
-.rec-next { margin-top: 0.45em; font-size: 0.8em; color: #6d6f75; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rec-step { margin-top: 0.7em; font-size: 13px; color: #55575d; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.rec-scroll input[type="range"] { width: 90px; vertical-align: middle; }
 .rec-edit { box-sizing: border-box; display: block; width: 100%; resize: none; overflow: hidden; border: 1px solid #3a3c42; border-radius: 10px; padding: 10px 12px; background: #111214; color: #fff; font: 550 46px/1.32 system-ui, sans-serif; text-align: left; }
 .rec-edit:focus { outline: 2px solid #2f6fed; }
 .rec-btn.rec-redo { border-color: #8a5a00; background: #2a1d00; color: #ffcf6b; }
