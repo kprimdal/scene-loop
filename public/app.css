@@ -319,3 +319,5 @@ body.rec-live .rec-prompt { border-top-color: #e5484d; }
 .rec-meter span.hot { background: #e5484d; }
 .rec-dev { font-size: 11px; color: #7a7c82; }
 .rec-keys { padding: 6px 18px 10px; background: #0b0b0c; color: #6d6f75; font-size: 12px; }
+
+.rec-takes-head { display: flex; justify-content: flex-end; margin-bottom: 6px; }

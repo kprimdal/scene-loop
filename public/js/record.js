@@ -213,7 +213,9 @@ function renderTakes() {
   const el = $("#recTakes");
   const t = R.takes[cur().id];
   if (!t?.takes.length) return el.replaceChildren(h("div", { class: "muted" }, "No takes for this scene yet."));
+  const unused = t.takes.filter((k) => !k.chosen).length;
   el.replaceChildren(
+    ...(unused > 1 ? [h("div", { class: "rec-takes-head" }, h("button", { class: "rec-btn ghost", onclick: (e) => (e.target.blur(), removeTakes(cur().id, null)) }, `Delete the ${unused} unused takes`))] : []),
     ...t.takes.slice().reverse().map((k) =>
       h(
         "div",
@@ -223,6 +225,7 @@ function renderTakes() {
         h("div", { class: "spacer" }),
         h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), play(k.url)) }, "Play"),
         k.chosen ? h("span", { class: "rec-used" }, "used") : h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), choose(cur().id, k.n)) }, "Use"),
+        k.chosen ? null : h("button", { class: "rec-btn ghost", title: "Delete this take", onclick: (e) => (e.target.blur(), removeTakes(cur().id, [k.n])) }, "Delete"),
       ),
     ),
   );
@@ -479,6 +482,21 @@ async function choose(sceneId, n) {
     toast(`${sceneId}: take ${n} is the narration (${audioTime(r.audio?.seconds ?? 0)})${r.cam ? " and the camera clip" : ""}.`);
   } catch (e) {
     toast(`Could not use take ${n} for ${sceneId}: ${e.message}`);
+  }
+  loadTakes();
+}
+
+// Delete takes that are not in use (all of the scene's unused ones when takes is null), after a
+// confirm: the files go.
+async function removeTakes(sceneId, takes) {
+  const what = takes ? `take ${takes.join(", ")}` : "every unused take";
+  if (!confirm(`Delete ${what} of ${sceneId}? The files are deleted.`)) return;
+  try {
+    const r = await api("/api/tools/delete_takes", { body: { args: { scene: sceneId, ...(takes ? { takes } : { unused: true }), model: S.reviewer }, via: "page-js" } });
+    if (R.last?.scene === sceneId && r.deleted.includes(R.last.n)) R.last = null;
+    toast(`${sceneId}: deleted take ${r.deleted.join(", ")} (${(r.freedBytes / 1e6).toFixed(0)} MB).`);
+  } catch (e) {
+    toast(`Could not delete: ${e.message}`);
   }
   loadTakes();
 }
