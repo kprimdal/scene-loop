@@ -101,3 +101,14 @@ test("narration audio is flagged stale after the script changes", async () => {
   await video.removeNarrationAudio("s01-intro");
   assert.equal(existsSync(join(video.dir, "assets", "narration", "s01-intro.take.json")), false);
 });
+
+test("set_video musicDb is stored, bounded, and null restores the default", async () => {
+  const sb = () => JSON.parse(readFileSync(join(root, "proj", "videos", "vid", "storyboard.json"), "utf8"));
+  await video.setMeta({ musicDb: 24, model: "test" });
+  assert.equal(sb().musicDb, 24);
+  await assert.rejects(video.setMeta({ musicDb: 99, model: "test" }), /musicDb/);
+  await assert.rejects(video.setMeta({ musicDb: -1, model: "test" }), /musicDb/);
+  assert.equal(sb().musicDb, 24);
+  await video.setMeta({ musicDb: null, model: "test" });
+  assert.equal("musicDb" in sb(), false);
+});

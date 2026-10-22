@@ -307,7 +307,7 @@ against the scene's words and lead with the same fallbacks (down to the element'
 delay). `build_soundtrack` mixes them in at their video time, 11 dB under the voice (the level
 from video-lab 001) plus the cue's gain, and `list_scenes` lists every cue with its time and any
 warning. A video without narration but with cues still gets a soundtrack. `storyboard.music`
-(`set_video`) adds a bed 15.5 dB under the voice with a 1 s fade in and a 2 s fade out.
+(`set_video`) adds a bed under the voice with a 1 s fade in and a 2 s fade out; `musicDb` on `set_video` says how far under (default 15.5 dB, 20 to 25 for a quiet bed).
 
 Music beds live in a library shared by every project (`<root>/library/music/`, one
 `<id>.json` with the metadata next to each file: title, source, the generating model, the prompt,
