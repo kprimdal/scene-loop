@@ -1,4 +1,4 @@
-import { $, h, toast } from "./util.js";
+import { $, h, toast, bytes } from "./util.js";
 import { S, api } from "./state.js";
 import { openInstructions } from "./instructions.js";
 
@@ -85,12 +85,18 @@ async function deleteVideo(e, project, v) {
 }
 
 // ---------- overview ----------
+// The tooltip on a size: where the bytes are, largest part first, parts under 1 MB left out.
+const DISK_LABELS = { renders: "renders", takes: "takes and camera clips", cache: "render cache and previews", stills: "stills and state", versions: "versions", files: "scenes and assets", trash: ".trash" };
+const diskTitle = (d) =>
+  Object.entries(DISK_LABELS).map(([k, label]) => [d[k] ?? 0, label]).filter(([n]) => n >= 1e6).sort((a, b) => b[0] - a[0]).map(([n, label]) => `${bytes(n)} ${label}`).join("\n") || "under 1 MB";
+
 export function renderOverview() {
   const tags = new Map();
   for (const p of S.projects) for (const t of p.tags) tags.set(t, (tags.get(t) ?? 0) + 1);
   if (S.tag && !tags.has(S.tag)) S.tag = null;
   const shown = S.projects.filter((p) => !S.tag || p.tags.includes(S.tag));
-  $("#ovCount").textContent = `${S.projects.length} project${S.projects.length === 1 ? "" : "s"} · ${videoCount()} video${videoCount() === 1 ? "" : "s"}`;
+  const totalBytes = S.projects.reduce((n, p) => n + (p.disk?.total ?? 0), 0);
+  $("#ovCount").textContent = `${S.projects.length} project${S.projects.length === 1 ? "" : "s"} · ${videoCount()} video${videoCount() === 1 ? "" : "s"} · ${bytes(totalBytes)} on disk`;
   $("#tagChips").replaceChildren(
     ...(tags.size
       ? [
@@ -111,7 +117,7 @@ export function renderOverview() {
         h(
           "div",
           { class: "pcard-head" },
-          h("div", {}, h("h2", {}, p.title), h("div", { class: "muted small" }, `${p.name} · ${p.videos.length} video${p.videos.length === 1 ? "" : "s"}`)),
+          h("div", {}, h("h2", {}, p.title), h("div", { class: "muted small" }, `${p.name} · ${p.videos.length} video${p.videos.length === 1 ? "" : "s"} · `, h("span", { title: diskTitle(p.disk) }, bytes(p.disk.total)), p.disk.trash ? ` (${bytes(p.disk.trash)} in .trash)` : "")),
           h("div", { class: "spacer" }),
           h("button", { class: "btn small owner-only", title: "The project's instructions for the chat", onclick: () => openInstructions(p.name) }, p.instructions ? "Instructions" : "Add instructions"),
         ),
@@ -129,7 +135,7 @@ export function renderOverview() {
                   { class: "vrow", href: videoUrl(p.name, v.name) },
                   v.poster ? h("img", { src: v.poster, alt: "", loading: "lazy" }) : h("div", { class: "noimg" }),
                   h("div", { style: "min-width:0" }, h("b", {}, v.title), h("div", { class: "muted small" }, v.name)),
-                  h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${v.scenes} scene${v.scenes === 1 ? "" : "s"}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered")),
+                  h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${v.scenes} scene${v.scenes === 1 ? "" : "s"}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered"), h("div", { title: diskTitle(v.disk) }, bytes(v.disk.total))),
                   p.layout === "project" ? h("button", { class: "vdel owner-only", title: "Delete video", "aria-label": `Delete ${v.title}`, onclick: (e) => deleteVideo(e, p.name, v) }, "×") : null,
                 );
               })
