@@ -51,6 +51,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .menu { position: absolute; right: 0; top: 38px; z-index: 20; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); min-width: 320px; padding: 6px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.12); }
 .menu a { display: block; padding: 7px 9px; border-radius: 6px; color: var(--ink); text-decoration: none; }
 .menu a:hover { background: var(--bg); }
+.menu .row { display: flex; align-items: center; gap: 4px; }
+.menu .row a { flex: 1; min-width: 0; }
+.menu .row .x { border: 0; background: none; color: var(--muted); font-size: 16px; line-height: 1; padding: 6px 8px; border-radius: 6px; visibility: hidden; }
+.menu .row:hover .x { visibility: visible; }
+.menu .row .x:hover { color: var(--ink); background: var(--bg); }
+.menu .all { display: block; width: 100%; margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0; padding-top: 8px; color: var(--muted); }
 
 /* filmstrip (bottom) */
 .filmstrip { display: flex; gap: 10px; padding: 10px 16px 12px; background: var(--paper); border-top: 1px solid var(--line); overflow-x: auto; }
