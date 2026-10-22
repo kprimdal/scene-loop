@@ -12,7 +12,8 @@
 //   The people who may log in are in <dir>/.people.json (lib/people.mjs, managed on /people);
 //   --invite-owner adds the first owner and prints their invite link. See lib/auth.mjs.
 import { createServer } from "node:http";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import { dirname, extname, join, resolve, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRegistry } from "./lib/projects.mjs";
@@ -133,7 +134,7 @@ const mcp = createMcp({
 });
 
 // ---------- http ----------
-const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm" };
+const MIME = { ".ogg": "audio/ogg", ".flac": "audio/flac", ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm" };
 
 function serveFile(req, res, file) {
   if (!existsSync(file) || !statSync(file).isFile()) return send(res, 404, { error: "not found" });
@@ -242,6 +243,35 @@ async function handle(req, res, user) {
     // The camera and microphone it was recorded with, by their labels (which of three mics was it?).
     const devices = { camera: url.searchParams.get("camera")?.slice(0, 200) || null, mic: url.searchParams.get("mic")?.slice(0, 200) || null };
     return send(res, 200, await (await ctx.p()).addTake(take[1], { stream: req, mime: type, model: user.name, devices }));
+  }
+  // The shared library (lib/library.mjs) is for owners: it spans every project.
+  const lib = url.pathname.match(/^\/library\/([a-z]+)\/([^/]+)$/);
+  if (lib && req.method === "GET") {
+    const f = guest ? null : registry.library.file(lib[1], decodeURIComponent(lib[2]));
+    return f ? serveFile(req, res, f) : send(res, 404, { error: "not found" });
+  }
+  // A file for the library from the page: the file itself as the body, typed audio/* (like a
+  // take, a type no form can send cross-site), its metadata as JSON in ?meta=.
+  if (url.pathname === "/api/library/upload" && req.method === "POST") {
+    if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
+    const type = req.headers["content-type"] ?? "";
+    const ext = { "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "m4a", "audio/ogg": "ogg", "audio/flac": "flac", "audio/x-flac": "flac" }[type.split(";")[0].trim()];
+    if (!ext) return send(res, 415, { error: "send the file as audio/mpeg, audio/wav, audio/mp4, audio/ogg or audio/flac" });
+    if (Number(req.headers["content-length"]) > 500 * 1024 * 1024) return send(res, 413, { error: "at most 500 MB" });
+    let meta;
+    try { meta = JSON.parse(url.searchParams.get("meta") || "{}"); } catch { return send(res, 400, { error: "meta must be JSON" }); }
+    const dir = join(registry.library.dir, "music");
+    mkdirSync(dir, { recursive: true });
+    const tmp = join(dir, `.upload-${process.pid}-${Date.now()}.${ext}`);
+    try {
+      let n = 0;
+      req.on("data", (d) => { if ((n += d.length) > 500 * 1024 * 1024) req.destroy(new Error("at most 500 MB")); });
+      await pipeline(req, createWriteStream(tmp));
+      const { path, base64, ...fields } = meta;
+      return send(res, 200, await registry.library.add({ ...fields, kind: "music", path: tmp, ext, name: url.searchParams.get("name") }, { by: user.name, upload: true }));
+    } finally {
+      rmSync(tmp, { force: true });
+    }
   }
   for (const [method, re, fn, open] of routes) {
     const m = url.pathname.match(re);

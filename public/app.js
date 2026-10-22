@@ -9,6 +9,7 @@ import { tick } from "./js/stage.js";
 import "./js/keys.js";
 import "./js/record.js";
 import "./js/live.js";
+import { showLibrary } from "./js/library.js";
 
 await import("./js/tools.js");
 
@@ -20,7 +21,14 @@ for (const [text, href, title] of [me.owner && me.login && ["People", "/people",
   $("header.top").append(h("a", { class: "btn", href, title }, text));
 if (me.login) $("header.top").append(h("form", { method: "post", action: "/logout", class: "logout" }, h("button", { class: "btn" }, "Log out"))); // a POST, so no other site can log you out
 await loadProjects();
-if (pickView()) {
+if (new URLSearchParams(location.search).has("library") && !S.guest) {
+  S.overview = S.library = true; // no video open: the keys and live updates treat it like the overview
+  document.body.classList.add("overview-mode", "library-mode");
+  $(".main").hidden = $("#filmstrip").hidden = true;
+  $("#library").hidden = false;
+  document.title = "Library · Scene loop";
+  await showLibrary();
+} else if (pickView()) {
   renderCrumbs();
   await refresh();
   await loadChat();

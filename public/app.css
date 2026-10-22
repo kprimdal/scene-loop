@@ -321,3 +321,37 @@ body.rec-live .rec-prompt { border-top-color: #e5484d; }
 .rec-keys { padding: 6px 18px 10px; background: #0b0b0c; color: #6d6f75; font-size: 12px; }
 
 .rec-takes-head { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+
+/* library: music shared by every project (/?library=1), and the Music menu in a video */
+body.library-mode #newProject { display: none; }
+body.library-mode #libraryBtn { border-color: var(--ink); }
+.lib-list { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 16px; align-items: start; }
+.lib-item audio { width: 100%; height: 34px; margin: 10px 0 2px; }
+.lib-meta { display: grid; grid-template-columns: 74px 1fr; gap: 4px 10px; margin: 8px 0 4px; font-size: 13px; }
+.lib-meta dt { color: var(--muted); font-size: 12px; padding-top: 1px; }
+.lib-meta dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.lib-meta .prompt { white-space: pre-wrap; color: #3a3b40; }
+.used-in { display: flex; flex-wrap: wrap; gap: 6px; }
+.used { font-size: 12px; font-weight: 550; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+.used.bed { background: var(--accent-soft); border-color: #c9d8fb; }
+.used:hover { border-color: var(--accent); }
+.used span { color: var(--muted); font-weight: 500; }
+.music-menu { width: 460px; max-height: 70vh; overflow-y: auto; padding: 10px; }
+.music-now { display: grid; gap: 6px; padding: 4px 6px 10px; border-bottom: 1px solid var(--line); }
+.music-now audio { width: 100%; height: 30px; }
+.music-now .btn { justify-self: start; }
+.music-sub { padding: 10px 6px 4px; }
+.music-item { display: grid; grid-template-columns: 1fr 150px auto; gap: 8px; align-items: center; padding: 6px; border-radius: 6px; }
+.music-item.on { background: var(--accent-soft); }
+.music-item audio { width: 150px; height: 28px; }
+.menu a.music-open { margin-top: 6px; color: var(--accent); }
+.lib-fields { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px; overflow-y: auto; flex: 1; }
+.lib-fields label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.lib-fields input:not([type=checkbox]), .lib-fields textarea { font: inherit; font-size: 14px; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--paper); }
+.drawer.lib-form textarea { flex: none; margin: 0; resize: vertical; font: inherit; font-size: 13px; }
+.lib-fields input:focus, .lib-fields textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.lib-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: end; }
+.lib-fields label.check { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 8px; color: var(--ink); font-weight: 500; }
+a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
+.renders summary.btn.on { border-color: var(--ink); }
+.lib-row input { min-width: 0; width: 100%; }
