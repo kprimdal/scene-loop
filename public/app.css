@@ -335,7 +335,7 @@ body.rec-live .rec-prompt { border-top-color: #e5484d; }
 /* library: music shared by every project (/?library=1), and the Music menu in a video */
 body.library-mode #newProject { display: none; }
 body.library-mode #libraryBtn { border-color: var(--ink); }
-.lib-list { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.lib-list { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 16px; align-items: start; }
 .lib-item audio { width: 100%; height: 34px; margin: 10px 0 2px; }
 .lib-meta { display: grid; grid-template-columns: 74px 1fr; gap: 4px 10px; margin: 8px 0 4px; font-size: 13px; }
 .lib-meta dt { color: var(--muted); font-size: 12px; padding-top: 1px; }
