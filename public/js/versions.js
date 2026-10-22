@@ -1,6 +1,7 @@
 import { $, h, ago, audioTime } from "./util.js";
 import { S, api, scene, latest, viewed } from "./state.js";
 import { player, setMode, renderTrack, loadPlayer } from "./stage.js";
+import { saveScriptNarration } from "./script.js";
 
 const AGENT = { claude: "Claude", codex: "Codex", chat: "Chat", manual: "Manual edit", restore: "Restore", import: "Import" };
 
@@ -17,10 +18,7 @@ export function renderVersions() {
   $("#viewing").replaceChildren(
     S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
   );
-  $("#narration").replaceChildren(
-    h("span", {}, h("b", {}, "Script "), sc.narration ?? ""),
-    ...(sc.audio ? [h("span", { class: "narration-audio" }, h("audio", { controls: true, preload: "none", src: sc.audio.url }), h("span", { class: "muted" }, audioTime(sc.audio.seconds) + (sc.audio.stale ? " · stale: script changed since the take" : "")))] : []),
-  );
+  renderNarration(sc);
   const box = $("#versions");
   box.replaceChildren(
     ...sc.versions.map((v) => {
@@ -49,6 +47,47 @@ export function renderVersions() {
     }),
   );
   renderCompare();
+}
+
+// The scene's line under the stage. A double-click turns it into a textarea; clicking away
+// saves it through the Script view's save (same version note, same stale-take handling),
+// Escape puts the old text back. A project event while the line is being edited leaves the
+// textarea alone: the blur re-renders.
+function renderNarration(sc) {
+  const box = $("#narration");
+  const editing = box.querySelector("textarea");
+  if (editing && document.activeElement === editing) return;
+  const line = h("span", { class: "narration-text", title: S.guest ? null : "Double-click to edit" }, h("b", {}, "Script "), sc.narration ?? "");
+  if (!S.guest) line.addEventListener("dblclick", () => editNarration(sc, line));
+  box.replaceChildren(
+    line,
+    ...(sc.audio ? [h("span", { class: "narration-audio" }, h("audio", { controls: true, preload: "none", src: sc.audio.url }), h("span", { class: "muted" }, audioTime(sc.audio.seconds) + (sc.audio.stale ? " · stale: script changed since the take" : "")))] : []),
+  );
+}
+
+function editNarration(sc, line) {
+  const narration = sc.narration ?? "";
+  const ta = h("textarea", { class: "narration-edit", spellcheck: true, "aria-label": `Narration for ${sc.id}` }, narration);
+  ta.dataset.original = narration;
+  const fit = () => ((ta.style.height = "auto"), (ta.style.height = `${ta.scrollHeight + 2}px`));
+  ta.addEventListener("input", fit);
+  ta.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (e.preventDefault(), ta.blur());
+    if (e.key === "Escape") {
+      e.preventDefault();
+      ta.value = ta.dataset.original;
+      ta.dataset.cancelled = "true";
+      ta.blur();
+    }
+  });
+  ta.addEventListener("blur", async () => {
+    await saveScriptNarration(sc, ta);
+    renderNarration(scene());
+  });
+  line.replaceWith(ta);
+  fit();
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
 }
 
 export function showVersions(on = !S.showVersions) {
