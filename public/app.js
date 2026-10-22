@@ -38,6 +38,5 @@ if (new URLSearchParams(location.search).has("library") && !S.guest) {
   document.body.classList.add("overview-mode");
   $(".main").hidden = $("#filmstrip").hidden = true;
   $("#overview").hidden = false;
-  document.title = "Projects · Scene loop";
-  renderOverview();
+  renderOverview(); // the front page, or one project's page when pickView left S.project set
 }

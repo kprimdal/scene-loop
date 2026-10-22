@@ -117,8 +117,9 @@ open http://localhost:4300
 
 `~/videos` is a projects root: one folder per project, created with `create_project` from the
 chat or the New project button, and inside it one folder per video (`create_video`, or + New
-video on the overview). Each video keeps its own versions, comments and renders. `/` shows the
-overview when there is more than one video; `?project=x&video=y` opens one.
+video on the project's page). Each video keeps its own versions, comments and renders. `/` shows a
+card per project, `?project=x` lists that project's videos, and `?project=x&video=y` opens one.
+With only one project, `/` goes straight to its page, or to its video if it has just one.
 
 Older layouts still work without moving anything. Point the server at a folder that has a
 `storyboard.json` and it serves that one video. A root whose folders each have a `storyboard.json`
