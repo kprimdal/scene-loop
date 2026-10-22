@@ -39,6 +39,18 @@ export async function loadPlayer(force = false) {
   renderTrack();
 }
 
+// The soundtrack is one file laid to the scene starts at build time. When a scene is re-cut
+// after that, every scene behind it plays its sound late or early; say so instead of leaving
+// it to lip sync (2026-10-22: a re-cut first scene put the sound 1.2 s late from scene 2 on).
+player.addEventListener("soundtrack", (e) => {
+  const D = S.data?.duration, got = e.detail.duration;
+  if (!D || !isFinite(got) || Math.abs(got - D) < 0.5) return;
+  const sig = `${got.toFixed(1)}:${D.toFixed(1)}`;
+  if (S.staleSoundtrack === sig) return;
+  S.staleSoundtrack = sig;
+  toast(`Soundtrack is ${tc(got)}, the video ${tc(D)}: scenes were cut since it was built, so the sound is off. Ask the chat for build_soundtrack.`);
+});
+
 export function duration() {
   return S.mode === "scene" ? scene().duration : S.data.duration;
 }

@@ -65,6 +65,9 @@ class ScenePlayer extends HTMLElement {
       this._audio = new Audio(new URL(sl.audio.src, f.contentWindow.location.href).href);
       this._audio.preload = "auto";
       this._mediaStart = Number(sl.audio.mediaStart) || 0;
+      // The page compares its length with the storyboard: a soundtrack laid to older cuts drifts.
+      const a = this._audio;
+      a.addEventListener("loadedmetadata", () => a === this._audio && this.dispatchEvent(new CustomEvent("soundtrack", { detail: { duration: a.duration } })), { once: true });
     }
     this._t = 0;
     sl.seek(0);
