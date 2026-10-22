@@ -4,6 +4,8 @@ export const S = {
   video: Q.get("video"),
   projects: [],
   overview: false,
+  library: false, // the Library view (/?library=1); overview is true then too
+  libTag: null, // library tag filter
   tag: null, // overview tag filter
   script: false, // script view instead of the stage
   record: false, // the record view (teleprompter and camera) over everything

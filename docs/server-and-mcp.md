@@ -38,8 +38,9 @@ overview; `instructions.js` owns the project.md drawer; `data.js` refreshes the 
 `stage.js` owns the preview, timeline and transport; `filmstrip.js` selects scenes; `versions.js`
 shows, compares and restores versions; `comments.js` pins frame comments; `panel.js` renders scene
 activity and notes; `renders.js` starts and lists renders; `script.js` edits and agrees the script;
-`keys.js` owns keyboard shortcuts; `live.js` applies server-sent updates; and `tools.js` exposes the
-page tools through WebMCP and `window.sceneLoop`.
+`keys.js` owns keyboard shortcuts; `live.js` applies server-sent updates; `library.js` is the
+Library view, the Music menu in a video and the upload drawer; and `tools.js` exposes the page
+tools through WebMCP and `window.sceneLoop`.
 
 ## Projects and access
 
@@ -185,6 +186,50 @@ page tools through WebMCP and `window.sceneLoop`.
    by `sfx/make_kit.py` and calibrated to -27 LUFS momentary (11 dB under the voice).
    The same work found that `loudnorm` handed on timestamps that put the voice 30 to 70 ms late
    in the m4a; `build_soundtrack` now re-stamps it, so a word lands where its anchor says.
+12. **A shared library, music first.** Built 2026-10-22. A music bed was a file copied into one
+   video's `assets/` with nothing to say where it came from, and the next video started from
+   scratch. `lib/library.mjs` keeps `<root>/library/<kind>/<id>.<ext>` with one sidecar
+   `<id>.json` per item (id, kind, title, file, duration, source, sourceModel, prompt, created,
+   license, loop, bpm, tags, note, sha1, size, from, added, addedBy), shared by every project
+   on the instance; `library` is therefore not a project name. One sidecar per item rather than
+   one `library.json`: an item is two files that travel together, a broken write touches one
+   item, and two writes never race on one file. A file in the folder without a sidecar is
+   listed as `unindexed`, never guessed at from its name. The single-video layout keeps its
+   library in `<video>/.state/library`. Kinds are `music` now; `sfx` and `image` slot into
+   `KINDS`. The generator's model is `sourceModel`, because `model` on every write is the
+   agent's name.
+   Tools: `list_library` (kind, tag; each item with a URL and `usedIn`), `add_to_library`
+   (absolute path or base64; copies, never moves; refuses a file already in the library by
+   sha1), `update_library_item` (metadata only: a new take of a bed is a new item),
+   `remove_from_library` (refused while an item is any video's music, unless `force`) and
+   `use_library_music`. A video never plays from the library: `use_library_music` copies the
+   file to `assets/music/<id>.<ext>` (or points at a file with the same content already
+   there) and sets `storyboard.music` with `musicLibrary: <id>` next to it. So a render does
+   not depend on the library staying as it is, a removed item leaves its videos intact, and
+   `build_soundtrack` is unchanged. The render clip cache is unaffected either way: clip keys
+   hash only the assets a scene or the theme names, and the music is mixed in at the join.
+   `set_video` with a plain music path drops `musicLibrary`. Usage is found by content: the
+   sha1 of `storyboard.music` and of every file under `assets/music/` in every video, cached
+   per size and mtime, so a copy made by hand before the library existed shows up (as a copy,
+   or as the bed when `storyboard.music` names it).
+   Page: Library in the header (owners) opens `/?library=1`: every item with a player, its
+   facts, tags, prompt, rights, note and "used in" links (the bed tinted, a plain copy marked),
+   tag chips, and + Add file, a drawer that POSTs the file raw to `/api/library/upload` typed
+   `audio/*` with the metadata as JSON in `?meta=` (owners only, like takes; a type no form
+   can send cross-site). In a video, Music in the header shows the bed with a player, Remove
+   bed, and every library item with a player and Use. Library files are served at
+   `/library/<kind>/<file>` to owners only, and the `library` server-sent event carries no
+   project, so commenters neither see nor hear of it. The Library view and an open Music
+   menu follow the event.
+   Seeded on agent-server with the four ElevenLabs beds made for kristianprimdal.dk
+   (`a-pad`, `b-piano`, `c-pulse`, `d-guitar`, 90 s, `music_v1`, with their prompts);
+   `mit-ai-setup` already had `c-pulse` as `assets/music/pulse.mp3`, which `list_library`
+   finds by content. Tested on a scratch root (port 4302): every tool over `/api/tools` and
+   `/mcp`, the file route and the upload (refused without same-origin, with the wrong type,
+   and for a duplicate), the page with agent-browser (Library view, Music menu Use, upload
+   drawer, a live rename), a soundtrack built with a library bed (the bed at -47 dB in the
+   fade-out where the same mix without it is silent) and a render carrying it.
+   `test/library.test.mjs` covers the tools end to end.
 
 ## MCP App
 

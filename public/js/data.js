@@ -7,6 +7,7 @@ import { renderRenders } from "./renders.js";
 import { renderScript } from "./script.js";
 import { renderRecord } from "./record.js";
 import { loadPlayer } from "./stage.js";
+import { renderMusicMenu } from "./library.js";
 
 const Q = new URLSearchParams(location.search);
 
@@ -29,6 +30,9 @@ export async function refresh() {
   renderVersions();
   renderPanel();
   renderRenders();
+  $("#musicBtn").classList.toggle("on", !!S.data.music);
+  $("#musicBtn").title = S.data.music ? `Music bed: ${S.data.music}${S.data.musicLibrary ? ` (library ${S.data.musicLibrary})` : ""}` : "No music bed. Pick one from the library.";
+  renderMusicMenu();
   if (S.script) renderScript();
   if (S.record) return renderRecord();
   await loadPlayer();

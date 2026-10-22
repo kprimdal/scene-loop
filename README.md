@@ -76,6 +76,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
 | Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render` |
+| Library | `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
 
 Stills come back as images in the tool result, so Claude sees its own frames in the chat. Every
 write becomes a version that records the model and the channel it came through (`mcp`, `webmcp`
@@ -306,6 +307,14 @@ delay). `build_soundtrack` mixes them in at their video time, 11 dB under the vo
 from video-lab 001) plus the cue's gain, and `list_scenes` lists every cue with its time and any
 warning. A video without narration but with cues still gets a soundtrack. `storyboard.music`
 (`set_video`) adds a bed 15.5 dB under the voice with a 1 s fade in and a 2 s fade out.
+
+Music beds live in a library shared by every project (`<root>/library/music/`, one
+`<id>.json` with the metadata next to each file: title, source, the generating model, the prompt,
+date, rights, loop, bpm, tags, a note). Library in the header lists them with a player and the
+videos that use each, and + Add file uploads one. `use_library_music`, or Use in a video's Music
+menu, copies the file into the video's `assets/music/` and sets it as `storyboard.music` with the
+library id next to it, so the video keeps its own copy and a later library change never changes a
+render. Look in the library before generating a new bed.
 
 The kit in `sfx/` is our own, synthesized by `sfx/make_kit.py` (numpy) and calibrated so each
 sound's loudest 400 ms sits at -27 LUFS: whoosh, whoosh-long, swoosh, pop, pop-low, pop-high,

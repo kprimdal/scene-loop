@@ -3,6 +3,7 @@ import { S } from "./state.js";
 import { loadProjects, renderCrumbs, renderOverview } from "./projects.js";
 import { refresh } from "./data.js";
 import { panelKey, renderChat } from "./panel.js";
+import { showLibrary, renderMusicMenu } from "./library.js";
 
 // ---------- live updates ----------
 const es = new EventSource("/api/events");
@@ -10,7 +11,7 @@ let refreshT;
 const mine = (m) => { const d = JSON.parse(m.data || "{}"); return !S.overview && (!d.project || (d.project === S.project && (!d.video || d.video === S.video))); };
 // The overview follows every change (new projects and videos, posters, renders), debounced.
 let ovT;
-const overviewLater = () => S.overview && (clearTimeout(ovT), (ovT = setTimeout(() => loadProjects().then(renderOverview), 400)));
+const overviewLater = () => S.overview && (clearTimeout(ovT), (ovT = setTimeout(() => (S.library ? showLibrary() : loadProjects().then(renderOverview)), 400)));
 es.addEventListener("projects", () => (S.overview ? overviewLater() : loadProjects().then(renderCrumbs)));
 es.addEventListener("project", (m) => {
   overviewLater();
@@ -33,4 +34,6 @@ es.addEventListener("render", (m) => {
   if (d.state === "done") toast("Render done. Open it under Renders.");
   if (d.state === "failed") toast(`Render failed: ${d.error?.slice(-300)} (full log: renders/last-render-error.log)`);
 });
+// The library: its view reloads (usage too, debounced with the rest), an open Music menu follows.
+es.addEventListener("library", () => (S.library ? overviewLater() : renderMusicMenu()));
 es.addEventListener("toast", (m) => mine(m) && toast(JSON.parse(m.data).text));

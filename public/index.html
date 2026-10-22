@@ -24,6 +24,11 @@
       <span class="muted small viewer-only" id="meta"></span>
       <div class="spacer"></div>
       <button class="btn overview-only owner-only" id="newProject" title="Create a project with a starter project.md">+ New project</button>
+      <details class="renders viewer-only owner-only" id="musicMenu">
+        <summary class="btn" id="musicBtn" title="The video's music bed, and the beds in the library">Music</summary>
+        <div id="musicList" class="menu music-menu"></div>
+      </details>
+      <a class="btn owner-only" id="libraryBtn" href="/?library=1" title="Music shared by every project: listen, see where it is used, add files">Library</a>
       <span class="muted small viewer-only" id="renderState"></span>
       <details class="renders viewer-only">
         <summary class="btn">Renders</summary>
@@ -39,6 +44,18 @@
       </div>
       <div class="chips" id="tagChips"></div>
       <div class="ov-grid" id="ovGrid"></div>
+    </section>
+
+    <section class="overview library" id="library" hidden>
+      <div class="ov-head">
+        <h1>Library</h1>
+        <span class="muted" id="libCount"></span>
+        <div class="spacer"></div>
+        <a class="btn ghost" href="/?all=1">All projects</a>
+        <button class="btn dark owner-only" id="libAdd" title="Upload a music file with what is known about it">+ Add file</button>
+      </div>
+      <div class="chips" id="libTags"></div>
+      <div class="lib-list" id="libList"></div>
     </section>
 
     <main class="main">
@@ -135,6 +152,40 @@
         <div class="spacer"></div>
         <button class="btn ghost" id="insCancel">Cancel</button>
         <button class="btn dark" id="insSave" title="Save as a new project version (⌘S)">Save</button>
+      </div>
+    </aside>
+    <aside class="drawer lib-form" id="libDrawer" hidden>
+      <div class="drawer-head">
+        <div>
+          <b>Add to the library</b>
+          <div class="muted small">Shared by every project here. Write down where it came from: the prompt word for word, the model, the rights.</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="x" id="libClose" title="Close (Esc)">×</button>
+      </div>
+      <form id="libForm" class="lib-fields">
+        <label>File <input type="file" name="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac" required /></label>
+        <label>Title <input name="title" required /></label>
+        <div class="lib-row">
+          <label>Source <input name="source" list="libSources" value="file" /></label>
+          <label>Model <input name="sourceModel" placeholder="e.g. music_v1" /></label>
+          <label>Created <input name="created" type="date" /></label>
+        </div>
+        <label>Prompt <textarea name="prompt" rows="4"></textarea></label>
+        <label>License or rights <input name="license" placeholder="e.g. ElevenLabs Music, Creator subscription, commercial use" /></label>
+        <div class="lib-row">
+          <label>Tags <input name="tags" placeholder="calm, piano" /></label>
+          <label>BPM <input name="bpm" type="number" min="1" max="399" step="any" /></label>
+          <label class="check"><input name="loop" type="checkbox" /> Loops seamlessly</label>
+        </div>
+        <label>Note <input name="note" /></label>
+        <datalist id="libSources"><option value="elevenlabs-music"></option><option value="fal"></option><option value="file"></option></datalist>
+      </form>
+      <div class="drawer-foot">
+        <span class="muted small" id="libState"></span>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="libCancel">Cancel</button>
+        <button class="btn dark" id="libSave">Add</button>
       </div>
     </aside>
     <section class="record" id="record" aria-label="Record the narration to camera" hidden></section>
