@@ -75,7 +75,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | Narration | `set_narration_audio`, `remove_narration_audio`, `set_narration_words`, `remove_narration_words`, `fit_scenes_to_narration`, `build_soundtrack` |
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
-| Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render` |
+| Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render`, `delete_renders` |
 | Library | `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
 
 Stills come back as images in the tool result, so Claude sees its own frames in the chat. Every

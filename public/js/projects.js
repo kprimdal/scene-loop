@@ -1,4 +1,4 @@
-import { $, h, toast } from "./util.js";
+import { $, h, toast, bytes } from "./util.js";
 import { S, api } from "./state.js";
 import { openInstructions } from "./instructions.js";
 
@@ -92,6 +92,12 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const tagList = (p) => (p.tags.length ? h("div", { class: "tags" }, p.tags.map((t) => h("span", { class: "tag" }, t))) : null);
 const insButton = (p) => h("button", { class: "btn small owner-only", title: "The project's instructions for the chat (I)", onclick: (e) => (e.preventDefault(), e.stopPropagation(), openInstructions(p.name)) }, p.instructions ? "Instructions" : "Add instructions");
 
+// The tooltip on a size: where the bytes are, largest part first, parts under 1 MB left out.
+const DISK_LABELS = { renders: "renders", takes: "takes and camera clips", cache: "render cache and previews", stills: "stills and state", versions: "versions", files: "scenes and assets", trash: ".trash" };
+const diskTitle = (d) =>
+  Object.entries(DISK_LABELS).map(([k, label]) => [d[k] ?? 0, label]).filter(([n]) => n >= 1e6).sort((a, b) => b[0] - a[0]).map(([n, label]) => `${bytes(n)} ${label}`).join("\n") || "under 1 MB";
+const diskLine = (p) => [h("span", { title: diskTitle(p.disk) }, bytes(p.disk.total)), p.disk.trash ? ` (${bytes(p.disk.trash)} in .trash)` : ""];
+
 // Both live in #overview and re-render from S.projects, so a live update keeps whichever is open.
 export function renderOverview() {
   const p = S.project && proj();
@@ -104,7 +110,7 @@ export function renderOverview() {
   for (const p of S.projects) for (const t of p.tags) tags.set(t, (tags.get(t) ?? 0) + 1);
   if (S.tag && !tags.has(S.tag)) S.tag = null;
   const shown = S.projects.filter((p) => !S.tag || p.tags.includes(S.tag));
-  $("#ovCount").textContent = `${plural(S.projects.length, "project")} · ${plural(videoCount(), "video")}`;
+  $("#ovCount").textContent = `${plural(S.projects.length, "project")} · ${plural(videoCount(), "video")} · ${bytes(S.projects.reduce((n, p) => n + (p.disk?.total ?? 0), 0))} on disk`;
   $("#tagChips").replaceChildren(
     ...(tags.size
       ? [
@@ -124,7 +130,7 @@ export function renderOverview() {
       return h(
         "a",
         { class: "pcard", href: projectUrl(p.name) },
-        h("div", { class: "pcard-head" }, h("div", { style: "min-width:0" }, h("h2", {}, p.title), h("div", { class: "muted small" }, `${p.name} · ${plural(p.videos.length, "video")}`)), h("div", { class: "spacer" }), insButton(p)),
+        h("div", { class: "pcard-head" }, h("div", { style: "min-width:0" }, h("h2", {}, p.title), h("div", { class: "muted small" }, `${p.name} · ${plural(p.videos.length, "video")} · `, ...diskLine(p))), h("div", { class: "spacer" }), insButton(p)),
         tagList(p),
         posters.length ? h("div", { class: "posters" }, posters.map((v) => h("img", { src: v.poster, alt: "", loading: "lazy" }))) : null,
       );
@@ -136,7 +142,7 @@ export function renderOverview() {
 function renderProject(p) {
   document.title = `${p.title} · Scene loop`;
   $("#pTitle").textContent = p.title;
-  $("#pSub").textContent = `${p.name} · ${plural(p.videos.length, "video")}`;
+  $("#pSub").replaceChildren(`${p.name} · ${plural(p.videos.length, "video")} · `, ...diskLine(p));
   $("#pTags").replaceChildren(...(p.tags.length ? [tagList(p)] : []));
   $("#pActions").replaceChildren(insButton(p), p.layout === "project" ? h("button", { class: "btn dark owner-only", onclick: () => newVideo(p.name) }, "+ New video") : "");
   $("#pVideos").replaceChildren(
@@ -150,7 +156,7 @@ function renderProject(p) {
             { class: "vrow", href: videoUrl(p.name, v.name) },
             v.poster ? h("img", { src: v.poster, alt: "", loading: "lazy" }) : h("div", { class: "noimg" }),
             h("div", { style: "min-width:0" }, h("b", {}, v.title), h("div", { class: "muted small" }, v.name)),
-            h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${plural(v.scenes, "scene")}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered")),
+            h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${plural(v.scenes, "scene")}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered"), h("div", { title: diskTitle(v.disk) }, bytes(v.disk.total))),
             p.layout === "project" ? h("button", { class: "vdel owner-only", title: "Delete video", "aria-label": `Delete ${v.title}`, onclick: (e) => deleteVideo(e, p.name, v) }, "×") : null,
           );
         })

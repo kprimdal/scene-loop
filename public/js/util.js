@@ -32,7 +32,14 @@ export const audioTime = (seconds) => {
   const minutes = Math.floor(value / 60);
   return `${minutes}:${(value - minutes * 60).toFixed(1).padStart(4, "0")}`;
 };
-export const countWords = (text) => String(text ?? "").trim().split(/\s+/).filter(Boolean).length;
+// 0 → "0 B", 1234 → "1.2 kB", 2.7e9 → "2.7 GB" (decimal units, as Finder shows them)
+export const bytes = (n) => {
+  const units = ["B", "kB", "MB", "GB", "TB"];
+  let i = 0, v = Math.max(0, Number(n) || 0);
+  while (v >= 999.5 && i < units.length - 1) v /= 1000, i++;
+  return `${i === 0 ? v : v < 9.95 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+};
+export const countWords =(text) => String(text ?? "").trim().split(/\s+/).filter(Boolean).length;
 
 // A word diff from `from` to `to`, for the Script view: [{ op: "same" | "ins" | "del", text }].
 // Words match when they agree in letters and digits, so a moved comma is no change.
