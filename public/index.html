@@ -38,12 +38,27 @@
     </header>
 
     <section class="overview" id="overview" hidden>
-      <div class="ov-head">
-        <h1>Projects</h1>
-        <span class="muted" id="ovCount"></span>
+      <div id="ovFront">
+        <div class="ov-head">
+          <h1>Projects</h1>
+          <span class="muted" id="ovCount"></span>
+        </div>
+        <div class="chips" id="tagChips"></div>
+        <div class="ov-grid" id="ovGrid"></div>
       </div>
-      <div class="chips" id="tagChips"></div>
-      <div class="ov-grid" id="ovGrid"></div>
+      <div id="ovProject" hidden>
+        <div class="ov-head">
+          <div class="p-head">
+            <h1 id="pTitle"></h1>
+            <div class="muted small" id="pSub"></div>
+            <div id="pTags"></div>
+          </div>
+          <div class="spacer"></div>
+          <div class="p-actions" id="pActions"></div>
+          <a class="btn ghost" href="/?all=1">All projects</a>
+        </div>
+        <div class="vrows p-videos" id="pVideos"></div>
+      </div>
     </section>
 
     <section class="overview library" id="library" hidden>

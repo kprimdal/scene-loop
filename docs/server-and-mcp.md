@@ -122,7 +122,8 @@ tools through WebMCP and `window.sceneLoop`.
    older layouts it goes into the video's history.
    Page: `/` is an overview when there is more than one video (project cards with tags, tag
    filter chips, a row per video with poster, duration, scene count and render date, + New video);
-   `?project=x&video=y` is the viewer, whose header is a breadcrumb (All projects / project /
+   since 2026-10-22 the cards are short (title, tags, up to four posters) and open the project's
+   page at `?project=x`, which holds the video rows and + New video; `?project=x&video=y` is the viewer, whose header is a breadcrumb (All projects / project /
    video). Instructions (key `i`) opens `project.md` in a drawer with a plain monospace textarea.
    Script (key `s`) replaces the stage with every scene's narration in one column, with timecode
    and duration; clicking a scene goes back to the stage on it. "Narration" is called Script in

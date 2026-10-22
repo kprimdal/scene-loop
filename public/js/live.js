@@ -10,6 +10,7 @@ const es = new EventSource("/api/events");
 let refreshT;
 const mine = (m) => { const d = JSON.parse(m.data || "{}"); return !S.overview && (!d.project || (d.project === S.project && (!d.video || d.video === S.video))); };
 // The overview follows every change (new projects and videos, posters, renders), debounced.
+// renderOverview keeps a project's page open, or falls back to the front page if it went away.
 let ovT;
 const overviewLater = () => S.overview && (clearTimeout(ovT), (ovT = setTimeout(() => (S.library ? showLibrary() : loadProjects().then(renderOverview)), 400)));
 es.addEventListener("projects", () => (S.overview ? overviewLater() : loadProjects().then(renderCrumbs)));
