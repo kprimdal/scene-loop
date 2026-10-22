@@ -81,7 +81,7 @@ class ScenePlayer extends HTMLElement {
 
   seek(t) {
     this._t = Math.max(0, Math.min(Number(t) || 0, this.duration));
-    this._page?.seek(this._t);
+    this._page?.seek(this._t, !this.paused);
     if (!this.paused) {
       this._t0 = performance.now() - this._t * 1000;
       this._syncAudio(true);
@@ -103,7 +103,7 @@ class ScenePlayer extends HTMLElement {
         return this.pause();
       }
       this._t = t;
-      this._page.seek(t);
+      this._page.seek(t, true); // live: the scene videos play on their own, see lib/clock.js
       this._syncAudio(false);
       this._raf = requestAnimationFrame(step);
     };
@@ -111,9 +111,11 @@ class ScenePlayer extends HTMLElement {
   }
 
   pause() {
+    const was = !this.paused;
     this.paused = true;
     cancelAnimationFrame(this._raf);
     this._audio?.pause();
+    if (was) this._page?.seek(this._t); // stops the scene videos and puts them on the exact frame
   }
 
   // The picture follows the wall clock; the soundtrack is nudged back when it drifts.
