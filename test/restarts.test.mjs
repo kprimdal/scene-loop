@@ -33,7 +33,7 @@ for (const s of scenes) {
 test("a phrase said once stays in the adopted narration", () => {
   const s = scenes.find((x) => x.scene === "s02-bb");
   const r = narrationWords({ words: words(s), script: s.script, adopt: true, edits: true });
-  assert.match(r.text, /Og det fede ved det hele er, at det også er open source\./);
+  assert.match(r.text, /og det fede ved det hele er, at det også er open source\./i);
   assert.equal(r.words.length, s.words.length);
 });
 
@@ -56,6 +56,7 @@ test("one word in common after a pause is no restart", () => {
 
 test("two sentences that start alike are no restart", () => {
   assert.deepEqual(cut("lige meget om det er Claude Code eller | det er Codex, de står i samme liste.", "Alle tråde står i samme liste."), []);
+  assert.deepEqual(cut("og jeg kører Claude, | jeg kører Codex, | jeg kører Pi.", "Jeg kører flere modeller."), []);
   assert.deepEqual(cut("det er ikke den tid, jeg har arbejdet, men det er | den tid, agenterne har kørt.", "Det er ikke mine timer."), []);
 });
 
