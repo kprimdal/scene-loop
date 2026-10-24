@@ -10,7 +10,9 @@ everything itself, as it always has.
 What crosses the network is files and finished clips, never frames:
 
 1. The server sends the list of files the scenes use (everything under `assets/` and `scenes/`,
-   narration excepted, and files over 25 MB only when a page names them). The worker keeps a
+   narration excepted, and files over 25 MB only when a page names them). Symlinks are not
+   followed and `.preview/`, `node_modules/` and `.git/` are left out (`lib/walk.mjs`): each
+   scene's preview build links back into the video. The worker keeps a
    mirror per video and asks only for what changed since the last render.
 2. Per clip, the server sends the assembled scene page. The worker renders it with the same code
    (`lib/render.mjs`, its own Chrome and ffmpeg) and sends back the mp4, which lands in the
