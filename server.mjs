@@ -12,14 +12,15 @@
 //   The people who may log in are in <dir>/.people.json (lib/people.mjs, managed on /people);
 //   --invite-owner adds the first owner and prints their invite link. See lib/auth.mjs.
 import { createServer } from "node:http";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, statSync, realpathSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
-import { dirname, extname, join, resolve, normalize, sep } from "node:path";
+import { dirname, extname, join, resolve, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectMotion, motionExample } from "./lib/motion.mjs";
 import { inspectPattern, patternExample } from "./lib/patterns.mjs";
 import { inspectStyle, styleExample } from "./lib/styles.mjs";
 import { examplePage } from "./lib/assemble.mjs";
+import { serveReferenceMedia, readReferenceUpload, MAX_REFERENCE_BYTES } from "./lib/references.mjs";
 import { createRegistry } from "./lib/projects.mjs";
 import { toolList, callTool, withoutFiles } from "./lib/tools.mjs";
 import { createMcp } from "./lib/mcp.mjs";
@@ -239,6 +240,23 @@ async function handle(req, res, user) {
   const ctx = { origin, user, guest, allows, projectName, videoName, p: () => (guest && !projectName ? Promise.reject(new Error("pass project")) : registry.resolve(projectName, videoName)) };
   // A take from the Record view: the recording itself as the body, video/mp4 or video/webm
   // (a type no form or simple cross-site request can send, like the JSON the other writes want).
+  // References are owner-only, including metadata and media, within one explicit project.
+  if (url.pathname === '/api/references/upload' && req.method === 'POST') {
+    if (guest) return send(res,403,{error:'References are private to project owners.'});
+    const project=url.searchParams.get('project');
+    if (!project) return send(res,400,{error:'Name the project explicitly.'});
+    if (Number(req.headers['content-length'])>MAX_REFERENCE_BYTES+96001) {req.resume();return send(res,413,{error:'Reference upload limit is 100 MiB.'});}
+    if(req.headers['content-type']!=='application/x-scene-loop-reference') return send(res,415,{error:'Send application/x-scene-loop-reference: a JSON header line, then media bytes.'});
+    const {metadata,mime,stream}=await readReferenceUpload(req);
+    return send(res,200,await registry.references.change(project,'create',metadata,{stream,mime}));
+  }
+  const referenceMedia=url.pathname.match(/^\/api\/references\/([^/]+)\/media\/([^/]+)$/);
+  if(referenceMedia && ['GET','HEAD'].includes(req.method)) {
+    if(guest)return send(res,404,{error:'not found'});
+    res.setHeader('Cache-Control','private, no-store');
+    try {return serveReferenceMedia(req,res,registry.references.mediaFile(decodeURIComponent(referenceMedia[1]),decodeURIComponent(referenceMedia[2])));}
+    catch {return send(res,404,{error:'not found'});}
+  }
   const take = url.pathname.match(/^\/api\/takes\/([\w-]+)$/);
   if (take && req.method === "POST") {
     if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
@@ -324,7 +342,11 @@ async function handle(req, res, user) {
     // them: the builds (which link assets/ and scenes/), stills, comment stills and assets/;
     // not project.md, AGENTS.md, the storyboard or the app's state.
     const parts = f.slice(top.length + 1).split(sep);
-    if (parts.includes(".history")) return send(res, 404, { error: "not found" });
+    // Trusted project/video roots may themselves be aliases. Inspect resolved components
+    // below that boundary, including links from assets/builds into private storage.
+    const actualParts = existsSync(f) ? relative(realpathSync(top), realpathSync(f)).split(sep) : [];
+    if (parts.includes('.references') || parts.includes('references.json') || actualParts.includes('.references') || actualParts.includes('references.json')) return send(res,404,{error:'not found'});
+    if (parts.includes(".history") || actualParts.includes('.history')) return send(res, 404, { error: "not found" });
     const shown = pm[1] === "renders" || ["assets", ".build"].includes(parts[0]) || (parts[0] === ".state" && ["stills", "comments"].includes(parts[1]));
     if (guest && !shown) return send(res, 404, { error: "not found" });
     return serveFile(req, res, f);
