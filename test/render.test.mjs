@@ -50,3 +50,24 @@ test("compositeArgs: one input pair per on-screen video, loop and end-of-video h
   const ended = compositeArgs({ bg: "bg.png", whites: ["w.png"], rects: [{ x: 0, y: 0, w: 100, h: 100 }] }, [{ src: "file:///tmp/a.mp4", mediaStart: 0, loop: false, fit: "fill", duration: 5 }], { t0: 20, frames: 30, fps: 30, width: 1920, height: 1080 });
   assert.ok(Number(ended.inputs[ended.inputs.indexOf("-ss") + 1]) < 5);
 });
+
+test('mixed cut/dissolve chains without hold snapshots normalize concat timebase and preserve soundtrack and cadence', {timeout:30000}, async()=>{
+ const {mkdtempSync,rmSync}=await import('node:fs'),{tmpdir}=await import('node:os'),{join}=await import('node:path'),{execFileSync}=await import('node:child_process');
+ const {joinClips}=await import('../lib/render.mjs');const root=mkdtempSync(join(tmpdir(),'sl-mixed-join-'));
+ const ff=(...a)=>execFileSync('ffmpeg',['-nostdin','-y','-v','error',...a],{maxBuffer:2000000});
+ try{
+ const files=['red','green','blue'].map((color,i)=>{const path=join(root,i+'.mp4');ff('-f','lavfi','-i',`color=${color}:s=64x36:r=30:d=1`,'-c:v','libx264','-pix_fmt','yuv420p',path);return path;});
+ const soundtrack=join(root,'sound.wav');ff('-f','lavfi','-i','sine=frequency=700:sample_rate=48000:duration=3',soundtrack);
+ for(const fades of [[0,.4],[.4,0]]){
+ const out=join(root,'out.mp4');await joinClips(files.map((file,i)=>({file,frames:30,fade:i?fades[i-1]:0})),out,{fps:30,width:64,height:36,soundtrack});
+ const streams=JSON.parse(execFileSync('ffprobe',['-v','error','-show_streams','-of','json',out])).streams;assert.equal(Number(streams.find(s=>s.codec_type==='video').nb_frames),90);assert.equal(Number(streams.find(s=>s.codec_type==='video').duration),3);assert.ok(streams.find(s=>s.codec_type==='audio'));
+ const pixels=ff('-i',out,'-f','rawvideo','-pix_fmt','rgb24','-');assert.equal(pixels.length,90*64*36*3);
+ const color=n=>[...pixels.subarray(n*64*36*3,n*64*36*3+3)];
+ for(const boundary of [1,2]){const before=color(boundary*30-1),at=color(boundary*30),after=color(boundary*30+15),fade=fades[boundary-1];
+ assert.ok(after[boundary]>after[(boundary+2)%3]);
+ if(fade===0) assert.ok(at[boundary]>at[(boundary+2)%3],`cut at frame ${boundary*30}`);
+ else {assert.ok(Math.abs(at[(boundary+2)%3]-before[(boundary+2)%3])<8,'dissolve begins with outgoing frame');const middle=color(boundary*30+6);assert.ok(middle[boundary]>10 && middle[(boundary+2)%3]>10,'dissolve has both source colors');}
+ }
+ }
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
