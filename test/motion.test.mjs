@@ -106,6 +106,30 @@ test('transition direct choices use existing storyboard semantics, targeted undo
   await call('update_scene',{scene:'second',transitionIn:{type:'dissolve',duration:.3}});await call('undo_transition',{scene:'second'});assert.deepEqual(video.storyboard().scenes[1].transitionIn,{type:'cut'});
   for(const duration of [NaN,-1,9])await assert.rejects(call('apply_transition',{scene:'second',transition:'dissolve',duration}),/duration/);
 });
+test('a scene named transition cannot deadlock boundary operations or later scene locks', {timeout:15000},async()=>{
+  const{video,call}=await fixture();
+  await video.createScene({id:'transition',title:'A legal scene name',duration:2,html:html('transition')});
+  await video.createScene({id:'following',title:'Following scene',duration:2,html:html('following')});
+  const boundary=id=>video.storyboard().scenes.find(s=>s.id===id).transitionIn;
+  const cut=await call('apply_transition',{scene:'transition',transition:'cut'});
+  assert.deepEqual(boundary('transition'),{type:'cut'});assert.equal(cut.undoCount,1);
+  const undo=await call('undo_transition',{scene:'transition'});
+  assert.equal(boundary('transition'),null);assert.equal(undo.undoCount,0);
+  await call('apply_transition',{scene:'transition',transition:'dissolve',duration:.35});
+  assert.deepEqual(boundary('transition'),{type:'dissolve',duration:.35});
+  await call('reset_transition',{scene:'transition'});
+  assert.equal(boundary('transition'),null);
+  await call('undo_transition',{scene:'transition'});
+  assert.deepEqual(boundary('transition'),{type:'dissolve',duration:.35});
+  // Neither the shared boundary lock nor this scene's lock may remain blocked.
+  await call('apply_transition',{scene:'following',transition:'cut'});
+  assert.deepEqual(boundary('following'),{type:'cut'});
+  const edited=await call('write_scene_html',{scene:'transition',html:html('transition').replace('Read one idea','Updated after transition'),resolves:[]});
+  const inspected=await call('get_scene_motion',{scene:'transition'});
+  assert.equal(inspected.scene,'transition');assert.equal(inspected.version,edited.version);
+  assert.deepEqual(inspected.transition.effective,{type:'dissolve',duration:.35});
+  assert.match((await video.sceneHtml('transition')).html,/Updated after transition/);
+});
 const raw=(file,frame)=>execFileSync('ffmpeg',['-v','error','-i',file,...(frame==null?[]:['-vf',`select=eq(n\\,${frame})`,'-frames:v','1']),'-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{maxBuffer:3000000});
 const difference=(a,b)=>a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;
 test('all four effects seek/replay identically; additive motion retains authored transform/animation and text boundaries; actual clip frames match',async()=>{
