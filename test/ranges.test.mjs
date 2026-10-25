@@ -86,6 +86,32 @@ test('prepared corruption, source replacement and concurrent apply reject withou
  const q=await prepare();const results=await Promise.allSettled([v.applyRange(id,{contextHash:q.contextHash,token:q.pending.token}),v.applyRange(id,{contextHash:q.contextHash,token:q.pending.token})]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.filter(r=>r.status==='rejected').length,1);
  const r=await prepare(),selected=mediaHash(audio);writeFileSync(join(dir,`assets/takes/${id}/1.wav`),'replaced source');await assert.rejects(v.applyRange(id,{contextHash:r.contextHash,token:r.pending.token}),/changed/);assert.equal(mediaHash(audio),selected);
 });
+// A clock seek can finish through its bounded compositor wait under load. The
+// assertion needs the requested video frame presented, plus the CSS paint committed.
+// Observe actual RVFC mediaTime; never retry images until their colors happen to match.
+async function observePresentedFrames(page) {
+ await page.evaluate(`document.querySelectorAll('video').forEach(v=>{
+   const state=v.__rangeTestFrame={last:null,waiters:new Set(),callbacks:0};
+   const frame=(now,metadata)=>{state.last=metadata.mediaTime;state.callbacks++;for(const notify of state.waiters)notify();v.requestVideoFrameCallback(frame);};
+   v.requestVideoFrameCallback(frame);
+ })`);
+}
+async function waitForPresentedFrame(page) {
+ return page.evaluate(`(async()=>{
+   const started=performance.now(),fps=window.__sl.fps;
+   const frames=await Promise.all([...document.querySelectorAll('video')].filter(v=>getComputedStyle(v).visibility!=='hidden').map(v=>{
+     const state=v.__rangeTestFrame;
+     const expected=Math.floor(Math.min(v.currentTime,Math.max(0,v.duration-1/fps))*fps+1e-6)/fps;
+     return new Promise((resolve,reject)=>{
+       const done=()=>{if(state.last!==null && Math.abs(state.last-expected)<.5/fps){clearTimeout(timer);state.waiters.delete(done);resolve({expected,presented:state.last,callbacks:state.callbacks});}};
+       const timer=setTimeout(()=>{state.waiters.delete(done);reject(new Error('Video frame was not presented: '+JSON.stringify({expected,presented:state.last,currentTime:v.currentTime,seeking:v.seeking,readyState:v.readyState})));},10000);
+       state.waiters.add(done);done();
+     });
+   }));
+   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+   return {waitMs:performance.now()-started,frames};
+ })()`);
+}
 test('camera marker sync, decoded selection and actual cut/dissolve exports agree; unaffected clips reused',{timeout:120000},async t=>{
  const {dir,v}=await setup(t,true);
  const {buildScene,buildWhole}=await import('../lib/assemble.mjs'),{renderClip}=await import('../lib/render.mjs'),{launch}=await import('../lib/chrome.mjs'),{pathToFileURL}=await import('node:url');
@@ -132,10 +158,21 @@ test('camera marker sync, decoded selection and actual cut/dissolve exports agre
    await v.updateScene('second',{transitionIn:order==='cut-dissolve'?{type:'cut'}:{duration:.6}});
    await v.updateScene('third',{transitionIn:order==='cut-dissolve'?{duration:.6}:{type:'cut'}});
    const r=await run(order),sb=v.storyboard(),map={};for(const sc of sb.scenes)map[sc.id]=(await v.sceneHtml(sc.id)).html;
-   const whole=buildWhole(dir,sb,map,order);await page.goto(pathToFileURL(join(whole,'index.html')).href);await page.evaluate('window.__sl.ready');
-   for(const n of [119,120,121,126,137,149,150,151,156,167,179]){
-     await page.evaluate(`window.__sl.seek(${n/30})`);const shot=join(dir,'boundary.png');writeFileSync(shot,await page.screenshot());const a=ff('-i',shot,'-f','rawvideo','-pix_fmt','rgb24','-'),b=raw(r.path,n/30);const mean=a.reduce((sum,x,i)=>sum+Math.abs(x-b[i]),0)/a.length;
-     assert.ok(mean<5,`${order}, frame ${n}, mean RGB error ${mean}`);evidence.boundaries.push({order,frame:n,meanRgbError:mean});
+   const whole=buildWhole(dir,sb,map,order);await page.goto(pathToFileURL(join(whole,'index.html')).href);await observePresentedFrames(page);await page.evaluate('window.__sl.ready');
+   for(let repeat=0;repeat<Number(process.env.SL_RANGE_BOUNDARY_REPEATS??1);repeat++) for(const n of [119,120,121,126,137,149,150,151,156,167,179]){
+     await page.evaluate(`window.__sl.seek(${n/30})`);
+     const shot=join(dir,'boundary.png');
+     let beforePaint=null;
+     if(process.env.SL_RANGE_FRAME_DIAGNOSTICS){
+       const state=await page.evaluate(`[...document.querySelectorAll('video')].map(v=>({currentTime:v.currentTime,presented:v.__rangeTestFrame.last,seeking:v.seeking}))`);
+       beforePaint={state,image:await page.screenshot()};
+     }
+     const presentation=await waitForPresentedFrame(page);
+     writeFileSync(shot,await page.screenshot());const a=ff('-i',shot,'-f','rawvideo','-pix_fmt','rgb24','-'),b=raw(r.path,n/30),mean=a.reduce((sum,x,i)=>sum+Math.abs(x-b[i]),0)/a.length;
+     if(beforePaint){const originalShot=join(dir,'before-paint.png');writeFileSync(originalShot,beforePaint.image);const pixels=ff('-i',originalShot,'-f','rawvideo','-pix_fmt','rgb24','-');beforePaint={state:beforePaint.state,meanRgbError:pixels.reduce((sum,x,i)=>sum+Math.abs(x-b[i]),0)/pixels.length};}
+     const result={order,repeat,frame:n,meanRgbError:mean,presentation,...(beforePaint?{beforePaint}:{})};evidence.boundaries.push(result);
+     if(process.env.SL_RANGE_FRAME_DIAGNOSTICS)writeFileSync(process.env.SL_RANGE_FRAME_DIAGNOSTICS,JSON.stringify(evidence.boundaries,null,2));
+     assert.ok(mean<5,`${order}, frame ${n}, mean RGB error ${mean}`);
    }
  }
  assert.deepEqual(page.errors,[]);
@@ -167,4 +204,49 @@ test('shortening a scene that already truncates its recording requires explicit 
 test('full range apply and undo support a symlink project ancestor',{timeout:60000},async t=>{
  const {root,dir,opts}=await setup(t);const alias=join(root,'project-alias');symlinkSync(dir,alias);const v=await openVideo(alias,opts),before=mediaHash(join(dir,`assets/narration/${id}.wav`));
  const r=await apply(v,'remove',.7,1.2);assert.ok(r.canUndo);await v.undoRange(id,{contextHash:(await v.inspectRanges(id)).contextHash});assert.equal(mediaHash(join(dir,`assets/narration/${id}.wav`)),before);
+});
+
+async function ordinaryTakeFixture(t, multi=false) {
+ const root=mkdtempSync(join(tmpdir(),'sl-range-undo-')),dir=join(root,'video');cpSync(TEMPLATE_DIR,dir,{recursive:true});t.after(()=>rmSync(root,{recursive:true,force:true}));
+ const source=join(root,'source.wav');ff('-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=4',source);
+ const opts={project:'scratch',video:'undo',reviewer:'test',emit:()=>{}},v=await openVideo(dir,opts);
+ await v.updateScene(id,{duration:5,narration:'One two three.'});await v.addTake(id,{path:source});await v.chooseTake(id,1,{keep:multi?[[0,1.5],[2,4]]:[[0,3]]});
+ await v.setNarrationWords(id,{words:[{word:'One',start:.2,end:.5},{word:'two',start:1.1,end:1.4},{word:'three.',start:2.1,end:2.5}],adopt:false,cut:false});
+ await v.buildSoundtrack({loudness:'off'});
+ const listPath=join(dir,`assets/takes/${id}/takes.json`),take=JSON.parse(readFileSync(listPath)).takes[0];
+ for(const key of ['mutes','exactRanges','noiseMode']) assert.equal(Object.hasOwn(take,key),false,`ordinary take must start without ${key}`);
+ return {root,dir,source,opts,v,listPath,take};
+}
+test('undo removes newly introduced mute metadata across reopen, reselect and cleanup; unrelated takes survive',{timeout:60000},async t=>{
+ const {dir,source,opts,v,listPath,take}=await ordinaryTakeFixture(t);
+ const audio=join(dir,`assets/narration/${id}.wav`),original=join(dir,`assets/takes/${id}/1.wav`),meta=join(dir,`assets/narration/${id}.take.json`),words=join(dir,`assets/narration/${id}.words.json`);
+ const before={audio:mediaHash(audio),original:mediaHash(original),meta:mediaHash(meta),words:mediaHash(words)};
+ await apply(v,'mute',1,2);assert.equal(rms(decode(audio),1.1,1.9),0);
+ await v.addTake(id,{path:source});const unrelated=JSON.parse(readFileSync(listPath)).takes.find(t=>t.n===2);
+ const undone=await v.undoRange(id,{contextHash:(await v.inspectRanges(id)).contextHash});assert.deepEqual(undone.mutes,[]);
+ const restored=JSON.parse(readFileSync(listPath));assert.deepEqual(restored.takes.find(t=>t.n===1),take);assert.deepEqual(restored.takes.find(t=>t.n===2),unrelated);
+ assert.deepEqual({audio:mediaHash(audio),original:mediaHash(original),meta:mediaHash(meta),words:mediaHash(words)},before);
+ const reopened=await openVideo(dir,opts);assert.deepEqual((await reopened.inspectRanges(id)).mutes,[]);
+ await reopened.chooseTake(id,1);assert.equal(mediaHash(audio),before.audio);assert.ok(rms(decode(audio),1.1,1.9)>.05);
+ const n=reopened.inspectNoise(id),p=await reopened.previewNoise(id,{contextHash:n.contextHash,mode:'off'});
+ const pending=JSON.parse(readFileSync(join(dir,`.state/noise/${id}.json`))).preview;
+ assert.ok(rms(decode(join(dir,pending.path)),1.1,1.9)>.05,'cleanup preview must not resurrect an undone mute');
+ await reopened.keepNoise(id,{contextHash:p.contextHash,token:p.preview.token});assert.ok(rms(decode(audio),1.1,1.9)>.05);
+ await reopened.revertNoise(id,{contextHash:reopened.inspectNoise(id).contextHash});assert.equal(mediaHash(audio),before.audio);
+ assert.equal(mediaHash(original),before.original);assert.deepEqual((await reopened.inspectRanges(id)).mutes,[]);
+ const final=JSON.parse(readFileSync(listPath));for(const key of ['mutes','exactRanges']) assert.equal(Object.hasOwn(final.takes[0],key),false);
+ assert.deepEqual(final.takes.find(t=>t.n===2),unrelated);
+ if(process.env.SL_RANGE_UNDO_EVIDENCE) writeFileSync(process.env.SL_RANGE_UNDO_EVIDENCE+'-mute.json',JSON.stringify({before,after:{audio:mediaHash(audio),original:mediaHash(original)},restoredTake:restored.takes[0],unrelatedTakePreserved:true,mutesAfterReopen:[],reselectAndCleanupUnmuted:true},null,2));
+});
+test('undo restores absent exactRanges and original multisegment crossfade after reopen and reselect',{timeout:60000},async t=>{
+ const {dir,source,opts,v,listPath,take}=await ordinaryTakeFixture(t,true);
+ const audio=join(dir,`assets/narration/${id}.wav`),original=join(dir,`assets/takes/${id}/1.wav`),meta=join(dir,`assets/narration/${id}.take.json`),words=join(dir,`assets/narration/${id}.words.json`);
+ const before={audio:mediaHash(audio),original:mediaHash(original),meta:mediaHash(meta),words:mediaHash(words)};
+ await apply(v,'remove',.2,.5);await v.addTake(id,{path:source});const unrelated=JSON.parse(readFileSync(listPath)).takes[1];
+ await v.undoRange(id,{contextHash:(await v.inspectRanges(id)).contextHash});const restored=JSON.parse(readFileSync(listPath));assert.deepEqual(restored.takes[0],take);assert.deepEqual(restored.takes[1],unrelated);
+ assert.deepEqual({audio:mediaHash(audio),original:mediaHash(original),meta:mediaHash(meta),words:mediaHash(words)},before);
+ const reopened=await openVideo(dir,opts);assert.deepEqual((await reopened.inspectRanges(id)).mutes,[]);await reopened.chooseTake(id,1);
+ assert.equal(mediaHash(audio),before.audio,'reselect must keep the original crossfade treatment');assert.equal(mediaHash(original),before.original);
+ for(const key of ['mutes','exactRanges'])assert.equal(Object.hasOwn(JSON.parse(readFileSync(listPath)).takes[0],key),false);
+ if(process.env.SL_RANGE_UNDO_EVIDENCE) writeFileSync(process.env.SL_RANGE_UNDO_EVIDENCE+'-multisegment.json',JSON.stringify({before,after:{audio:mediaHash(audio),original:mediaHash(original)},restoredTake:restored.takes[0],unrelatedTakePreserved:true,reselectIdentical:true},null,2));
 });
