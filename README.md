@@ -70,7 +70,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | --- | --- |
 | Projects | `list_projects`, `create_project`, `create_video`, `get_project_instructions`, `set_project_instructions` |
 | Start here | `get_rules`: the project instructions, the video's agent rules, design spec, theme and the scene contract, with the script status first |
-| Scenes | `list_scenes`, `create_scene`, `update_scene`, `reorder_scenes`, `remove_scene`, `get_scene_html`, `write_scene_html`, `get_stills`, `show_scene`, `restore_version` |
+| Scenes | `list_scenes`, `create_scene`, `update_scene`, `reorder_scenes`, `remove_scene`, `get_scene_html`, `write_scene_html`, `set_scene_text`, `get_stills`, `show_scene`, `restore_version` |
 | Review | `get_pending_comments`, `add_comment` |
 | Narration | `set_narration_audio`, `remove_narration_audio`, `set_narration_words`, `remove_narration_words`, `fit_scenes_to_narration`, `build_soundtrack` |
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
@@ -403,3 +403,35 @@ its palette and type. The examples use the same assembly,
 CSS and frozen clock as exports; their content and motion are examples, not a new scene pattern.
 The starter styles use local font fallbacks, reported by the existing system-font checks. For
 portable typography, package fonts in the project and adjust its theme.
+
+## Text on screen
+
+Open **Text on screen** in a scene's activity panel. Add up to four text items, choose Centre
+title, Top heading or Lower third, and White · shadow, Dark card or Light card. Each item accepts
+240 characters on up to four lines, including Danish text. The player previews drafts as you type;
+**Preview start** seeks to the item's first instant. **Save text** keeps the list as an ordinary
+scene version. **Cancel** discards the draft. Remove an item and save to remove it from the video.
+
+Times are seconds within the scene: visible at start, hidden at end (`0 ≤ start < end ≤ duration`).
+Shortening a scene past an item's end is rejected: adjust or remove the text first, then shorten.
+Text uses the scene's type family with responsive sizes and fixed neutral treatments. Overlapping
+items keep their list order; the later item appears above earlier ones. Use different times or
+placements when they overlap. Inspect the preview for contrast with your footage.
+
+Agents read `texts` in `list_scenes` or `get_scene_html`, then call `set_scene_text` with `scene`,
+`items` and `model`. Each item has a unique `text-…` id, `text`, `position` (`title`, `heading`,
+`lower`), `style` (`plain`, `dark`, `light`), `start` and `end`. The call replaces the list; `[]`
+removes all items. Optional `baseVersion` rejects a stale edit. The tool returns the saved list,
+scene duration and version. It is available through MCP, WebMCP and `window.sceneLoop`.
+
+Text is plain content, stored with its generated CSS inside the scene HTML. Ordinary
+`write_scene_html` edits retain it, as do style changes. Scene versions restore text together with
+that version's authored content and pinned style. An old version whose text exceeds the current
+scene duration cannot be restored until you extend the scene. Historical versions and Whole video
+are view only in the text controls; switch to the latest version in This scene to edit. Preview,
+stills and export use the same HTML and frozen clock, without another renderer.
+
+For a dissolve, text that ends at the outgoing scene's duration disappears at that boundary.
+The export uses a fresh picture of that selected version at its exact end for the held part of
+the dissolve. This also works when its scene clip comes from cache. Cuts and scenes without
+text use the existing join path; the clock and the cached clip pixels are unchanged.

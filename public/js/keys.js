@@ -10,7 +10,7 @@ import { selectScene } from "./filmstrip.js";
 // ---------- keys ----------
 window.addEventListener("keydown", (e) => {
   if (S.record) return; // record.js has its own keys
-  if (/TEXTAREA|INPUT/.test(document.activeElement?.tagName) || e.repeat || e.metaKey || e.ctrlKey) return;
+  if (/TEXTAREA|INPUT|SELECT/.test(document.activeElement?.tagName) || e.repeat || e.metaKey || e.ctrlKey) return;
   if (!$("#drawer").hidden || !$("#libDrawer").hidden) return;
   if (e.key === "Escape") return closePop();
   if (e.key === "i" && (!S.overview || (S.project && !S.library)) && !S.guest) return openInstructions(); // the viewer, or a project's page

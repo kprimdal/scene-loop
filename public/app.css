@@ -395,3 +395,39 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .style-apply { width:100%; }
 @media(max-width:850px) { .style-grid {grid-template-columns:1fr;} .style-preview {max-height:330px;} }
 @media(max-width:520px) { .library.overview {padding:18px 14px 30px;} .library .ov-head {flex-wrap:wrap;gap:10px;} .lib-list {grid-template-columns:minmax(0,1fr);} .style-target {flex-direction:column;align-items:stretch;} .style-target label {min-width:0;} .style-current {align-items:start;flex-direction:column;} }
+
+/* A small scene text editor, with the existing player as its live draft preview. */
+.scene-text { border-bottom:1px solid var(--line); min-height:0; flex:0 1 auto; overflow-y:auto; max-height:60%; }
+.scene-text summary { cursor:pointer; padding:10px 14px; font-weight:650; }
+.text-body { padding:0 14px 12px; }
+.text-body label { display:grid;gap:4px;font-size:12px;min-width:0; }
+.text-body textarea,.text-body select,.text-body input { width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);padding:7px;font:inherit; }
+.text-body textarea { resize:vertical; }
+.text-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px; }
+.text-actions,.text-list { display:flex;gap:6px;flex-wrap:wrap;margin:8px 0; }
+.text-list .btn { max-width:100%;overflow:hidden;text-overflow:ellipsis; }
+.text-list .on { border-color:var(--accent);background:var(--accent-soft); }
+.text-body p { margin:8px 0 0;overflow-wrap:anywhere; }
+.text-status { color:var(--warn); }
+@media(max-width:760px) {
+  body:not(.overview-mode):not(.record-mode) { height:auto;min-height:100%;overflow:auto;display:block; }
+  body:not(.overview-mode) .top { flex-wrap:wrap;gap:6px;padding:10px; }
+  .main { display:flex;flex-direction:column;overflow:visible; }
+  .left { overflow:visible;padding:12px; }
+  .panel { border-left:0;border-top:1px solid var(--line);min-height:300px; }
+  .scene-text { max-height:none;overflow:visible; }
+  .chat { max-height:200px;flex:auto; }
+  .pending { max-height:250px; }
+  .filmstrip { position:relative; }
+  .panel-head,.toolbar { flex-wrap:wrap; }
+  body:not(.overview-mode) .crumbs { flex-wrap:wrap;max-width:100%; }
+  body:not(.overview-mode) .project-sel { max-width:calc(50vw - 28px); }
+  .transport { flex-wrap:wrap;gap:8px; }
+  .transport .seg button { white-space:nowrap;padding:5px 9px; }
+  .transport .icon { flex-shrink:0; }
+  .transport .track-wrap { flex-basis:100%;order:2;margin:0 6px; }
+  .versions-head { flex-wrap:wrap; }
+  .ver { grid-template-columns:42px minmax(0,1fr); }
+  .ver .acts { grid-column:1 / -1;flex-direction:row;flex-wrap:wrap; }
+  .ver .what { grid-column:1 / -1; }
+}
