@@ -675,3 +675,70 @@ mix failure keeps the last good selection. Back up the complete video, including
 and `assets/noise/`, for recovery. Superseded previews/mixes are retained; there is no automatic
 media garbage collection in this slice. This journal handles process interruption and ordinary
 write failures; it does not guarantee durability against storage-device or filesystem failure.
+
+## Selected-scene captions
+
+Open **Captions** in the selected scene's activity panel, in **This scene** at its latest
+version. **Generate draft from words** uses the existing `.words.json` timings, with that
+scene's `narrationLead` (default 0.35 s) added exactly once. There is no transcription or model
+call. Missing timings explain the prerequisite. Draft grouping breaks at sentence endings,
+pauses over 0.6 s, 10 words, 72 characters or 5 seconds. Source words with zero-length,
+overlapping or invalid timing need correction before generation; words beyond the scene end
+produce an explanation instead of being clipped.
+
+Select a cue to correct its display text and start/end seconds. Choose **Dark card**, **Light
+card** or **White · shadow**. **Preview cue** seeks to that cue; **Preview draft** shows all
+current edits. **Save captions** persists the draft. **Cancel**, closing the panel, or changing
+scene, version, comparison or video discards the draft and restores the saved picture. Draft
+previews do not write a version. History and whole-video modes allow inspection, with editing
+available only on the latest selected scene. Text/motion/music/library/record controls remain
+independent.
+
+Captions are ordered, non-overlapping, scene-local **[start,end)** intervals: visible at start,
+hidden at end, including end equal to scene duration. Limits are 200 cues per scene, 84 plain
+text characters and 2 explicit lines per cue, and at most 8 seconds per cue. Text wraps inside
+the frame in landscape and portrait. Long words wrap too. Bottom-centre placement can overlap
+lower thirds, a camera inset or other authored content; the panel states this, and both must be
+reviewed together. There is no automatic collision solver or caption motion target.
+
+The separate `scene-loop:subtitles` block in scene HTML pins the exact cues, style descriptor
+and implementation. It does not use the four-item title limit. Ordinary `write_scene_html`,
+styles, text and motion edits preserve its exact bytes. Caption text is escaped and never
+becomes HTML, CSS or script. The styles pin local `Arial, Helvetica, sans-serif` fallbacks;
+font rasterisation can differ between machines. Playback needs no catalogue or external font.
+Existing frozen CSS animation timing drives preview, stills, single clips and whole exports.
+Caption scenes use the existing render-job exact-end outgoing hold for dissolves, including
+cached clips. No clock or clip-joining changes are involved.
+
+Saved timings are **snapshots**. Script, word-file, narration audio, chosen-take metadata and
+lead fingerprints are stored in provenance, together with derivation version 1 and its timing
+contract. If these inputs change, the panel and `get_scene_subtitles` show `stale` and the
+changed components. Corrections and displayed times stay fixed. They do **not** follow the
+new words automatically. **Regenerate draft from words** explicitly replaces the draft from
+the current source; only saving it rebases provenance. Cancel keeps the old corrections.
+Ordinary corrections to a stale snapshot keep its original provenance and stale status.
+Shortening a scene or fitting narration past a saved cue end is rejected before the storyboard
+or lead changes. Edit/remove caption timing first, then fit. There is no silent retiming.
+
+**Remove cue** and **Remove all captions** change only the draft until saved. **Open scene
+history** leads to normal scene versions; restoring a version restores captions with that
+version's authored content, styles, text and motion. Restore rejects captions outside the
+current scene duration. It does not restore binary audio, transcripts or the storyboard lead;
+restored captions can therefore show stale source diagnostics.
+
+Agent equivalents over MCP, WebMCP and `window.sceneLoop`:
+
+- `get_scene_subtitles({project, video, scene, version?})`: exact cue/style/provenance snapshot,
+  current source fingerprints, stale reasons, prerequisite, version/latest and `contextHash`.
+- `generate_scene_subtitles({project, video, scene, contextHash})`: an **unsaved** `draft` with
+  cues, style and provenance. The disk stays unchanged.
+- `set_scene_subtitles({project, video, scene, contextHash, cues, style, model, sourceHash?,
+  regenerate?})`: saves overrides with ordinary scene HTML history. Use the generated draft's
+  `provenance.sourceHash` and `regenerate:true` for initial generation or explicit regeneration.
+  Ordinary corrections omit regeneration and retain provenance. `cues:[]` removes captions.
+
+All three require an explicit project/video and the existing owner gate. Writes reject changed
+HTML, source or duration using the inspected context hash, including a second check after motion
+preflight. The page also guards asynchronous loads and detached forms against changed targets,
+versions and source-only changes. Tests use synthetic word timings and free sine/silence audio;
+no real projects, transcription service or paid narration are needed.
