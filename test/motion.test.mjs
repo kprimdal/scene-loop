@@ -60,7 +60,7 @@ test('tools preserve authored/pattern/style/text state; stale contexts and incom
   await assert.rejects(call('apply_motion',{motion:'rise',target:'named:nope'}),/Target missing/);
   await assert.rejects(call('apply_motion',{motion:'rise',target:'#root'}),/target/);
   const ordinary=await video.sceneHtml('s01-intro');
-  for(const change of [s=>s.replace('class="card"','class="card" style="display:contents"'),s=>s.replace('</div><h1','<div style="position:fixed">fixed</div></div><h1'),s=>s.replace('filter:brightness(.9)','filter:opacity(1)!important'),s=>s.replace('transform:rotate','translate:3px!important;transform:rotate'),s=>s.replace('transform:rotate(8deg) translateX(8px);','').replace('</div><h1','<div style="position:absolute">anchored outside</div></div><h1')]){
+  for(const change of [s=>s.replace('class="card"','class="card" style="display:contents"'),s=>s.replace('</div><h1','<div style="position:fixed">fixed</div></div><h1'),s=>s.replace('filter:brightness(.9)','filter:opacity(1)!important'),s=>s.replace('transform:rotate','translate:3px!important;transform:rotate'),s=>s.replace('transform:rotate(8deg) translateX(8px);','').replace('filter:brightness(.9)','filter:none').replace('</div><h1','<div style="position:absolute">anchored outside</div></div><h1')]){
     await call('write_scene_html',{html:change(ordinary.html),resolves:[]});
     await assert.rejects(call('apply_motion',{motion:'rise',target:'named:card'}),/Motion conflict/);
     assert.equal((await video.sceneHtml('s01-intro')).motions.length,0);
