@@ -33,12 +33,14 @@ test('Record view Split & cut: split with keys, cut two parts, listen, apply as 
     assert.ok(await page.evaluate('!!document.querySelector(".cut-dialog video.cut-cam")?.src.includes("assets/cam/s01-intro.mp4")'));
     // Record keys stay inside: E would open the line editor behind the dialog.
     await key('e');assert.equal(await page.evaluate('!!document.querySelector("#recText textarea")'),false);
-    // Split at 0.5, 1.0, 2.0 and 2.5; cut 0.5–1.0 and 2.0–2.5.
-    for(let i=0;i<5;i++)await key('ArrowRight');await key('s');
-    for(let i=0;i<5;i++)await key('ArrowRight');await key('s');
+    // Arrows step frames: two 15-frame parts (0.5 s at 30 fps) cut, 15 frames apart.
+    const frame='Number(document.querySelector(".cut-time").textContent.match(/frame (\\d+)/)[1])';
+    const f0=await page.evaluate(frame);await key('ArrowRight');assert.equal(await page.evaluate(frame),f0+1);await key('ArrowLeft');
+    await key('ArrowRight',{shiftKey:true});assert.equal(await page.evaluate(frame),f0+30);await key('s');
+    for(let i=0;i<15;i++)await key('ArrowRight');await key('s');
     await key('ArrowLeft');await key('x');
-    await key('ArrowRight',{shiftKey:true});await key('ArrowRight');await key('s');
-    for(let i=0;i<5;i++)await key('ArrowRight');await key('s');
+    await key('ArrowRight');for(let i=0;i<15;i++)await key('ArrowRight');await key('s');
+    for(let i=0;i<15;i++)await key('ArrowRight');await key('s');
     await key('ArrowLeft');await key('Delete');
     assert.match(await page.evaluate('document.querySelector(".cut-time").textContent'),/2 cut, 2\.00 s left/);
     // A split too close to another one is refused.
@@ -48,7 +50,10 @@ test('Record view Split & cut: split with keys, cut two parts, listen, apply as 
     await named('Apply the cut');await wait(`${idle} && document.querySelector(".cut-status").textContent.startsWith("Cut.")`);
     assert.match(await page.evaluate('document.querySelector(".cut-time").textContent'),/\/ 2\.00 s/);
     const after=await page.evaluate('window.sceneLoop.inspect_recording_ranges({project:"scratch",video:"demo",scene:"s01-intro"})');
-    assert.deepEqual(after.segments,[{from:0,to:.5},{from:1,to:2},{from:2.5,to:3}]);assert.equal(after.duration,3);
+    // Every cut sits on the scene's frame grid: (recording seconds + lead) * fps is a whole frame.
+    assert.equal(after.segments.length,3);assert.ok(Math.abs(after.seconds-2)<.002);assert.equal(after.duration,3);
+    for(const g of after.segments.slice(1))assert.ok(Math.abs((g.from+after.lead)*30-Math.round((g.from+after.lead)*30))<.05,JSON.stringify(after.segments));
+    for(const g of after.segments.slice(0,-1))assert.ok(Math.abs((g.to+after.lead)*30-Math.round((g.to+after.lead)*30))<.05,JSON.stringify(after.segments));
     await wait('document.querySelector("#recTakes").textContent.includes("3 ranges")');
     await named('Undo last cut');await wait(`${idle} && document.querySelector(".cut-time").textContent.includes("/ 3.00 s")`);
     assert.equal((await page.evaluate('window.sceneLoop.inspect_recording_ranges({project:"scratch",video:"demo",scene:"s01-intro"})')).duration,4);

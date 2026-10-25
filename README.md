@@ -821,8 +821,9 @@ including audio-only takes; it does not remap arbitrary authored scenes.
 
 The used take has **Split & cut** (or press X in the Record view). It opens the take's camera
 and a waveform of the current recording, with the timed words under it when the scene has them.
-Click or drag on the waveform to move the playhead, ←/→ step 0.1 s (Shift 1 s). **S** splits at
-the playhead, **X** (or Delete) marks the part under the playhead as cut or keeps it again, and
+Click or drag on the waveform to move the playhead, ←/→ step one video frame (Shift 1 s). The
+playhead and every split sit on the scene's frame grid, so a cut never falls inside a frame.
+**S** splits at the playhead, **X** (or Delete) marks the part under the playhead as cut or keeps it again, and
 a double-click on a split removes it. Space plays; with **Skip cut parts** on it jumps over the
 red parts, so you hear the result before anything is saved.
 

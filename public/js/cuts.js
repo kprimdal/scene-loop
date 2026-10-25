@@ -1,5 +1,5 @@
 import { h } from './util.js';
-import { S, api } from './state.js';
+import { S, api, fps } from './state.js';
 import { player } from './stage.js';
 
 // ---------- split & cut ----------
@@ -9,6 +9,8 @@ import { player } from './stage.js';
 // (preview_recording_range with ranges), the result is listened to, then
 // apply_recording_range: one edit, one undo. Times are seconds of the current edited
 // recording; 0 is where the narration starts, and the camera clip runs narrationLead ahead.
+// The playhead and splits sit on the video's frame grid (scene time k / fps, so recording time
+// k / fps - lead): ← → step one frame, Shift a second, and a cut never splits a frame.
 const MIN = 0.05; // the range tools keep no piece under 50 ms
 const r3 = (n) => Math.round(n * 1000) / 1000;
 let open = null;
@@ -45,7 +47,7 @@ export function openCuts(id) {
   const dialog = h('dialog', { class: 'cut-dialog' },
     h('div', { class: 'cut-head' }, h('h2', {}, `Split & cut · ${S.data.scenes.find((s) => s.id === id)?.title ?? id}`), btn('Close', () => dialog.close(), 'Close (Esc)')),
     body,
-    h('p', { class: 'cut-keys' }, 'Space play · S split at the playhead · X cut or keep the part · ← → 0.1 s (Shift 1 s) · double-click a split to remove it · Esc close'));
+    h('p', { class: 'cut-keys' }, 'Space play · S split at the playhead · X cut or keep the part · ← → one frame (Shift 1 s) · double-click a split to remove it · Esc close'));
   document.body.append(dialog);
 
   const say = (text) => (message.textContent = text ?? '');
@@ -53,12 +55,17 @@ export function openCuts(id) {
   // Neighbouring cut parts are one range.
   const cuts = () => parts.reduce((out, p) => (p.cut ? (out.at(-1)?.to === p.from ? (out.at(-1).to = p.to) : out.push({ from: p.from, to: p.to })) : 0, out), []);
   const X = (t) => (t / d.seconds) * canvas.clientWidth;
+  const lead = () => d.lead ?? 0;
+  const frameOf = (t) => Math.round((t + lead()) * fps() + 1e-6);
+  // The nearest frame inside the recording.
+  const snap = (t) => { const k = frameOf(t); const a = k / fps() - lead(); return r3(a < 0 ? a + 1 / fps() : a > d.seconds ? a - 1 / fps() : a); };
+  const step = (n) => seek(Math.max(0, Math.min(d.seconds, (frameOf(audio.currentTime) + n) / fps() - lead())));
 
   // Changing the parts drops a prepared result: it was made from the old ones.
   const drop = () => { if (review) review.remove(), (review = null), say(); };
   function split(t) {
     drop();
-    t = r3(t);
+    t = snap(t);
     const i = partAt(t), p = parts[i];
     if (t - p.from < MIN || p.to - t < MIN) return say('Too close to the start, the end or another split. Move the playhead.');
     parts.splice(i, 1, { ...p, to: t }, { ...p, from: t });
@@ -79,12 +86,13 @@ export function openCuts(id) {
   }
 
   function seek(t) {
-    audio.currentTime = Math.max(0, Math.min(d.seconds, t));
+    audio.currentTime = snap(Math.max(0, Math.min(d.seconds, t)));
     sync(true); draw();
   }
   function sync(force) {
     if (!d?.camUrl) return;
-    const want = (d.lead ?? 0) + audio.currentTime;
+    // Paused, show the middle of the playhead's frame: an exact frame time can land on the one before.
+    const want = audio.paused ? (frameOf(audio.currentTime) + 0.5) / fps() : lead() + audio.currentTime;
     if (force || Math.abs(cam.currentTime - want) > 0.15) cam.currentTime = want;
     if (audio.paused && !cam.paused) cam.pause();
     else if (!audio.paused && cam.paused) cam.play().catch(() => {});
@@ -151,7 +159,7 @@ export function openCuts(id) {
     g.fillStyle = '#fff';
     g.fillRect(Math.round(X(audio.currentTime)), 0, 1, ht);
     const left = parts.filter((p) => !p.cut).reduce((n, p) => n + p.to - p.from, 0), n = cuts().length;
-    time.textContent = `${audio.currentTime.toFixed(2)} / ${d.seconds.toFixed(2)} s${n ? ` · ${n} cut, ${left.toFixed(2)} s left` : ''}`;
+    time.textContent = `${audio.currentTime.toFixed(3)} / ${d.seconds.toFixed(2)} s · frame ${frameOf(audio.currentTime)}${n ? ` · ${n} cut, ${left.toFixed(2)} s left` : ''}`;
     cutBtn.textContent = n ? `Cut ${n} part${n === 1 ? '' : 's'}` : 'Cut';
     cutBtn.disabled = busy || !n;
     undoBtn.hidden = !d.canUndo;
@@ -249,8 +257,8 @@ export function openCuts(id) {
     if (e.key === ' ') (e.preventDefault(), review ? review.querySelector('audio')?.[review.querySelector('audio').paused ? 'play' : 'pause']() : toggle());
     else if (k === 's') split(audio.currentTime);
     else if (k === 'x' || e.key === 'Delete' || e.key === 'Backspace') (e.preventDefault(), flip(audio.currentTime));
-    else if (e.key === 'ArrowLeft') (e.preventDefault(), seek(audio.currentTime - (e.shiftKey ? 1 : 0.1)));
-    else if (e.key === 'ArrowRight') (e.preventDefault(), seek(audio.currentTime + (e.shiftKey ? 1 : 0.1)));
+    else if (e.key === 'ArrowLeft') (e.preventDefault(), step(e.shiftKey ? -fps() : -1));
+    else if (e.key === 'ArrowRight') (e.preventDefault(), step(e.shiftKey ? fps() : 1));
     else if (e.key === 'Home') seek(0);
   }
   dialog.addEventListener('keydown', onKey);
