@@ -250,3 +250,17 @@ test('undo restores absent exactRanges and original multisegment crossfade after
  for(const key of ['mutes','exactRanges'])assert.equal(Object.hasOwn(JSON.parse(readFileSync(listPath)).takes[0],key),false);
  if(process.env.SL_RANGE_UNDO_EVIDENCE) writeFileSync(process.env.SL_RANGE_UNDO_EVIDENCE+'-multisegment.json',JSON.stringify({before,after:{audio:mediaHash(audio),original:mediaHash(original)},restoredTake:restored.takes[0],unrelatedTakePreserved:true,reselectIdentical:true},null,2));
 });
+test('split & cut removes several parts with camera as one edit and one undo',{timeout:90000},async t=>{
+ const {dir,v}=await setup(t,true);
+ const audio=join(dir,`assets/narration/${id}.wav`),cam=join(dir,`assets/cam/${id}.mp4`),before=[mediaHash(audio),mediaHash(cam)];
+ const d=await v.inspectRanges(id);assert.match(d.camUrl,/assets\/cam\/s01-intro\.mp4\?range=/);assert.deepEqual(d.words.map(w=>w.word),['One','Two','Three']);
+ const p=await v.previewRange(id,{contextHash:d.contextHash,action:'remove',ranges:[{from:2.2,to:2.6},{from:1.2,to:1.6}]});
+ assert.deepEqual(p.impact.ranges,[{from:1.2,to:1.6},{from:2.2,to:2.6}]);assert.deepEqual(p.impact.removedWords.map(w=>w.word),['Two','Three']);assert.ok(p.pending.camUrl);
+ const r=await v.applyRange(id,{contextHash:p.contextHash,token:p.pending.token});
+ assert.equal(r.seconds,2.2);assert.equal(r.duration,3.2);assert.deepEqual(r.segments,[{from:0,to:1.2},{from:1.6,to:2.2},{from:2.6,to:3}]);
+ assert.equal(decode(audio).length,105600);
+ const x=decode(audio);assert.ok(rms(x,.3,.5)>.15&&rms(x,1.3,1.5)>.15&&rms(x,1.9,2.1)>.15);
+ assert.deepEqual(JSON.parse(readFileSync(join(dir,`assets/narration/${id}.words.json`))).map(w=>w.word),['One']);
+ const u=await v.undoRange(id,{contextHash:r.contextHash});assert.equal(u.undone,true);assert.equal(u.seconds,3);
+ assert.deepEqual([mediaHash(audio),mediaHash(cam)],before);assert.equal(v.storyboard().scenes[0].duration,4);
+});
