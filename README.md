@@ -76,7 +76,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
 | Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render`, `delete_renders` |
-| Library | `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
+| Library | `list_styles`, `inspect_style`, `apply_style`, `remove_style`, `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
 
 Stills come back as images in the tool result, so Claude sees its own frames in the chat. Every
 write becomes a version that records the model and the channel it came through (`mcp`, `webmcp`
@@ -376,3 +376,29 @@ kristian@primux.dk.
 Third-party code and the required notice are in [NOTICE.md](NOTICE.md).
 
 I'm not taking pull requests yet. Issues are welcome.
+
+## Visual styles in the Library
+
+Library contains moving examples of three original treatments: Signal, Paper and Grove, alongside
+its Music tab. Open Library from a video to keep its selected scene as the default target. Choose
+another video or **Entire video** to apply to all its current scenes. Application never inserts the
+example's content: it keeps authored HTML, motion, narration, scene timing and music.
+
+`list_styles` and `inspect_style` expose the catalog to the chat; `apply_style` and `remove_style`
+use the same controls as the page. `get_rules`, `list_scenes` and `get_scene_html` include selected
+styles. Project instructions remain first in `get_rules` and take priority over style guidance.
+
+Each scene stores a full copy of its style (version, SHA-256 content hash, CSS and guidance) in a
+marked block in `scene.html`. Later catalog edits cannot change that scene. Normal HTML tool edits
+retain its pin; use the style tools to change or remove it. Applying and removing save normal scene
+versions, so Compare and Restore work as before. Restore also restores that version's authored
+content; remove the style instead to keep subsequent content edits. Entire video means the scenes
+present when applied; scenes created later are independent.
+
+Treatments set the root background, ink and type family. Existing explicit child colours stay
+as authored. To use the palette on authored elements, add `data-sl-heading`, `data-sl-muted`,
+`data-sl-accent`, `data-sl-surface` or `data-sl-fill`. Inspect the actual scene for contrast after
+applying; project `theme.css` still runs after scene styles. The examples use the same assembly,
+CSS and frozen clock as exports; their content and motion are examples, not a new scene pattern.
+The starter styles use local font fallbacks, reported by the existing system-font checks. For
+portable typography, package fonts in the project and adjust its theme.

@@ -374,3 +374,23 @@ body.library-mode #libraryBtn { border-color: var(--ink); }
 a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .renders summary.btn.on { border-color: var(--ink); }
 .lib-row input { min-width: 0; width: 100%; }
+
+/* Library styles: moving, render-backed examples above the existing music library. */
+.library-tabs { display:flex;gap:8px;margin:0 0 20px; }
+.library-tabs .on { background:var(--ink);color:var(--paper, #fff); }
+#styleLibrary, #musicLibrary { max-width:1180px;margin:0 auto; }
+#styleLibrary[hidden], #musicLibrary[hidden] { display:none; }
+.style-target { display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin:22px 0 14px; }
+.style-target label { display:grid;gap:7px;font-size:12px;color:var(--muted);flex:1;min-width:180px; }
+.style-target select { width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px; }
+.style-current { display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 0;min-height:56px;font-size:14px; }
+.style-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:12px 0 18px; }
+.style-card { min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff; }
+.style-preview { display:block;width:100%;aspect-ratio:16/9;background:#e8e8e8; }
+.style-card-body { padding:18px; }
+.style-card-heading { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+.style-card h2 { font-size:21px;margin:0; }
+.style-card p { font-size:14px;line-height:1.5;min-height:42px;margin:12px 0 18px; }
+.style-apply { width:100%; }
+@media(max-width:850px) { .style-grid {grid-template-columns:1fr;} .style-preview {max-height:330px;} }
+@media(max-width:520px) { .library.overview {padding:18px 14px 30px;} .library .ov-head {flex-wrap:wrap;gap:10px;} .lib-list {grid-template-columns:minmax(0,1fr);} .style-target {flex-direction:column;align-items:stretch;} .style-target label {min-width:0;} .style-current {align-items:start;flex-direction:column;} }
