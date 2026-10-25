@@ -1,6 +1,7 @@
 import { $, h, toast, audioTime } from "./util.js";
 import { S, api } from "./state.js";
 import { videoUrl } from "./projects.js";
+import { showReferences } from "./references.js";
 import { showGuides } from "./guides.js";
 import { showMotions } from "./motion.js";
 import { showPatterns } from "./patterns.js";
@@ -61,12 +62,13 @@ export async function showLibrary() {
   await showPatterns();
   await showMotions();
   await showGuides();
+  await showReferences();
   setLibrarySection(activeSection ?? new URLSearchParams(location.search).get('section') ?? 'styles');
 }
 
 function setLibrarySection(section) {
   activeSection=section;
-  for (const [name, tab, panel] of [['styles','libStylesTab','styleLibrary'],['patterns','libPatternsTab','patternLibrary'],['motion','libMotionTab','motionLibrary'],['guides','libGuidesTab','guideLibrary'],['music','libMusicTab','musicLibrary']]) {
+  for (const [name, tab, panel] of [['styles','libStylesTab','styleLibrary'],['patterns','libPatternsTab','patternLibrary'],['motion','libMotionTab','motionLibrary'],['guides','libGuidesTab','guideLibrary'],['references','libReferencesTab','referenceLibrary'],['music','libMusicTab','musicLibrary']]) {
     const on=section===name;
     $(`#${panel}`).hidden=!on;
     $(`#${tab}`).classList.toggle('on',on);
@@ -76,7 +78,7 @@ function setLibrarySection(section) {
   $('#libCount').hidden=section!=='music';
   document.dispatchEvent(new Event('librarysection'));
 }
-for (const [id,section] of [['libStylesTab','styles'],['libPatternsTab','patterns'],['libMotionTab','motion'],['libGuidesTab','guides'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
+for (const [id,section] of [['libStylesTab','styles'],['libPatternsTab','patterns'],['libMotionTab','motion'],['libGuidesTab','guides'],['libReferencesTab','references'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
 
 // ---------- the Music menu in a video ----------
 export async function renderMusicMenu() {
