@@ -380,6 +380,7 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .library-tabs .on { background:var(--ink);color:var(--paper, #fff); }
 #styleLibrary, #musicLibrary { max-width:1180px;margin:0 auto; }
 #styleLibrary[hidden], #musicLibrary[hidden] { display:none; }
+#styleOpenVideo[hidden] { display:none; }
 .style-target { display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin:22px 0 14px; }
 .style-target label { display:grid;gap:7px;font-size:12px;color:var(--muted);flex:1;min-width:180px; }
 .style-target select { width:100%;min-width:0;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px; }
