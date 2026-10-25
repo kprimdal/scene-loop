@@ -1,6 +1,7 @@
 import { $, h, toast, audioTime } from "./util.js";
 import { S, api } from "./state.js";
 import { videoUrl } from "./projects.js";
+import { showMotions } from "./motion.js";
 import { showPatterns } from "./patterns.js";
 import { showStyles } from "./styles.js";
 import { refresh } from "./data.js";
@@ -56,11 +57,12 @@ export async function showLibrary() {
   renderLibrary();
   await showStyles();
   await showPatterns();
+  await showMotions();
   setLibrarySection(new URLSearchParams(location.search).get('section') || 'styles');
 }
 
 function setLibrarySection(section) {
-  for (const [name, tab, panel] of [['styles','libStylesTab','styleLibrary'],['patterns','libPatternsTab','patternLibrary'],['music','libMusicTab','musicLibrary']]) {
+  for (const [name, tab, panel] of [['styles','libStylesTab','styleLibrary'],['patterns','libPatternsTab','patternLibrary'],['motion','libMotionTab','motionLibrary'],['music','libMusicTab','musicLibrary']]) {
     const on=section===name;
     $(`#${panel}`).hidden=!on;
     $(`#${tab}`).classList.toggle('on',on);
@@ -70,7 +72,7 @@ function setLibrarySection(section) {
   $('#libCount').hidden=section!=='music';
   document.dispatchEvent(new Event('librarysection'));
 }
-for (const [id,section] of [['libStylesTab','styles'],['libPatternsTab','patterns'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
+for (const [id,section] of [['libStylesTab','styles'],['libPatternsTab','patterns'],['libMotionTab','motion'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
 
 // ---------- the Music menu in a video ----------
 export async function renderMusicMenu() {

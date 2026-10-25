@@ -449,3 +449,15 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 @media(max-width:520px) {.pattern-fields {grid-template-columns:1fr;} .pattern-form {padding:14px;} .pattern-form-head {align-items:start;} }
 .pattern-fields label:has([name=heading]),.pattern-fields label:has([name=media]) {grid-column:1/-1;}
 .pattern-side-fields {display:grid;gap:16px;align-content:start;min-width:0;}
+
+/* Bounded motion controls, using the Library's existing cards and scene player. */
+.motion-example{display:block;width:100%;aspect-ratio:16/9;background:#163b39;overflow:hidden}
+.motion-workspace{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px;margin:28px 0}
+.motion-workspace>div{min-width:0}.motion-workspace h2{font-size:18px;margin:0 0 12px}
+#motionPreview{display:block;width:100%;aspect-ratio:16/9;background:#1a2026;border-radius:8px;overflow:hidden}
+#motionForm{margin:0 0 20px}#motionForm label{display:flex;flex-direction:column;gap:5px;margin:12px 0}#motionForm label[hidden]{display:none}
+#motionForm input,#motionForm select,#motionCurrent select{width:100%;min-width:0;padding:9px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:inherit;font:inherit}
+.motion-preview-controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.motion-saved{border-top:1px solid var(--line);padding:14px 0}.motion-warning{color:#a34820;font-size:13px}
+#motionStatus{overflow-wrap:anywhere}#motionCurrent .btn{white-space:normal}#motionCurrent select{margin-bottom:8px}
+@media(max-width:760px){.motion-workspace{grid-template-columns:minmax(0,1fr)}.library-tabs{flex-wrap:wrap}}
+#motionCurrent{display:block}#motionCurrent>h2{margin-top:0}#motionCurrent>p{margin:12px 0}#motionCurrent>h3{margin-top:22px}
