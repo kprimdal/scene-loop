@@ -629,3 +629,49 @@ For a browser upload, POST `application/x-scene-loop-reference` to
 `{"metadata":{...referenceFields,"contextHash":"..."},"mime":"video/mp4"}` followed by the
 original file bytes. The header is bounded to 96,000 bytes. MP4, MOV and WebM are supported;
 there are no remote downloads, Keep integration, automatic analysis or reconstruction tools.
+
+## Review recording cleanup
+
+Open **Recording cleanup** in the selected scene's activity panel, or **Cleanup** beside the
+used take in Record. Choose **Gentle cleanup** or **Cleanup off**, then **Prepare preview**.
+Listen to Before (the current selected audio) and After (the pending candidate). Playback is
+manual; starting another review player pauses the first. The original full recording and the
+same edit without cleanup are available separately. The original includes unused material,
+so its player time is not the scene's time.
+
+Gentle is the existing 80 Hz high-pass plus adaptive `afftdn` at 10 dB reduction. Off uses the
+same saved ranges, 40 ms crossfades and end fades without those filters. Both come from the
+preserved original, never from the already processed narration. Cleanup can affect the voice;
+compare by ear. It does not promise to remove clicks, clipping, other voices or every noise.
+Old takes keep their existing gentle treatment until explicitly changed.
+
+**Keep** selects the candidate and rebuilds the soundtrack, including other narration, music
+and sound effects. **Revert** restores the exact previous scene waveform and treatment, then
+rebuilds the current mix. Revert is one level, survives reload/restart, and applies only while
+the same take, source and cuts remain selected. It does not undo script, cuts, camera, scene,
+Library or pin changes. The selected mode stays with that take when it is reselected or cut
+again. Neither operation fits durations, transcribes, changes words/leads or recuts cameras.
+Scene render clips remain cached when their pictures did not change.
+
+The last `build_soundtrack` loudness setting is reused. Earlier builds did not save this
+setting; their cleanup rebuild uses -16 LUFS. Each scene keeps its own narration lead. A custom
+soundtrack must first be replaced explicitly with `build_soundtrack`. These controls support
+chosen recorded camera and audio-only takes with saved ranges; external narration, no take,
+and missing original media produce an explanation.
+
+Agent equivalents on MCP, WebMCP and `window.sceneLoop` are `inspect_noise_cleanup`,
+`preview_noise_cleanup`, `keep_noise_cleanup` and `revert_noise_cleanup`. Inspect supplies
+`contextHash`; preview requires it and a `mode` (`gentle` or `off`). Keep also requires the
+preview `token`. Tokens are scoped to a video's actual take, edit, source, narration, words,
+scene/cue and mix inputs. Changed inputs invalidate a candidate. A newer candidate supersedes
+the older token. All tools use the existing owner gate; commenters cannot process or select audio.
+
+Original media stays at `assets/takes/`. Immutable comparison waveforms, prior audio and
+prepared mixes live in `assets/noise/<scene>/<uuid>/`. The selected mode is in `takes.json`;
+`.state/noise/<scene>.json` owns pending and revert metadata, and `soundtrack.json` in that
+folder saves mix settings. Selection stages files before swapping narration, mix and metadata.
+A recovery journal rolls an interrupted swap back when that video next opens. Preparation or
+mix failure keeps the last good selection. Back up the complete video, including `.state/`
+and `assets/noise/`, for recovery. Superseded previews/mixes are retained; there is no automatic
+media garbage collection in this slice. This journal handles process interruption and ordinary
+write failures; it does not guarantee durability against storage-device or filesystem failure.

@@ -504,3 +504,30 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 #referenceAttached {margin-top:28px;}.reference-attached summary {cursor:pointer;}
 .reference-notes h4 {margin:16px 0 6px;}.reference-notes p {margin-top:0;}
 @media(max-width:760px){.reference-workspace{grid-template-columns:minmax(0,1fr)}.reference-fields{grid-template-columns:minmax(0,1fr)}.reference-card,.reference-attached,#referenceDetail:not(:empty){padding:14px}.reference-filters{flex-direction:column;align-items:stretch}.reference-attached .style-card-heading,#referenceDetail .style-card-heading{flex-wrap:wrap}}
+
+/* Cleanup compares immutable audio candidates; it fits the existing scene/record workflow. */
+.noise-cleanup {border-bottom:1px solid var(--line);flex:0 1 auto;min-height:0;overflow:auto;max-height:65%;}
+.noise-cleanup > summary {padding:10px 14px;cursor:pointer;font-weight:650;}
+.noise-body {padding:0 14px 14px;overflow-wrap:anywhere;}
+.noise-body p {margin:10px 0;line-height:1.45;}
+.noise-body .btn {margin:6px 6px 0 0;white-space:normal;}
+.noise-body label {display:grid;gap:6px;margin:12px 0;font-size:13px;}
+.noise-body audio {display:block;width:100%;min-width:0;height:40px;}
+.noise-body select {width:100%;padding:8px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:6px;}
+.noise-context {font-weight:650;}
+.noise-status {color:var(--warn);}
+.noise-status:empty {display:none;}
+.noise-pending {padding:8px;background:var(--accent-soft);border-radius:6px;}
+.noise-body details {margin-top:14px;}
+.noise-body summary {cursor:pointer;}
+.noise-dialog {color:var(--ink);background:var(--paper);width:min(580px,calc(100vw - 36px));max-height:85vh;padding:16px;border:1px solid var(--line);border-radius:12px;box-sizing:border-box;}
+.noise-dialog::backdrop {background:rgb(0 0 0 / .65);}
+@media(max-width:760px) {.noise-cleanup {max-height:none;overflow:visible;}}
+@media(max-width:520px) {
+  .record {overflow-y:auto;grid-template-rows:minmax(180px,1fr) auto auto auto;}
+  .rec-bar {flex-wrap:wrap;gap:8px;}
+  .rec-bottom {grid-template-columns:minmax(0,1fr);}
+  .rec-take {flex-wrap:wrap;}
+  .rec-media {justify-self:center;}
+  .rec-takes {max-height:180px;}
+}
