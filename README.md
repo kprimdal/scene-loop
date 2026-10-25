@@ -398,7 +398,8 @@ present when applied; scenes created later are independent.
 Treatments set the root background, ink and type family. Existing explicit child colours stay
 as authored. To use the palette on authored elements, add `data-sl-heading`, `data-sl-muted`,
 `data-sl-accent`, `data-sl-surface` or `data-sl-fill`. Inspect the actual scene for contrast after
-applying; project `theme.css` still runs after scene styles. The examples use the same assembly,
+applying. Project `theme.css` remains loaded after scene styles, but pinned styles can override
+its palette and type. The examples use the same assembly,
 CSS and frozen clock as exports; their content and motion are examples, not a new scene pattern.
 The starter styles use local font fallbacks, reported by the existing system-font checks. For
 portable typography, package fonts in the project and adjust its theme.
