@@ -30,7 +30,9 @@ test('caption page/tools generate, correct, preview/cancel/save/reload/remove/re
     await button('Preview draft');assert.match(await page.evaluate('document.querySelector("#sceneSubtitles").textContent'),/Generate a draft/);
     await capture('01-no-words');
     await page.evaluate('window.sceneLoop.update_scene({scene:"s01-intro",narration:"Hello verden. Æble ø og å.",model:"Synthetic UI fixture"})');
+    await page.evaluate('import("/js/data.js").then(m=>m.refresh())');
     await page.evaluate('window.sceneLoop.set_narration_words({scene:"s01-intro",words:[{word:"Hello",start:.1,end:.4},{word:"verden.",start:.4,end:.8},{word:"Æble",start:1,end:1.3},{word:"ø",start:1.3,end:1.5},{word:"og",start:1.5,end:1.7},{word:"å.",start:1.7,end:2}],adopt:false,model:"Synthetic UI fixture"})');
+    await page.evaluate('import("/js/data.js").then(m=>m.refresh())');
     await wait('[...document.querySelectorAll("#sceneSubtitles button")].some(b=>b.textContent==="Generate draft from words" && !b.disabled)');
     const sourceBefore=readFileSync(join(root,'demo/assets/narration/s01-intro.words.json'),'utf8'),scriptBefore=JSON.parse(readFileSync(join(root,'demo/storyboard.json'))).scenes[0].narration;
     await button('Generate draft from words');await wait('!!document.querySelector("#captionContent")');
@@ -77,4 +79,59 @@ test('caption page/tools generate, correct, preview/cancel/save/reload/remove/re
     if(art){for(let i=0;i<400 && !await mobile.evaluate('document.querySelector("#player").ready && document.querySelector("#shade").hidden');i++)await new Promise(r=>setTimeout(r,25));await mobile.evaluate('[...document.querySelectorAll("#sceneSubtitles button")].find(b=>b.textContent==="Preview cue").click()');writeFileSync(join(art,'img/09-mobile.png'),await mobile.screenshot());await mobile.evaluate('document.querySelector("#captionContent").scrollIntoView({block:"center"})');writeFileSync(join(art,'img/10-mobile-editor.png'),await mobile.screenshot());writeFileSync(join(art,'source-unchanged.json'),JSON.stringify({syntheticSource:true,sourceBefore,sourceAfterCaptionSave,scriptBefore,scriptAfterCaptionSave,saved,shots,pageErrors:page.errors,mobileErrors:mobile.errors},null,2));}
     assert.deepEqual(page.errors,[]);assert.deepEqual(mobile.errors,[]);await mobile.close();await page.close();
   }finally{await browser.close();server.kill();await new Promise(r=>server.exitCode!==null?r():server.once('exit',r));rmSync(root,{recursive:true,force:true});}
+});
+
+// The importer accepts this real Scribe shape, including the middle point-timed word.
+// This regression exercises the actual page Generate/Save path, rather than a hand pin.
+test('page generates and saves accepted point-timed Scribe words, explains inference and exports exact cue bounds', {timeout:60000},async()=>{
+  const root=mkdtempSync(join(tmpdir(),'sl-point-ui-'));cpSync(TEMPLATE_DIR,join(root,'demo'),{recursive:true});
+  const listener=createServer().listen(0,'127.0.0.1');await new Promise(r=>listener.once('listening',r));const port=listener.address().port;await new Promise(r=>listener.close(r));
+  const proc=spawn(process.execPath,['server.mjs',join(root,'demo'),'--port',String(port)],{cwd:join(import.meta.dirname,'..'),env:process.env,stdio:['ignore','pipe','pipe']});let logs='';proc.stdout.on('data',c=>logs+=c);proc.stderr.on('data',c=>logs+=c);
+  const browser=await launch(),art=process.env.SL_SUBTITLE_ARTIFACT_DIR;
+  try{
+    const page=await browser.newPage({width:1280,height:1000});
+    const wait=async code=>{const deadline=Date.now()+15000;while(!await page.evaluate(code)){if(Date.now()>deadline)throw new Error(`Waiting for ${code}; ${logs}`);await new Promise(r=>setTimeout(r,25));}};
+    while(!logs.includes('MCP:')){if(proc.exitCode!==null)throw new Error(logs);await new Promise(r=>setTimeout(r,25));}
+    await page.goto(`http://127.0.0.1:${port}`);await wait('!!window.sceneLoop && document.querySelector("#player").ready');
+    await page.evaluate('window.sceneLoop.update_scene({scene:"s01-intro",narration:"Det er fint.",model:"Synthetic zero-word regression"})');
+    const accepted=await page.evaluate('window.sceneLoop.set_narration_words({scene:"s01-intro",scribe:{words:[{type:"word",text:"Det",start:.1,end:.3},{type:"word",text:"er",start:.32,end:.32},{type:"word",text:"fint.",start:.34,end:.8}]},adopt:false,model:"Synthetic zero-word regression"})');
+    assert.equal(accepted.words[1].start,accepted.words[1].end);
+    await page.evaluate('import("/js/data.js").then(m=>m.refresh())');
+    const sourceFile=join(root,'demo/assets/narration/s01-intro.words.json'),sbFile=join(root,'demo/storyboard.json');
+    const sourceBefore=readFileSync(sourceFile,'utf8'),storyboardBefore=readFileSync(sbFile,'utf8');
+    await page.evaluate('document.querySelector("#sceneSubtitles summary").click()');await wait('!!document.querySelector("#sceneSubtitles form")');
+    await page.evaluate('[...document.querySelectorAll("#sceneSubtitles button")].find(b=>b.textContent==="Generate draft from words").click()');
+    await wait('document.querySelector("#captionContent")?.value === "Det er fint."');
+    assert.match(await page.evaluate('document.querySelector("#sceneSubtitles").textContent'),/Inferred timing/);
+    assert.equal(await page.evaluate('document.querySelectorAll("#sceneSubtitles input")[0].value'),'0.45');
+    assert.equal(await page.evaluate('document.querySelectorAll("#sceneSubtitles input")[1].value'),'1.15');
+    await wait('document.querySelector("#player").ready && document.querySelector("#shade").hidden');
+    await page.evaluate('[...document.querySelectorAll("#sceneSubtitles button")].find(b=>b.textContent==="Preview cue").click()');
+    if(art){mkdirSync(join(art,'img'),{recursive:true});writeFileSync(join(art,'img/zero-after.png'),await page.screenshot());}
+    await page.evaluate('document.querySelector("#sceneSubtitles .subtitle-inference").open=true');
+    assert.match(await page.evaluate('document.querySelector("#sceneSubtitles .subtitle-inference").textContent'),/point-timed source words 2/);
+    if(art)writeFileSync(join(art,'img/zero-inference.png'),await page.screenshot());
+    await page.evaluate('document.querySelector("#sceneSubtitles button[type=submit]").click()');await wait('document.querySelector("#versionsBtn").textContent==="Versions (2)" && !!document.querySelector("#captionContent")');
+    const inspect=()=>page.evaluate('window.sceneLoop.get_scene_subtitles({project:"demo",video:"demo",scene:"s01-intro"})');
+    const saved=await inspect();assert.deepEqual(saved.snapshot.cues,[{text:'Det er fint.',start:.45,end:1.15}]);assert.equal(saved.snapshot.provenance.derivationVersion,2);assert.deepEqual(saved.snapshot.provenance.derivationNotes[0].sourceWords,[2]);
+    assert.equal(readFileSync(sourceFile,'utf8'),sourceBefore);assert.equal(readFileSync(sbFile,'utf8'),storyboardBefore);
+    const render=await page.evaluate('window.sceneLoop.render({project:"demo",video:"demo"})');
+    let job;
+    for(let i=0;i<1600;i++){job=await page.evaluate(`window.sceneLoop.get_render({job:${JSON.stringify(render.job)}})`);if(job.state!=='running')break;await new Promise(r=>setTimeout(r,20));}
+    assert.equal(job.state,'done',job.error);
+    // The scene title is above this crop. Only the caption can darken the lower band.
+    const {execFileSync}=await import('node:child_process');
+    const frames=[];
+    for(const [n,on] of [[13,false],[14,true],[34,true],[35,false]]){
+      const bytes=execFileSync('ffmpeg',['-v','error','-i',job.path,'-vf',`select=eq(n\\,${n}),crop=1920:280:0:800`,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{maxBuffer:3000000});
+      let dark=0;for(let i=0;i<bytes.length;i+=3)if(bytes[i]<100&&bytes[i+1]<100&&bytes[i+2]<100)dark++;
+      assert.equal(dark>1000,on,`frame ${n}, dark caption pixels ${dark}`);frames.push({frame:n,seconds:n/30,darkCaptionPixels:dark,expectedVisible:on});
+    }
+    // Reload exposes the same saved inference note, with the transcript still byte-identical.
+    await page.goto(`http://127.0.0.1:${port}`);await wait('document.querySelector("#player").ready && !!window.sceneLoop');await page.evaluate('document.querySelector("#sceneSubtitles summary").click()');await wait('document.querySelector("#captionContent")?.value === "Det er fint."');
+    assert.ok(await page.evaluate('!!document.querySelector("#sceneSubtitles .subtitle-inference")'));
+    assert.equal(readFileSync(sourceFile,'utf8'),sourceBefore);assert.equal(readFileSync(sbFile,'utf8'),storyboardBefore);
+    if(art){mkdirSync(join(art,'video'),{recursive:true});cpSync(job.path,join(art,'video/zero-page-export.mp4'));writeFileSync(join(art,'zero-after.json'),JSON.stringify({syntheticSource:true,accepted,sourceBefore,sourceAfter:readFileSync(sourceFile,'utf8'),storyboardBefore,storyboardAfter:readFileSync(sbFile,'utf8'),saved,frames,pageErrors:page.errors},null,2));}
+    assert.deepEqual(page.errors,[]);
+  }finally{await browser.close();proc.kill();await new Promise(r=>proc.exitCode!==null?r():proc.once('exit',r));rmSync(root,{recursive:true,force:true});}
 });

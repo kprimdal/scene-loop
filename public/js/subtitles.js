@@ -34,7 +34,7 @@ if (typeof document !== 'undefined') startEditor();
 async function startEditor() {
   const [{ $, h }, { S, api, scene, latest, viewed }, { player }, { refresh }] = await Promise.all([import('./util.js'),import('./state.js'),import('./stage.js'),import('./data.js')]);
   const box = $('#sceneSubtitles');
-  let ctx, serial = 0, info, draft, selected = 0, previewState;
+  let ctx, serial = 0, info, draft, selected = 0, previewState, generated = false;
   const key = () => S.data && !S.overview && [S.project,S.video,S.sel,S.mode,viewed(),latest(scene()),S.data.stamp,scene().subtitles?.contextHash,!!S.compare].join(':');
   const editable = () => S.mode === 'scene' && viewed() === latest(scene()) && !S.compare;
   const args = () => ({ project:S.project,video:S.video,scene:S.sel });
@@ -62,7 +62,7 @@ async function startEditor() {
     if (S.guest || !S.data || S.overview) { restorePreview(); box.hidden = true; return; }
     box.hidden = false;
     if (key() === ctx) return;
-    restorePreview(); ctx = key(); draft = null; info = null; ++serial;
+    restorePreview(); ctx = key(); draft = null; info = null; generated=false; ++serial;
     box.replaceChildren(h('summary',{},'Captions'),h('div',{class:'text-body muted small'},'Loading…'));
     if (box.open) load();
   };
@@ -71,11 +71,11 @@ async function startEditor() {
     try {
       const result = await call('get_scene_subtitles',{version:viewed()});
       if (ctx !== here || serial !== generation || key() !== here || !box.open) return;
-      info = result; draft = structuredClone(result.snapshot); selected = 0; draw();
+      info = result; generated=false; draft = structuredClone(result.snapshot); selected = 0; draw();
     } catch(e) { if (ctx===here && serial===generation) box.lastChild.textContent=e.message; }
   }
   function discard() {
-    restorePreview(); info=null; draft=null; ++serial;
+    restorePreview(); info=null; draft=null; generated=false; ++serial;
     box.replaceChildren(h('summary',{},'Captions'),h('div',{class:'text-body muted small'},'Loading…'));
   }
   box.addEventListener('toggle',()=>{if(box.open && !info) load(); else if(!box.open) discard();});
@@ -87,6 +87,8 @@ async function startEditor() {
     box.replaceChildren(h('summary',{},`Captions · ${draft?.cues.length ?? 0}`),body);
     body.append(h('p',{class:'small'},'Scene seconds · visible at start, hidden at end. Captions have their own text; the script and transcript stay intact.'));
     if (info.stale) body.append(h('p',{class:'subtitle-warning',role:'status'},`Source changed: ${info.staleReasons.join(', ')}. Saved text and times stay fixed. Review or explicitly regenerate.`));
+    const notes=draft?.provenance?.derivationNotes ?? [];
+    if(notes.length) body.append(h('details',{class:'subtitle-inference'},h('summary',{},`Inferred timing · ${notes.length} generated cue${notes.length===1?'':'s'} · review`),h('p',{class:'small'},'Source words with zero duration stay intact. These notes describe the generated draft; your later timing edits override its display intervals.'),...notes.map(n=>h('p',{class:'small'},`Caption ${n.cue}: ${n.start}–${n.end} s · ${n.basis}${n.sourceWords.length ? ` · point-timed source words ${n.sourceWords.join(', ')}` : ''}.`))));
     if (!editable()) { body.append(h('p',{class:'small'},'View the latest version in This scene to edit captions.'),...(draft?.cues ?? []).map(c=>h('p',{},`${c.start}–${c.end} s · ${c.text}`))); return; }
     const form=h('form',{});
     const button=(label,fn)=>h('button',{type:'button',class:'btn small',onclick:()=>{if(active()) fn();}},label);
@@ -95,7 +97,7 @@ async function startEditor() {
       try {
         const result=await call('generate_scene_subtitles',{contextHash:info.contextHash});
         if(!active()) return;
-        restorePreview(); draft=result.draft; selected=0; draw();
+        restorePreview(); draft=result.draft; generated=true; selected=0; draw();
       } catch(e) {if(active()) {status.textContent=e.message; generate.disabled=false;}}
     });
     generate.disabled=!info.canGenerate;
@@ -129,7 +131,7 @@ async function startEditor() {
       try {
         validateCues(draft?.cues ?? [],info.duration);
         for(const el of form.elements) el.disabled=true;
-        await call('set_scene_subtitles',{contextHash:info.contextHash,cues:draft?.cues ?? [],style:draft?.style.id ?? 'dark',sourceHash:draft?.provenance?.sourceHash,regenerate:!!draft && draft.provenance?.sourceHash!==info.snapshot?.provenance?.sourceHash,model:'Caption controls'});
+        await call('set_scene_subtitles',{contextHash:info.contextHash,cues:draft?.cues ?? [],style:draft?.style.id ?? 'dark',sourceHash:draft?.provenance?.sourceHash,regenerate:generated,model:'Caption controls'});
         if(active()) {restorePreview();ctx=null;info=null;draft=null;}
         await refresh();
       } catch(err){if(active()){for(const el of form.elements) el.disabled=false;status.textContent=err.message;}}
