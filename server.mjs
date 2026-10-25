@@ -14,7 +14,7 @@
 import { createServer } from "node:http";
 import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, statSync, realpathSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
-import { dirname, extname, join, resolve, normalize, sep } from "node:path";
+import { dirname, extname, join, resolve, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectMotion, motionExample } from "./lib/motion.mjs";
 import { inspectPattern, patternExample } from "./lib/patterns.mjs";
@@ -342,7 +342,9 @@ async function handle(req, res, user) {
     // them: the builds (which link assets/ and scenes/), stills, comment stills and assets/;
     // not project.md, AGENTS.md, the storyboard or the app's state.
     const parts = f.slice(top.length + 1).split(sep);
-    const actualParts = existsSync(f) ? realpathSync(f).split(sep) : [];
+    // Trusted project/video roots may themselves be aliases. Inspect resolved components
+    // below that boundary, including links from assets/builds into private storage.
+    const actualParts = existsSync(f) ? relative(realpathSync(top), realpathSync(f)).split(sep) : [];
     if (parts.includes('.references') || parts.includes('references.json') || actualParts.includes('.references') || actualParts.includes('references.json')) return send(res,404,{error:'not found'});
     if (parts.includes(".history") || actualParts.includes('.history')) return send(res, 404, { error: "not found" });
     const shown = pm[1] === "renders" || ["assets", ".build"].includes(parts[0]) || (parts[0] === ".state" && ["stills", "comments"].includes(parts[1]));

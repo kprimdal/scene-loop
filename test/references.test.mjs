@@ -94,8 +94,9 @@ test('import and access reject traversal, forged project names and symlink escap
   const outside=join(f.root,'outside.mp4');writeFileSync(outside,'not video');symlinkSync(outside,join(inbox,'escape.mp4'));
   for(const path of ['/etc/passwd','../../../outside.mp4','escape.mp4'])await assert.rejects(f.change('save_reference',{...meta,path}),/escape|symlink|ENOENT/);
   symlinkSync(f.pr,join(f.root,'alias'));
-  for(const project of ['../one','alias','unknown','one/../two'])assert.throws(()=>f.registry.references.list(project));
-  symlinkSync(join(f.pr,'videos','demo'),join(f.pr,'videos','alias'));assert.throws(()=>f.registry.references.attachmentInfo('one','alias'),/symlink/);
+  assert.equal(f.registry.references.list('alias').project,'alias');
+  for(const project of ['../one','unknown','one/../two'])assert.throws(()=>f.registry.references.list(project));
+  symlinkSync(join(f.pr,'videos','demo'),join(f.pr,'videos','alias'));assert.equal(f.registry.references.attachmentInfo('one','alias').items.length,0);
   // Failed video probe and out-of-duration selection remove partial/invalid media.
   writeFileSync(join(inbox,'bad.mp4'),'not video');await assert.rejects(f.change('save_reference',{...meta,path:'bad.mp4'}),/probeable/);
   assert.deepEqual(readdirSync(join(f.pr,'.references/media')),[]);
