@@ -61,10 +61,11 @@ test('owner-only reference HTTP: streaming uploads, no remote fetch, Range, priv
     assert.equal((await fetch(base+'/api/references/upload?project='+project,{method:'POST',headers:{Origin:base,Cookie:reviewerCookie,'Content-Type':'video/mp4'},body:bytes})).status,403);
   }
   symlinkSync(join(root,'one'),join(root,'alias'));
-  assert.notEqual((await tool('list_references',{project:'alias'})).status,200);
+  assert.equal((await tool('list_references',{project:'alias'})).status,200);
   const one=(await tool('list_references',{project:'one'})).data;
   const file=one.items[0].media.file;symlinkSync(source,join(root,'one','.references/media','00000000-0000-0000-0000-000000000000.mp4'));
-  for(const project of ['alias','..%2Fone','one%2F..%2Ftwo','unknown'])assert.equal((await get(`/api/references/${project}/media/${file}`)).status,404);
+  assert.equal((await get(`/api/references/alias/media/${file}`)).status,200);
+  for(const project of ['..%2Fone','one%2F..%2Ftwo','unknown'])assert.equal((await get(`/api/references/${project}/media/${file}`)).status,404);
   assert.equal((await get('/api/references/one/media/00000000-0000-0000-0000-000000000000.mp4')).status,404);
   assert.equal((await get('/api/references/one/media/..%2Fcatalog.json')).status,404);
   // Source links are saved without touching a local HTTP origin.

@@ -590,7 +590,9 @@ The library lives at `<project>/.references/catalog.json`; immutable originals l
 under `media/`. A tool may import a file only from that named project's `.references/inbox/`
 (relative path there or an absolute path beneath it). The browser's file picker uses a bounded
 stream upload and needs no server filesystem access. All three project layouts use the same
-project-private storage. `media/` and `inbox/` are excluded from the app's git history.
+project-private storage. Registry-resolved project/video aliases are trusted, including roots
+through symlinked ancestors. Reference storage and attachment files beneath those canonical
+roots still reject symlinks and escaping paths. `media/` and `inbox/` are excluded from the app's git history.
 
 Each record has an id, version and SHA-256 content hash (the stored record without the hash
 itself or the derived media URL). Undo can restore an earlier version;
@@ -616,7 +618,10 @@ Agent equivalents are `list_references`, `inspect_reference`, `save_reference`, 
 `undo_reference_attachments`. All require an explicit project; video attachment operations also
 require an explicit video. Writes require the appropriate current `contextHash`; attach/update
 also require the inspected reference's `contentHash`. `get_rules` returns the exact attached
-snapshots after project instructions. Media URLs use the owner's browser login, like the other
+snapshots after project instructions. If optional attachment metadata cannot be read, it keeps
+the project/video rules and returns `references: null` with
+`referenceStatus: {available: false, diagnostic: "..."}`. This is distinct from an available
+empty selection; explicit reference tools continue to report the underlying error. Media URLs use the owner's browser login, like the other
 private page routes; an MCP bearer token alone does not grant file-route access.
 
 For a browser upload, POST `application/x-scene-loop-reference` to
