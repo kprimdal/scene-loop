@@ -177,7 +177,7 @@ test("a commenter sees only their project and none of the owner's tools", async 
     assert.equal((await anna(path)).status, 404, path);
   assert.equal((await owner("/p/film/film/.history/HEAD")).status, 404, "nobody gets the history over HTTP");
   assert.deepEqual((await anna("/api/tools")).json, []);
-  for (const name of ["list_styles", "inspect_style", "apply_style", "remove_style", "set_scene_text", "list_patterns", "inspect_pattern", "instantiate_pattern"]) {
+  for (const name of ["list_motions", "inspect_motion", "get_scene_motion", "apply_motion", "remove_motion", "apply_transition", "undo_transition", "reset_transition", "list_styles", "inspect_style", "apply_style", "remove_style", "set_scene_text", "list_patterns", "inspect_pattern", "instantiate_pattern"]) {
     assert.equal((await anna(`/api/tools/${name}?project=film`, { json: { args: { style: "paper", scene: "s01-intro", model: "test" } } })).status, 403, `commenter cannot call ${name}`);
   }
   assert.equal((await anna("/api/patterns/process/preview")).status, 403);
@@ -188,6 +188,10 @@ test("a commenter sees only their project and none of the owner's tools", async 
   assert.equal((await anna("/api/styles/paper/preview")).status, 403);
   assert.equal((await anna("/api/styles/paper/preview?project=secret")).status, 404);
   assert.equal((await owner("/api/styles/paper/preview")).status, 200);
+  for (const id of ["fade-in","fade-out","rise","pop","cut","dissolve"]) {
+    assert.equal((await anna(`/api/motions/${id}/preview`)).status,403);
+    assert.equal((await owner(`/api/motions/${id}/preview`)).status,200);
+  }
   const style = await owner("/api/tools/apply_style?project=film", { json: { args: { style: "paper", scene: "s01-intro", model: "test" } } });
   assert.equal(style.status, 200);
   assert.equal((await anna("/api/project?project=film")).json.scenes[0].style.id, "paper");
