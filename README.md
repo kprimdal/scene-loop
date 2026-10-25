@@ -811,7 +811,24 @@ remain available. Unrelated visual clips are reused; mute does not change camera
 
 Agent tools require explicit `project`, `video`, and `scene`, through MCP, WebMCP or
 `window.sceneLoop`: `inspect_recording_ranges`, `preview_recording_range` (`action: remove|mute|keep`,
-`from`, `to`, inspected `contextHash`), `apply_recording_range` (reviewed `token` and `contextHash`),
+`from`, `to`, inspected `contextHash`; remove also takes `ranges: [{from, to}, ...]` to cut several
+parts in one edit), `apply_recording_range` (reviewed `token` and `contextHash`),
 and `undo_recording_range` (current `contextHash`). No take, external/custom narration or a
 custom soundtrack returns a clear prerequisite. This edits one selected recorded take,
-including audio-only takes; it does not remap arbitrary authored scenes or provide a timeline.
+including audio-only takes; it does not remap arbitrary authored scenes.
+
+### Split & cut a take in the Record view
+
+The used take has **Split & cut** (or press X in the Record view). It opens the take's camera
+and a waveform of the current recording, with the timed words under it when the scene has them.
+Click or drag on the waveform to move the playhead, ←/→ step one video frame (Shift 1 s). The
+playhead and every split sit on the scene's frame grid, so a cut never falls inside a frame.
+**S** splits at the playhead, **X** (or Delete) marks the part under the playhead as cut or keeps it again, and
+a double-click on a split removes it. Space plays; with **Skip cut parts** on it jumps over the
+red parts, so you hear the result before anything is saved.
+
+**Cut N parts** sends every cut part as one remove with `ranges`, so it is the same reviewed
+range edit as above: a prepared result to listen to, the words it cuts or cuts through, and any
+caption, text or motion that would no longer fit. **Apply the cut** selects it; it is one edit
+and **Undo last cut** brings the previous recording back. Splits closer than 50 ms are refused,
+the same minimum the range tools keep.

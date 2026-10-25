@@ -1,4 +1,5 @@
 import { openNoiseReview, closeNoiseReview, stopNoisePlayback } from "./noise.js";
+import { openCuts, closeCuts } from "./cuts.js";
 import { $, h, toast, audioTime, countWords } from "./util.js";
 import { S, api } from "./state.js";
 import { player } from "./stage.js";
@@ -54,6 +55,7 @@ export function setRecord(on = !S.record) {
     loadTakes();
   } else {
     closeNoiseReview();
+    closeCuts();
     stopMedia();
     selectScene(cur().id, true);
   }
@@ -131,7 +133,7 @@ function layout() {
   $("#recText").style.fontSize = `${lens ? R.lensFont : R.font}px`;
   $("#recPrompt").style.setProperty("--read", `${Math.round(R.lensFont * 0.5) + 14}px`);
   R.pxPerWord = 0;
-  $("#recKeys").textContent = `Space record / stop · R record again · Enter use the take, next scene · ← → scene · ↓ ↑ move the text${lens ? ` (PageDown, a clicker, the mouse)${R.lensScroll === "voice" ? "; it scrolls while you talk" : ""}` : ""} · E edit the line · N next to record again · K keep the take · P play the take · Esc close`;
+  $("#recKeys").textContent = `Space record / stop · R record again · Enter use the take, next scene · ← → scene · ↓ ↑ move the text${lens ? ` (PageDown, a clicker, the mouse)${R.lensScroll === "voice" ? "; it scrolls while you talk" : ""}` : ""} · E edit the line · N next to record again · K keep the take · P play the take · X split & cut the used take · Esc close`;
   showText();
 }
 
@@ -227,6 +229,7 @@ function renderTakes() {
         h("div", { class: "spacer" }),
         h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), play(k.url)) }, "Play"),
         k.chosen ? h("span", { class: "rec-used" }, "used") : h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), choose(cur().id, k.n)) }, "Use"),
+        k.chosen ? h("button", { class: "rec-btn", title: "Split the take and cut parts out of it (X)", onclick: (e) => (e.target.blur(), cutTake()) }, "Split & cut") : null,
         k.chosen ? h("button", { class:"rec-btn", onclick:()=>openNoiseReview(cur().id) }, "Cleanup") : null,
         k.chosen ? null : h("button", { class: "rec-btn ghost", title: "Delete this take", onclick: (e) => (e.target.blur(), removeTakes(cur().id, [k.n])) }, "Delete"),
       ),
@@ -526,6 +529,13 @@ function goTo(i) {
   showScene();
 }
 
+function cutTake() {
+  if (R.state !== "idle" || R.editing || S.guest) return;
+  if (!R.takes[cur().id]?.chosen) return toast("Use a take first (Enter), then split and cut it.");
+  showPlayback(false);
+  openCuts(cur().id);
+}
+
 function showPlayback(on) {
   const pb = $("#recPlayback");
   if (!pb) return;
@@ -550,7 +560,7 @@ function playLast() {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (document.querySelector(".noise-dialog[open]")) return;
+  if (document.querySelector(".noise-dialog[open], .cut-dialog[open]")) return;
   if (!S.record || e.metaKey || e.ctrlKey || e.altKey) return;
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName) && e.key !== "Escape") return;
   if (e.repeat) return;
@@ -565,6 +575,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "e") (e.preventDefault(), edit());
   else if (k === "n") nextRedo();
   else if (k === "k") keepCurrent();
+  else if (k === "x") cutTake();
   else if (k === "p") playLast();
   else if (e.key === "Escape") !$("#recRedoList").hidden ? toggleRedoList(false) : setRecord(false);
   else if (e.key === "+" || e.key === "=") font(4);
