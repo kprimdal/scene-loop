@@ -27,8 +27,13 @@ test('references page: file/link, range playback, search/tags, saved snapshots, 
     const url=`http://127.0.0.1:${port}/?library=1&section=references&project=one&video=first`;
     await page.goto(url);await wait('!document.querySelector("#referenceNew").disabled && !document.querySelector("#referenceLibrary").hidden && document.querySelector("#referenceScope").textContent.includes("one / first") && !!window.sceneLoop');
     await click('#referenceNew');
+    // Delay the metadata callback, as with a slow local file. An authored range must win.
+    await page.evaluate(`window.mediaAdd=HTMLMediaElement.prototype.addEventListener;HTMLMediaElement.prototype.addEventListener=function(type,fn,opts){if(type==='loadedmetadata'){window.pendingMetadata=()=>fn.call(this);return;}return window.mediaAdd.call(this,type,fn,opts);}`);
     const {root:dom}=await page.send('DOM.getDocument');const {nodeId}=await page.send('DOM.querySelector',{nodeId:dom.nodeId,selector:'#referenceFile'});await page.send('DOM.setFileInputFiles',{nodeId,files:[source]});
     await wait('document.querySelector("#referenceDetail video")?.duration===2');
+    await fill('#ref-start','0.2');await fill('#ref-end','0.6');
+    await page.evaluate('window.pendingMetadata();HTMLMediaElement.prototype.addEventListener=window.mediaAdd');
+    assert.equal(await page.evaluate('document.querySelector("#ref-start").value'),'0.2');assert.equal(await page.evaluate('document.querySelector("#ref-end").value'),'0.6');
     await fill('#ref-title','Original blue study <img src=x onerror="window.injected=true">');await fill('#ref-intent','Carry forward calm pacing.');await fill('#ref-tags','calm, colour');
     await fill('#ref-observations','Blue background; supplied by the test.');await fill('#ref-desiredQualities','Calm pacing.');await fill('#ref-gaps','No camera solve.');
     await fill('#ref-start','0.2');await fill('#ref-end','0.6');

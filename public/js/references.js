@@ -106,8 +106,12 @@ function editForm(item=null,expected=library.contextHash) {
     if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=null;}mediaArea.replaceChildren();
     const file=fileInput.files[0];if(!file)return;
     if(file.size>100*1024*1024){fileInput.value='';status('Reference upload limit is 100 MiB.');return;}
-    objectUrl=URL.createObjectURL(file);const p=setPreview(objectUrl);
-    p.addEventListener('loadedmetadata',()=>{if(gen!==generation)return;form.elements.start.value=0;form.elements.end.value=Number.isFinite(p.duration)?Math.floor(p.duration*1000)/1000:1;},{once:true});
+    const url=objectUrl=URL.createObjectURL(file),initialRange={start:form.elements.start.value,end:form.elements.end.value},p=setPreview(url);
+    p.addEventListener('loadedmetadata',()=>{
+      if(gen!==generation || objectUrl!==url)return;
+      // Duration may arrive after the user has chosen a range. Only fill an untouched pair.
+      if(form.elements.start.value===initialRange.start && form.elements.end.value===initialRange.end){form.elements.start.value=0;form.elements.end.value=Number.isFinite(p.duration)?Math.floor(p.duration*1000)/1000:1;}
+    },{once:true});
   };
   form.append(h('div',{class:'style-card-heading'},h('h2',{},item?'Edit reference':'Save a reference'),button('Cancel',clearDetail,{'data-write':true})),h('p',{class:'muted small'},`Save in project ${dest.project}. ${item?'Media is immutable; attached videos keep their previous snapshots.':'Choose a local video (100 MiB maximum), a source URL, or both. The full local file is preserved.'}`),...(!item?[h('label',{class:'reference-file'},'Video file',fileInput)]:[]),mediaArea,fields,h('p',{class:'muted small'},'Local ranges use this uploaded file’s clock. If it is an excerpt, record original-source offsets in Credit. Link contents and supplied notes are unverified.'),h('button',{type:'submit',class:'btn dark','data-write':true},item?'Save metadata / range':'Save reference'));
   form.onsubmit=async e=>{
