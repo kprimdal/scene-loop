@@ -74,6 +74,7 @@
         <button class="btn" id="libPatternsTab" aria-pressed="false">Patterns</button>
         <button class="btn" id="libMotionTab" aria-pressed="false">Motion</button>
         <button class="btn" id="libGuidesTab" aria-pressed="false">Guides</button>
+        <button class="btn" id="libReferencesTab" aria-pressed="false">References</button>
         <button class="btn" id="libMusicTab" aria-pressed="false">Music</button>
       </nav>
       <section id="styleLibrary" aria-label="Visual styles">
@@ -118,6 +119,20 @@
         <section id="guideHandoff" class="guide-handoff"></section>
         <p id="guideStatus" role="status" aria-live="polite"></p>
         <section id="guideAttached"></section>
+      </section>
+      <section id="referenceLibrary" aria-label="Project references" hidden>
+        <p class="muted">Save a video or source link. Select the range and describe what matters. Reference guidance does not insert media into a render.</p>
+        <div class="style-target"><label>Project scope<select id="referenceProject" aria-label="Reference project"></select></label><label>Attach to video<select id="referenceVideo" aria-label="Reference video"></select></label><button class="btn dark" id="referenceNew">+ Save reference</button></div>
+        <p id="referenceScope" class="reference-scope"></p>
+        <div id="referenceRules" class="guide-instructions"></div>
+        <div class="reference-filters"><label>Find references<input id="referenceSearch" type="search" placeholder="Title, intent, creator or tags"></label><label>Tag<select id="referenceTag" aria-label="Filter references by tag"></select></label><label class="reference-check"><input type="checkbox" id="referenceRemoved">Include removed</label></div>
+        <p id="referenceCount" class="muted small"></p>
+        <p id="referenceStatus" role="status" aria-live="polite"></p>
+        <div class="reference-workspace"><div id="referenceList"></div><section id="referenceDetail" aria-label="Inspect or save a reference"></section></div>
+        <button class="btn" id="referenceUndoLibrary">Undo library change</button>
+        <section id="referenceAttached"></section>
+        <button class="btn" id="referenceUndoAttachments">Undo attachment change</button>
+        <p id="referenceHistory" class="muted small"></p>
       </section>
       <section id="musicLibrary" hidden>
       <div class="chips" id="libTags"></div>

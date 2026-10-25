@@ -480,3 +480,27 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .guide-handoff textarea {width:100%;box-sizing:border-box;resize:vertical;font:12px/1.5 monospace;margin:12px 0;}
 .guide-instructions summary,.guide-attached summary {cursor:pointer;}
 @media(max-width:600px){.guide-grid{grid-template-columns:minmax(0,1fr)}.guide-card,.guide-detail:not(:empty),.guide-handoff:not(:empty),.guide-attached,.guide-instructions:not(:empty){padding:16px}.guide-detail .style-card-heading,.guide-attached .style-card-heading{align-items:flex-start;gap:8px;flex-wrap:wrap}}
+
+/* Project-private reference records and exact video snapshots. */
+#referenceLibrary {max-width:1180px;margin:0 auto;overflow-wrap:anywhere;}
+.reference-scope {border-left:3px solid var(--accent);padding:10px 14px;background:var(--accent-soft);}
+.reference-filters {display:flex;align-items:end;flex-wrap:wrap;gap:14px;margin:20px 0;}
+.reference-filters>label {display:grid;gap:7px;font-size:13px;flex:1;min-width:0;}
+.reference-filters input,.reference-filters select,.reference-fields input,.reference-fields textarea,.reference-fields select {width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);padding:10px;font:inherit;}
+.reference-check {display:flex!important;align-items:center;gap:7px;font-size:13px;}
+.reference-check input {width:auto;}
+.reference-workspace {display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.5fr);gap:22px;margin:20px 0;align-items:start;}
+.reference-workspace>*,.reference-fields>* {min-width:0;}
+.reference-card,.reference-attached,#referenceDetail:not(:empty) {border:1px solid var(--line);border-radius:12px;padding:20px;background:var(--paper);margin-bottom:16px;}
+.reference-card h3 {margin:8px 0;}.reference-card .btn {margin-top:14px;}
+.reference-actions {display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;}.reference-actions .btn {white-space:normal;}
+.reference-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0;}
+.reference-fields label {display:grid;gap:6px;font-size:13px;}.reference-fields label:has(textarea) {grid-column:1/-1;}
+.reference-fields textarea {resize:vertical;}
+.reference-preview video {width:100%;max-height:380px;background:#15232b;display:block;margin-top:14px;}
+.reference-file {display:grid;gap:10px;}.reference-file input {max-width:100%;}
+.reference-unverified {padding:16px;background:var(--accent-soft);line-height:1.5;}
+.reference-json {overflow:auto;max-height:360px;font-size:12px;background:var(--bg);padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;}
+#referenceAttached {margin-top:28px;}.reference-attached summary {cursor:pointer;}
+.reference-notes h4 {margin:16px 0 6px;}.reference-notes p {margin-top:0;}
+@media(max-width:760px){.reference-workspace{grid-template-columns:minmax(0,1fr)}.reference-fields{grid-template-columns:minmax(0,1fr)}.reference-card,.reference-attached,#referenceDetail:not(:empty){padding:14px}.reference-filters{flex-direction:column;align-items:stretch}.reference-attached .style-card-heading,#referenceDetail .style-card-heading{flex-wrap:wrap}}
