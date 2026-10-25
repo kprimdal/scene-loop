@@ -563,3 +563,69 @@ attachment to reject changed contents; pass `contextHash` from `get_video_guides
 reject stale attachment choices. One-time use and mutations require both `project` and `video`
 even on a single-video instance. These guides supply instructions to the existing chat; the
 server never invokes a model, impersonates a chat or automatically executes a guide.
+
+## Project reference videos
+
+Open **Library → References**, choose a project, then save a local MP4/MOV/WebM or an http(s)
+source link. Select start/end seconds, describe the intent, and add tags and source/credit.
+Optional notes separate observations, desired qualities and reproduction gaps. Notes carry
+user/agent provenance; the server performs no analysis or model calls. Source links are never
+fetched or embedded. A link-only range and its media contents are explicitly unverified.
+
+Uploaded media stays intact (100 MiB maximum, video stream and finite duration checked with
+ffprobe). Its range uses **local file time**: if an excerpt contains original seconds 3–10,
+select local seconds 0–7 and put the original offsets in Credit. Inspect offers range play,
+stop/seek and loop. Native video controls can also inspect the full original file. Playback
+depends on the browser’s codec support; Open original media preserves an external inspection path.
+
+References are **project scoped and owner only**, including their metadata and guarded media
+URLs. They never enter the shared music library. Search title/intent/creator/tags, filter a tag,
+and inspect the notes before attaching. A project can attach the same reference to several of
+its videos. Attachment does not insert media or change scenes, narration, soundtrack, other
+Library pins, project instructions or the rendered output. It gives the chat descriptive
+guidance; project instructions and explicit user rules take priority. It does not promise
+recreation of the reference.
+
+The library lives at `<project>/.references/catalog.json`; immutable originals live beside it
+under `media/`. A tool may import a file only from that named project's `.references/inbox/`
+(relative path there or an absolute path beneath it). The browser's file picker uses a bounded
+stream upload and needs no server filesystem access. All three project layouts use the same
+project-private storage. Registry-resolved project/video aliases are trusted, including roots
+through symlinked ancestors. Reference storage and attachment files beneath those canonical
+roots still reject symlinks and escaping paths. `media/` and `inbox/` are excluded from the app's git history.
+
+Each record has an id, version and SHA-256 content hash (the stored record without the hash
+itself or the derived media URL). Undo can restore an earlier version;
+the hash distinguishes its exact contents. Each video's `references.json` saves the full
+selected snapshot with its range, intent, supplied notes, credit and usable media/source URL.
+Library edits never change it. Choose **Update attachment explicitly** to replace it with the
+inspected version. Duplicate attachment of the same exact version is a no-op; a different
+version requires update. Separate saved records may use the same source with different intent.
+
+**Remove from library** is soft removal. **Include removed → Inspect / restore** recovers it.
+Original media and existing attachments remain usable after removal or undo. **Undo library
+change** restores only library metadata (10 changes); **Undo attachment change** restores only
+that video's snapshots (10 changes). Metadata saves also enter the project's `.history`
+(project/vN); attachment saves enter the video's project-file history. In legacy/single-video
+layouts these histories share the video's `.history`. Scene restore does not restore either.
+Media is retained even after undoing creation; there is no media garbage collection in this
+slice. Back up the complete project, including `.references/`, for recovery. Limits are 100
+saved records per project (including removed), 20 attachments per video and 20 tags per record.
+
+Agent equivalents are `list_references`, `inspect_reference`, `save_reference`, `edit_reference`,
+`remove_reference`, `restore_reference`, `undo_reference_library`, `get_video_references`,
+`attach_reference`, `update_reference_attachment`, `detach_reference` and
+`undo_reference_attachments`. All require an explicit project; video attachment operations also
+require an explicit video. Writes require the appropriate current `contextHash`; attach/update
+also require the inspected reference's `contentHash`. `get_rules` returns the exact attached
+snapshots after project instructions. If optional attachment metadata cannot be read, it keeps
+the project/video rules and returns `references: null` with
+`referenceStatus: {available: false, diagnostic: "..."}`. This is distinct from an available
+empty selection; explicit reference tools continue to report the underlying error. Media URLs use the owner's browser login, like the other
+private page routes; an MCP bearer token alone does not grant file-route access.
+
+For a browser upload, POST `application/x-scene-loop-reference` to
+`/api/references/upload?project=NAME`: a UTF-8 JSON line
+`{"metadata":{...referenceFields,"contextHash":"..."},"mime":"video/mp4"}` followed by the
+original file bytes. The header is bounded to 96,000 bytes. MP4, MOV and WebM are supported;
+there are no remote downloads, Keep integration, automatic analysis or reconstruction tools.
