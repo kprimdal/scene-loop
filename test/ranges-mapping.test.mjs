@@ -20,3 +20,14 @@ test('words include partials and half-open points with exact removal reports',()
   assert.deepEqual(r.words.map(w=>[w.word,w.start,w.end]),[['partial',.4,.6],['point',.5,.5]]);
   assert.deepEqual(r.removed.map(w=>w.word),['gone','end']);assert.equal(r.affected.length,1);
 });
+test('remove takes several ranges as one edit: merged, validated, and their gaps kept',()=>{
+  const p=rangePlan(s,[],{action:'remove',ranges:[{from:2.5,to:2.8},[.2,.4],{from:.4,to:.6}]});
+  assert.deepEqual(p.ranges,[{from:.2,to:.6},{from:2.5,to:2.8}]);
+  assert.deepEqual(p.windows,[{from:0,to:.2},{from:.6,to:2.5},{from:2.8,to:3}]);
+  assert.deepEqual(p.segments,[{from:1,to:1.2},{from:1.6,to:2},{from:4,to:5.5},{from:5.8,to:6}]);
+  assert.equal(p.seconds,2.3);assert.deepEqual(p.selection,{from:.2,to:2.8});
+  assert.throws(()=>rangePlan(s,[],{action:'remove',ranges:[]}),/non-empty/);
+  assert.throws(()=>rangePlan(s,[],{action:'keep',ranges:[[0,1]]}),/only for remove/);
+  assert.throws(()=>rangePlan(s,[],{action:'remove',ranges:[[0,1],[1,3]]}),/entire recording/);
+  assert.throws(()=>rangePlan(s,[],{action:'remove',ranges:[[0,1],[2,4]]}),/0 ≤ start/);
+});
