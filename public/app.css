@@ -531,3 +531,6 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
   .rec-media {justify-self:center;}
   .rec-takes {max-height:180px;}
 }
+
+#sceneSubtitles .text-list {max-height:160px;overflow:auto;}
+#sceneSubtitles .subtitle-warning {color:var(--warn);padding:8px;border:1px solid currentColor;border-radius:6px;}
