@@ -177,7 +177,7 @@ test("a commenter sees only their project and none of the owner's tools", async 
     assert.equal((await anna(path)).status, 404, path);
   assert.equal((await owner("/p/film/film/.history/HEAD")).status, 404, "nobody gets the history over HTTP");
   assert.deepEqual((await anna("/api/tools")).json, []);
-  for (const name of ["list_styles", "inspect_style", "apply_style", "remove_style"]) {
+  for (const name of ["list_styles", "inspect_style", "apply_style", "remove_style", "set_scene_text"]) {
     assert.equal((await anna(`/api/tools/${name}?project=film`, { json: { args: { style: "paper", scene: "s01-intro", model: "test" } } })).status, 403, `commenter cannot call ${name}`);
   }
   assert.equal((await anna("/api/styles/paper/preview")).status, 403);
@@ -187,6 +187,11 @@ test("a commenter sees only their project and none of the owner's tools", async 
   assert.equal(style.status, 200);
   assert.equal((await anna("/api/project?project=film")).json.scenes[0].style.id, "paper");
   assert.equal((await anna("/api/project?project=secret")).status, 404);
+  const text = { id: "text-title", text: "A synthetic title", position: "title", style: "dark", start: 0, end: 1 };
+  assert.equal((await owner("/api/tools/set_scene_text?project=film", { json: { args: { scene: "s01-intro", items: [text], model: "test" } } })).status, 200);
+  assert.deepEqual((await anna("/api/project?project=film")).json.scenes[0].texts, [text]);
+  const textBuild = (await anna("/api/build/scene/s01-intro?project=film&v=disk")).json.url;
+  assert.match((await anna(textBuild)).text, /A synthetic title/);
 
   assert.equal((await anna("/api/tools/update_scene?project=film", { json: { args: { scene: "s01-intro", narration: "x" } } })).status, 403);
   assert.equal((await anna("/api/render?project=film", { json: {} })).status, 403);
