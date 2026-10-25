@@ -479,3 +479,54 @@ media request**. When a camera take exists later, the agent can replace that reg
 pretend footage. The layouts use local font fallbacks; package project fonts for identical type
 across machines. Apply a Library style after creation if desired, and check contrast and long
 text in the actual scene before export.
+
+## Motion and scene boundaries
+
+Library → Motion offers four original scene effects (Fade in, Fade out, Rise, Pop) and two
+incoming boundaries (Cut, Dissolve). Choose a video and scene, choose an effect, then select
+Whole scene, its semantic heading, one of its text items, or a named element supplied by the
+scene author. Enter a scene-local start and duration, or choose a narration word/sentence and
+an authored fallback start. Missing words and cues outside the scene use that fallback with a
+visible warning. The fallback must fit the scene. Effects hold before and after their interval;
+authored visibility and timed-text start/end still apply. Use Replay scene to inspect the result;
+use Preview boundary in whole video to see an incoming cut/dissolve. The first scene has no
+incoming boundary.
+
+The chat uses `list_motions`, `inspect_motion`, `get_scene_motion`, then `apply_motion` or
+`apply_transition`. `get_scene_motion` supplies exact pinned choices and guidance, target labels,
+scene version, narration/word timings, resolved seconds, warnings and `contextHash`. Pass the
+context hash back to reject a changed target, narration timing, storyboard or scene. Pass the
+catalog `version` and `contentHash` back to reject catalog changes. `apply_motion` accepts
+`motion`, `target`, `start`, optional `anchor` (the existing word/sentence syntax), and `duration`.
+At most four choices fit one scene. `remove_motion` accepts the choice `id`, or `all`.
+These tools use the same handlers over MCP, WebMCP and `window.sceneLoop`.
+
+Motion pins include the exact descriptor, guidance, keyframes and implementation in scene HTML.
+Playback makes no catalog request. Ordinary `write_scene_html`, style and text edits retain the
+pins, or return an actionable conflict if a target disappears or becomes incompatible. Use
+`data-motion-target="card" data-motion-label="Idea card"` on an existing block/flex/grid element
+to offer a named target; names use a lowercase letter followed by letters, digits or hyphens
+(up to 40 characters). A unique `data-sl-heading` is discovered automatically. Managed text
+animates its inner box so its visibility interval stays authoritative. Duplicate or missing
+markers, inline/display:contents boxes, fixed-position descendants, unpositioned targets with absolute
+descendants, and important CSS that blocks
+the effect are rejected. No wrappers or arbitrary CSS selectors are introduced.
+
+The effects add a WAAPI opacity filter, plus individual translate for Rise or scale for Pop.
+They compose with authored CSS/WAAPI transforms and filters; authored motion can still hide the
+target. A scene with video under these effects can require frame-by-frame rendering. Whole-scene
+effects reveal `storyboard.background` inside their slot; that slot then participates in the
+existing cut/dissolve. Named-only scenes keep the existing slot behavior. Seek, replay, stills
+and export use the same frozen clock. Outgoing managed motion uses the existing exact-end
+snapshot path during dissolves, including cached renders, so a fade ending at the boundary
+holds its exact end rather than its last sampled frame.
+
+Motion removal saves a scene version. Restore scene version in the controls (or normal video
+versions) restores that version's content, motion, style and text together. **Transitions belong
+to storyboard/project history, not scene HTML history.** `apply_transition` sets `transitionIn`
+(`cut`, or `dissolve` with 0.05–5 seconds within scene duration). `undo_transition` restores only
+that scene's previous boundary, up to ten changes, and survives server restart.
+`reset_transition` restores the default 0.6-second dissolve (clamped to scene duration); reset is
+itself undoable. Direct `update_scene` boundary edits join the same undo stack. Restoring scene
+HTML does not restore a transition. Cut/dissolve keep the scene starts, total duration,
+narration and soundtrack fixed. Boundary-only changes reuse existing scene clips.
