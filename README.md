@@ -76,7 +76,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
 | Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render`, `delete_renders` |
-| Library | `list_styles`, `inspect_style`, `apply_style`, `remove_style`, `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
+| Library | `list_styles`, `inspect_style`, `apply_style`, `remove_style`, `list_patterns`, `inspect_pattern`, `instantiate_pattern`, `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
 
 Stills come back as images in the tool result, so Claude sees its own frames in the chat. Every
 write becomes a version that records the model and the channel it came through (`mcp`, `webmcp`
@@ -439,3 +439,43 @@ text use the existing join path; the clock and the cached clip pixels are unchan
 ## Reference experiment
 
 An [original meadow approximation](examples/reference-study/README.md) tests layered environment motion against one openly licensed film excerpt. The [experiment note](docs/experiments/reference-to-scene.md) records the source, actual render checks and limits in layout, motion, timing and sound.
+
+## Reusable scene patterns
+
+Library → Patterns has three original moving examples: Process, Comparison, and Presenter +
+visuals. Choose a target video, choose a pattern, replace the example text, name the scene and
+set its duration (3–60 seconds, default 8). Create adds a **new** scene; Open new scene takes you
+back to the usual preview, comments and versions. Visual styles and Music remain Library tabs.
+
+The chat uses `list_patterns`, `inspect_pattern`, then `instantiate_pattern`. Inspection returns
+exact version, content hash, guidance, defaults and field limits. Pass the version/hash back to
+creation to reject a catalog change since inspection. Supply plain strings and arrays of lines
+in `inputs`, following the inspected field keys; omitted inputs use the complete example.
+Process accepts 2–4 steps; Comparison accepts 1–3 points per side; Presenter accepts 1–3 points.
+Headings are at most 72 characters; each field's exact limit is in inspection and on the form.
+Creation uses the target video's width and height (240–7680 px each), with stacked portrait
+layouts and compact layouts for square/4:3 canvases. Motion uses scene-local CSS animations: staged reveals during the first half, then a
+reading hold. It runs through the normal frozen clock and renderer.
+
+Every generated scene is ordinary editable HTML, with no catalog request during playback or
+export. Its provenance block snapshots the pattern descriptor, original inputs, canvas, duration,
+media kind and content hash (including the generator source). `get_rules`, `list_scenes` and
+`get_scene_html` expose that snapshot. It records the starting point, not a claim about later
+edits. `write_scene_html` preserves it automatically alongside pinned styles and timed text.
+Adapt content to narration, and add `data-at` word anchors once words are timed. Restore through
+normal scene versions. A pattern never replaces an existing scene, even when an explicit id is
+supplied; duplicates are rejected. Existing scenes and their narration, timing, styles, text and
+music are retained. Adding a scene can require rebuilding an existing soundtrack.
+
+Presenter media is optional. Supply an existing path under **this video's** `assets/`, including
+`assets/cam/<source-scene>.mp4` returned by `list_takes`. Images: PNG, JPEG, WebP. Video containers:
+MP4, WebM, MOV, with H.264, VP8/9 or AV1 visual streams. Paths must be local (no URLs, traversal or
+symlink escapes); missing, corrupt, unsupported or audio-only media is rejected before creation.
+The file stays project media, not a catalog asset. Video is muted, starts at scene time zero and
+holds its last frame; frame it for the narration length. The portrait region uses `object-fit:
+cover`, so inspect its crop. No media creates a labelled graphic placeholder with **no missing
+media request**. When a camera take exists later, the agent can replace that region through
+`write_scene_html` with the valid clip. Catalog demos use the original labelled stand-in, never
+pretend footage. The layouts use local font fallbacks; package project fonts for identical type
+across machines. Apply a Library style after creation if desired, and check contrast and long
+text in the actual scene before export.
