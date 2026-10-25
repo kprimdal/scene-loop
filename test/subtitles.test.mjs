@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createRegistry,TEMPLATE_DIR } from '../lib/projects.mjs';
 import { callTool,toolList } from '../lib/tools.mjs';
-import { deriveCues,sceneSubtitles,withSubtitles,withoutSubtitles,preserveSubtitles,pinSubtitles,validateCues } from '../lib/subtitles.mjs';
+import { deriveCaptionDraft,deriveCues,sceneSubtitles,withSubtitles,withoutSubtitles,preserveSubtitles,pinSubtitles,validateCues } from '../lib/subtitles.mjs';
 import { buildScene,buildWhole } from '../lib/assemble.mjs';
 import { launch } from '../lib/chrome.mjs';
 import { renderClip } from '../lib/render.mjs';
@@ -32,14 +32,89 @@ test('lead is applied once; bounded grouping respects words, sentence/gap/length
   const draft=deriveCues(words,.35,4);
   assert.deepEqual(draft,[{text:'Hello, verden!',start:.45,end:1.2},{text:'Æble, ø og å.',start:1.35,end:2.35}]);
   assert.equal(deriveCues(words,.8,4)[0].start,.9);
-  assert.throws(()=>deriveCues(words,.35,2),/shortening/);
+  assert.throws(()=>deriveCues(words,.35,2),/outside scene bounds/);
   assert.throws(()=>deriveCues([],0,4),/Timed narration words/);
-  for(const bad of [[{word:'x',start:0,end:0}],[{word:'x',start:-1,end:1}],[{word:'x',start:NaN,end:1}], [{word:'x',start:0,end:1},{word:'y',start:.8,end:2}]]) assert.throws(()=>deriveCues(bad,.35,4),/timing/);
+  for(const bad of [[{word:'x',start:.3,end:.2}],[{word:'x',start:-1,end:1}],[{word:'x',start:NaN,end:1}], [{word:'x',start:0,end:1},{word:'y',start:.8,end:2}]]) assert.throws(()=>deriveCues(bad,.35,4),/timing/);
   const many=Array.from({length:60},(_,i)=>({word:'ord',start:i*.3,end:i*.3+.25}));
   const grouped=deriveCues(many,0,20);
   assert.ok(grouped.length>5 && grouped.every(c=>c.text.length<=72 && c.end-c.start<=5));
   assert.equal(deriveCues([{word:'one',start:0,end:.2},{word:'two',start:1,end:1.2}],0,2).length,2);
   for(const bad of [[cue({end:Infinity})],[cue({start:-1})],[cue({end:9})],[cue({text:'a'.repeat(85)})],[cue({text:'a\nb\nc'})],[cue({text:'\0'})],[cue(),cue()]]) assert.throws(()=>validateCues(bad,10));
+});
+
+test('point-timed words keep every word across phrases, isolated cues, punctuation and crowded neighbor boundaries',()=>{
+  const point=(word,t)=>({word,start:t,end:t});
+  const span=(word,start,end)=>({word,start,end});
+  const long='x'.repeat(83)+'.';
+  const cases=[
+    [span('Det',.1,.3),point('er',.32),span('fint.',.34,.8)],
+    [span('Det',.1,.3),point('er',.2),span('fint.',.34,.8)],
+    [span('Før.',.1,.3),point('ja.',.2),span('Efter.',.34,.8)],
+    [span(long,0,.5),point('ja.',.2),span(long,.5,1)],
+    [span('Før.',0,.3),point('ja.',.9),span('Efter.',.3,.8)],
+    [point('før',.9),point('nu.',.1)],
+    [point('Det',0),span('er',0,.2),span('fint.',.2,.5)],
+    [span('Det',0,.2),point('er.',.2)],
+    [point('Alene.',.4)], [point('Start.',0)], [point('Slut.',1)],
+    [point('Ja.',0),point('Nej.',0),point('Måske.',0)],
+    [span('Før.',0,.2),point('Ja.',.2),span('Efter.',.2,.8)],
+    [span('Før.',0,.2),point('Ja.',.8),span('Efter.',.8,1)],
+    // Both neighboring cues hit the hard text bound: share positive display time,
+    // rather than silently drop the point word, overlap captions or add an epsilon.
+    [span(long,0,.5),point('ja.',.5),span(long,.5,1)],
+    [point('ja.',0),span(long,0,1)],
+    [span(long,0,1),point('ja.',1)],
+    [span(long,0,.2),point('one.',.2),point('two.',.2),span(long,.2,1)],
+    Array.from({length:12},(_,i)=>point(`ord${i}.`,i<6 ? 0 : 1)),
+  ];
+  for(const input of cases){
+    const before=JSON.stringify(input),d=deriveCaptionDraft(input,0,1);
+    assert.equal(d.cues.map(c=>c.text).join(' '),input.map(w=>w.word).join(' '));
+    assert.ok(d.inferences.length>0);
+    assert.deepEqual(validateCues(d.cues,1),d.cues);
+    assert.equal(JSON.stringify(input),before);
+    const accounted=d.inferences.flatMap(n=>n.sourceWords).sort((a,b)=>a-b);
+    assert.deepEqual(accounted,input.flatMap((w,i)=>w.start===w.end ? [i+1] : []));
+  }
+  const middle=deriveCaptionDraft(cases[0],.35,2);
+  assert.deepEqual(middle.cues,[{text:'Det er fint.',start:.45,end:1.15}]);
+  assert.equal(middle.inferences[0].basis,'phrase context');
+  assert.deepEqual(deriveCaptionDraft([point('Ja.',1.65)],.35,2).cues,[{text:'Ja.',start:1.2,end:2}]);
+  assert.deepEqual(deriveCaptionDraft([point('Frame end.',0)],2/30,2/30).cues,[{text:'Frame end.',start:0,end:2/30}]);
+  assert.throws(()=>deriveCaptionDraft([point('Outside.',1)],.35,1),/Lengthen the scene or review narration lead/);
+  assert.throws(()=>deriveCaptionDraft([point('No interval.',0)],0,0),/positive/);
+});
+
+test('accepted Scribe and Whisper point words generate/save without changing script, transcript, audio or take bytes',async()=>{
+  const {video,call,generate,save,inspect}=await fixture();
+  await call('update_scene',{narration:'Det er fint.'});
+  const audio=join(video.dir,'synthetic.wav');execFileSync('ffmpeg',['-v','error','-f','lavfi','-i','sine=frequency=440:sample_rate=16000','-t','1',audio]);
+  await video.setNarrationAudio('s01-intro',{path:audio});
+  const formats=[
+    {scribe:{words:[{type:'word',text:'Det',start:.1,end:.3},{type:'word',text:'er',start:.32,end:.32},{type:'word',text:'fint.',start:.34,end:.8}]}},
+    {whisper:{transcription:[{tokens:[{text:' Det',t_dtw:10},{text:' er',t_dtw:10},{text:' fint.',t_dtw:34}]}]}},
+  ];
+  for(const format of formats){
+    const accepted=await call('set_narration_words',{...format,adopt:false});
+    assert.ok(accepted.words.some(w=>w.start===w.end));
+    const paths=['storyboard.json','assets/narration/s01-intro.words.json','assets/narration/s01-intro.wav','assets/narration/s01-intro.take.json'];
+    const before=paths.map(p=>readFileSync(join(video.dir,p)));
+    const d=await generate();assert.equal(d.draft.cues.map(c=>c.text).join(' '),'Det er fint.');
+    assert.equal(d.draft.provenance.derivationVersion,2);assert.ok(d.draft.provenance.derivationNotes.length);
+    const saved=await save(d.draft.cues,{sourceHash:d.draft.provenance.sourceHash,regenerate:true});
+    assert.deepEqual(saved.snapshot.provenance.derivationNotes,d.draft.provenance.derivationNotes);
+    paths.forEach((p,i)=>assert.deepEqual(readFileSync(join(video.dir,p)),before[i],p));
+    await save([{...saved.snapshot.cues[0],text:'Det er godt.'}]);
+    assert.deepEqual((await inspect()).snapshot.provenance,saved.snapshot.provenance);
+  }
+  // Upgrading the algorithm does not silently rewrite an earlier pinned presentation.
+  const current=await video.sceneHtml('s01-intro');
+  const v1={...current.subtitles,provenance:{...current.subtitles.provenance,derivationVersion:1}};delete v1.provenance.derivationNotes;
+  writeFileSync(join(video.dir,'scenes/s01-intro/scene.html'),withSubtitles(current.html,'s01-intro',v1));
+  await save([{...v1.cues[0],text:'Keep the older snapshot.'}]);
+  assert.equal((await inspect()).snapshot.provenance.derivationVersion,1);
+  const fresh=await generate();await save(fresh.draft.cues,{sourceHash:fresh.draft.provenance.sourceHash,regenerate:true});
+  assert.equal((await inspect()).snapshot.provenance.derivationVersion,2);
 });
 
 test('escaped display text, scoped keyframes and exact pinned bytes survive later markup/style catalogue changes',()=>{
@@ -172,5 +247,33 @@ test('single/whole/stills and cached cut/dissolve exports agree at decimal bound
     const pa=raw(portraitStill),pb=raw(portraitClip,10);const portraitMean=pa.reduce((sum,v,i)=>sum+Math.abs(v-pb[i]),0)/pa.length;assert.ok(portraitMean<5,`portrait RGB difference ${portraitMean}`);
     if(art){mkdirSync(join(art,'img'),{recursive:true});cpSync(portraitStill,join(art,'img/portrait-preview.png'));execFileSync('ffmpeg',['-v','error','-i',portraitClip,'-ss','1','-frames:v','1',join(art,'img/portrait-export.png'),'-y']);execFileSync('ffmpeg',['-v','error','-i',cached.path,'-ss','1.9','-frames:v','1',join(art,'img/landscape-export.png'),'-y']);cpSync(cached.path,join(art,'video/landscape.mp4'));cpSync(portraitClip,join(art,'video/portrait.mp4'));cpSync(clip,join(art,'video/single.mp4'));writeFileSync(join(art,'boundaries.json'),JSON.stringify({syntheticSource:true,frames:evidence,portrait:{...rect,meanRgbDifference:portraitMean},clips:cached.clips},null,2));}
     assert.deepEqual(page.errors,[]);assert.deepEqual(portrait.errors,[]);await portrait.close();
+  }finally{await browser.close();}
+});
+
+
+test('inferred isolated cue keeps exact [start,end) preview/export behavior including end==scene duration', {timeout:30000},async()=>{
+  const root=mkdtempSync(join(tmpdir(),'sl-point-export-'));
+  const d=deriveCaptionDraft([{word:'Ja.',start:1.65,end:1.65}],.35,2);
+  const html=withSubtitles(authored('point'),'point',pinSubtitles(d.cues,2,'dark',{components:{},sourceHash:'synthetic',derivationVersion:2,derivationNotes:d.inferences}));
+  const sb={width:320,height:180,fps:10,duration:2,scenes:[{id:'point',start:0,duration:2}]};
+  const build=buildScene(root,sb,'point',html,'point'),browser=await launch(),page=await browser.newPage({width:320,height:180});
+  const raw=(file,n)=>execFileSync('ffmpeg',['-v','error','-i',file,...(n==null?[]:['-vf',`select=eq(n\\,${n})`,'-frames:v','1']),'-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{maxBuffer:1000000});
+  try{
+    await page.goto(pathToFileURL(join(build,'index.html')).href);await page.evaluate('window.__sl.ready');
+    const clip=join(root,'point.mp4');await renderClip(build,clip,{width:320,height:180,fps:10,start:0,duration:2});
+    const states=[];
+    for(const t of [0,1.199,1.2,1.999,2,1.2,0]){
+      await page.evaluate(`window.__sl.seek(${t})`);
+      states.push(await page.evaluate('getComputedStyle(document.querySelector("[data-sl-caption]")).opacity'));
+    }
+    assert.deepEqual(states,['0','0','1','1','0','1','0']);
+    const frames=[];
+    for(const n of [11,12,19]){
+      await page.evaluate(`window.__sl.seek(${n/10})`);const shot=join(root,`${n}.png`);writeFileSync(shot,await page.screenshot());
+      const a=raw(shot),b=raw(clip,n),mean=a.reduce((sum,v,i)=>sum+Math.abs(v-b[i]),0)/a.length;assert.ok(mean<5,`${n}: ${mean}`);frames.push({frame:n,seconds:n/10,meanRgbDifference:mean});
+    }
+    const art=process.env.SL_SUBTITLE_ARTIFACT_DIR;
+    if(art){mkdirSync(join(art,'video'),{recursive:true});cpSync(clip,join(art,'video/zero-isolated-export.mp4'));writeFileSync(join(art,'zero-boundaries.json'),JSON.stringify({syntheticSource:true,draft:d,times:[0,1.199,1.2,1.999,2,1.2,0],opacity:states,frames},null,2));}
+    assert.deepEqual(page.errors,[]);
   }finally{await browser.close();}
 });

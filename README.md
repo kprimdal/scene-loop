@@ -682,9 +682,24 @@ Open **Captions** in the selected scene's activity panel, in **This scene** at i
 version. **Generate draft from words** uses the existing `.words.json` timings, with that
 scene's `narrationLead` (default 0.35 s) added exactly once. There is no transcription or model
 call. Missing timings explain the prerequisite. Draft grouping breaks at sentence endings,
-pauses over 0.6 s, 10 words, 72 characters or 5 seconds. Source words with zero-length,
-overlapping or invalid timing need correction before generation; words beyond the scene end
-produce an explanation instead of being clipped.
+pauses over 0.6 s, 10 words, 72 characters or 5 seconds. Valid zero-duration words from
+Scribe/Whisper stay in the caption text. Their display uses phrase context, including a nearby
+phrase across a sentence/group boundary when it fits the hard cue limits. An isolated point
+cue uses available time between neighboring cues and scene bounds, up to 0.8 s per cue. A run
+of point cues reserves equal slots near its source points. If touching neighboring phrases
+leave no gap and merging would exceed a cue limit, the point cues share the preceding phrase's
+display interval (or the following phrase at the start), in text-length proportions. Every
+word stays in source order and every displayed cue has a positive, non-overlapping interval.
+A point may coincide with or lie inside a neighboring spoken interval; it does not force
+overlapping displayed cues.
+This infers display timing only; it does not invent or change transcript/audio timing.
+
+The panel's **Inferred timing** notice and saved `provenance.derivationNotes` identify the
+point-timed source word indexes, generated cue bounds and the context used. Notes describe the
+generated draft; later user corrections can override its display times. Derivation version 2
+owns this rule. Existing version 1 pins stay intact until explicit regeneration; ordinary edits
+retain their provenance. Overlapping spoken-word intervals, reversed or invalid source timing still needs review.
+Words outside scene bounds after lead produce an actionable length/lead error without clipping.
 
 Select a cue to correct its display text and start/end seconds. Choose **Dark card**, **Light
 card** or **White · shadow**. **Preview cue** seeks to that cue; **Preview draft** shows all
@@ -711,7 +726,7 @@ Caption scenes use the existing render-job exact-end outgoing hold for dissolves
 cached clips. No clock or clip-joining changes are involved.
 
 Saved timings are **snapshots**. Script, word-file, narration audio, chosen-take metadata and
-lead fingerprints are stored in provenance, together with derivation version 1 and its timing
+lead fingerprints are stored in provenance, together with the derivation version and its timing
 contract. If these inputs change, the panel and `get_scene_subtitles` show `stale` and the
 changed components. Corrections and displayed times stay fixed. They do **not** follow the
 new words automatically. **Regenerate draft from words** explicitly replaces the draft from
