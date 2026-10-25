@@ -1,7 +1,10 @@
-import { $, h, ago, audioTime } from "./util.js";
+import { $, h, ago, audioTime, toast } from "./util.js";
 import { S, api, scene, latest, viewed } from "./state.js";
 import { player, setMode, renderTrack, loadPlayer } from "./stage.js";
 import { saveScriptNarration } from "./script.js";
+
+import { refresh } from "./data.js";
+import { renderText } from "./text.js";
 
 const AGENT = { claude: "Claude", codex: "Codex", chat: "Chat", manual: "Manual edit", restore: "Restore", import: "Import" };
 
@@ -119,6 +122,7 @@ export function renderCompare() {
   const el = $("#compare");
   const sc = scene();
   const on = S.compare && S.mode === "scene";
+  renderText();
   el.hidden = $("#flipBtn").hidden = $("#closeCompare").hidden = !on;
   if (!on) return;
   const row = (v) => {
@@ -138,6 +142,10 @@ export function flip() {
 
 export async function restore(v) {
   if (!confirm(`Bring v${v} back as a new version of ${S.sel}?`)) return;
-  delete S.view[S.sel];
-  await api(`/api/scene/${S.sel}/restore`, { body: { v } });
+  const id = S.sel;
+  try {
+    await api(`/api/scene/${id}/restore`, { body: { v } });
+    if (S.sel === id) delete S.view[id];
+    await refresh();
+  } catch (e) { toast(e.message); }
 }
