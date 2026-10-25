@@ -16,6 +16,8 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, sta
 import { pipeline } from "node:stream/promises";
 import { dirname, extname, join, resolve, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inspectStyle, styleExample } from "./lib/styles.mjs";
+import { examplePage } from "./lib/assemble.mjs";
 import { createRegistry } from "./lib/projects.mjs";
 import { toolList, callTool, withoutFiles } from "./lib/tools.mjs";
 import { createMcp } from "./lib/mcp.mjs";
@@ -243,6 +245,15 @@ async function handle(req, res, user) {
     // The camera and microphone it was recorded with, by their labels (which of three mics was it?).
     const devices = { camera: url.searchParams.get("camera")?.slice(0, 200) || null, mic: url.searchParams.get("mic")?.slice(0, 200) || null };
     return send(res, 200, await (await ctx.p()).addTake(take[1], { stream: req, mime: type, model: user.name, devices }));
+  }
+  const stylePreview = url.pathname.match(/^\/api\/styles\/([a-z-]+)\/preview$/);
+  if (stylePreview && req.method === "GET") {
+    if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
+    const style = inspectStyle(stylePreview[1]);
+    if (url.searchParams.has("contentHash") && url.searchParams.get("contentHash") !== style.contentHash) return send(res, 409, { error: "This style changed. Refresh the Library." });
+    const html = examplePage(styleExample(style));
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+    return res.end(html);
   }
   // The shared library (lib/library.mjs) is for owners: it spans every project.
   const lib = url.pathname.match(/^\/library\/([a-z]+)\/([^/]+)$/);
