@@ -1,0 +1,20 @@
+[
+  {
+    "id":"process","version":"1.0.0","title":"Process","summary":"Turn a sequence into a clear, numbered path.",
+    "guidance":"Use 2–4 short steps in narration order. Each step appears during the first half of the scene, then holds for reading. Adapt the generated HTML with data-at word anchors after narration is timed. Keep one idea per step. Project instructions take priority.",
+    "fields":[{"key":"heading","label":"Heading","max":72},{"key":"steps","label":"Ordered steps","max":84,"minItems":2,"maxItems":4}],
+    "defaults":{"heading":"A small idea, ready to grow","steps":["Notice what could be better","Try one small change","Share what you learn"]}
+  },
+  {
+    "id":"comparison","version":"1.0.0","title":"Comparison","summary":"Put two approaches side by side, with equal weight.",
+    "guidance":"Use two labels and 1–3 short points per side. Match points in order when possible. Neither side implies good or bad. Both panels arrive early and their points follow. Adapt wording and data-at anchors to narration. Project instructions take priority.",
+    "fields":[{"key":"heading","label":"Heading","max":72},{"key":"leftLabel","label":"Left side","max":32},{"key":"leftPoints","label":"Left points","max":70,"minItems":1,"maxItems":3},{"key":"rightLabel","label":"Right side","max":32},{"key":"rightPoints","label":"Right points","max":70,"minItems":1,"maxItems":3}],
+    "defaults":{"heading":"Two ways to find the next idea","leftLabel":"Explore together","leftPoints":["Many perspectives","A shared starting point","Make space for surprises"],"rightLabel":"Explore alone","rightPoints":["Time to concentrate","Follow your own questions","Bring a fresh view back"]}
+  },
+  {
+    "id":"presenter","version":"1.0.0","title":"Presenter + visuals","summary":"A speaker beside supporting ideas. Demo uses an original visual stand-in.",
+    "guidance":"Use a presenter name, label and 1–3 supporting points. media is optional: an existing video (mp4/webm/mov) or image (png/jpg/jpeg/webp) under this video's assets/. Camera clips from list_takes use assets/cam/<source-scene>.mp4 and start at scene time zero. Videos are muted, object-fit cover, freeze at end; ensure their length and crop suit the narration. Omit media for a clearly labelled visual placeholder with no missing request. To use a later camera take, replace that placeholder with the valid cam video via write_scene_html. The region stacks above the points in portrait. Project instructions take priority.",
+    "fields":[{"key":"heading","label":"Heading","max":72},{"key":"name","label":"Presenter name","max":40},{"key":"label","label":"Presenter label","max":60},{"key":"points","label":"Supporting points","max":84,"minItems":1,"maxItems":3},{"key":"media","label":"Project image or camera clip (optional)","max":240,"optional":true}],
+    "defaults":{"heading":"Leave room for discovery","name":"Alex Morgan","label":"Your guide to small experiments","points":["Start with a question","Look closely at what changes","Make the next attempt count"],"media":""}
+  }
+]

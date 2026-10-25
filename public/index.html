@@ -71,6 +71,7 @@
       </div>
       <nav class="library-tabs" aria-label="Library sections">
         <button class="btn on" id="libStylesTab" aria-pressed="true">Visual styles</button>
+        <button class="btn" id="libPatternsTab" aria-pressed="false">Patterns</button>
         <button class="btn" id="libMusicTab" aria-pressed="false">Music</button>
       </nav>
       <section id="styleLibrary" aria-label="Visual styles">
@@ -83,6 +84,15 @@
         <div id="styleCurrent" class="style-current" aria-live="polite"></div>
         <div id="styleList" class="style-grid"></div>
         <p class="muted small">Examples share the same motion. Styles change background, type and palette roles; they keep authored colours outside those roles. The project theme remains loaded, but styles can override its palette and type. Preview your scene to check contrast.</p>
+      </section>
+      <section id="patternLibrary" aria-label="Scene patterns" hidden>
+        <p class="muted">Start with a layout. Add your content, then edit the scene in your video.</p>
+        <div class="style-target"><label>Target video<select id="patternVideo" aria-label="Pattern video"></select></label></div>
+        <button class="btn ghost small" id="patternMotion">Pause examples</button>
+        <div id="patternList" class="style-grid"></div>
+        <form id="patternForm" class="pattern-form" hidden></form>
+        <div id="patternResult" class="pattern-result" aria-live="polite"></div>
+        <p class="muted small">Each scene keeps its starting pattern and version. Future Library changes cannot change it. Restore edits through scene versions.</p>
       </section>
       <section id="musicLibrary" hidden>
       <div class="chips" id="libTags"></div>
