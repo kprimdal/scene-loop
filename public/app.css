@@ -378,8 +378,8 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 /* Library styles: moving, render-backed examples above the existing music library. */
 .library-tabs { display:flex;gap:8px;margin:0 0 20px; }
 .library-tabs .on { background:var(--ink);color:var(--paper, #fff); }
-#styleLibrary, #musicLibrary { max-width:1180px;margin:0 auto; }
-#styleLibrary[hidden], #musicLibrary[hidden] { display:none; }
+#styleLibrary, #patternLibrary, #musicLibrary { max-width:1180px;margin:0 auto; }
+#styleLibrary[hidden], #patternLibrary[hidden], #musicLibrary[hidden] { display:none; }
 #styleOpenVideo[hidden] { display:none; }
 .style-target { display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin:22px 0 14px; }
 .style-target label { display:grid;gap:7px;font-size:12px;color:var(--muted);flex:1;min-width:180px; }
@@ -431,3 +431,21 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
   .ver .acts { grid-column:1 / -1;flex-direction:row;flex-wrap:wrap; }
   .ver .what { grid-column:1 / -1; }
 }
+
+/* Compact, plain-text pattern controls; generated scenes use the normal player. */
+.library-tabs {flex-wrap:wrap;}
+.pattern-choose {width:100%;}
+.pattern-form {border:1px solid var(--line);border-radius:12px;padding:20px;background:var(--paper);margin:20px 0;}
+.pattern-form-head {display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;}
+.pattern-form h2 {font-size:20px;margin:0;}
+.pattern-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:16px;}
+.pattern-fields label {display:grid;gap:7px;align-content:start;min-width:0;font-size:13px;}
+.pattern-fields input,.pattern-fields textarea {width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font:inherit;font-size:15px;padding:10px;}
+.pattern-fields textarea {resize:vertical;line-height:1.5;}
+.pattern-fields label:has(textarea) {grid-column:1/-1;}
+.pattern-fields .small {line-height:1.4;}
+.pattern-meta {grid-template-columns:minmax(0,2fr) minmax(0,1fr);}
+.pattern-result {margin:16px 0;}
+@media(max-width:520px) {.pattern-fields {grid-template-columns:1fr;} .pattern-form {padding:14px;} .pattern-form-head {align-items:start;} }
+.pattern-fields label:has([name=heading]),.pattern-fields label:has([name=media]) {grid-column:1/-1;}
+.pattern-side-fields {display:grid;gap:16px;align-content:start;min-width:0;}
