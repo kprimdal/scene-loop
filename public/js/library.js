@@ -1,6 +1,7 @@
 import { $, h, toast, audioTime } from "./util.js";
 import { S, api } from "./state.js";
 import { videoUrl } from "./projects.js";
+import { showGuides } from "./guides.js";
 import { showMotions } from "./motion.js";
 import { showPatterns } from "./patterns.js";
 import { showStyles } from "./styles.js";
@@ -13,6 +14,7 @@ import { refresh } from "./data.js";
 // through /api/library/upload (owners only, the file as the body).
 const tool = (name, args = {}) => api(`/api/tools/${name}`, { body: { args, via: "page-js" } });
 let lib = { items: [], tags: [] };
+let activeSection;
 export const loadLibrary = async () => (lib = await tool("list_library", { kind: "music" }));
 
 const facts = (it) => [audioTime(it.duration), it.loop ? "loops" : null, it.bpm ? `${it.bpm} bpm` : null, [it.source, it.sourceModel].filter(Boolean).join(" · "), it.created].filter(Boolean).join(" · ");
@@ -58,11 +60,13 @@ export async function showLibrary() {
   await showStyles();
   await showPatterns();
   await showMotions();
-  setLibrarySection(new URLSearchParams(location.search).get('section') || 'styles');
+  await showGuides();
+  setLibrarySection(activeSection ?? new URLSearchParams(location.search).get('section') ?? 'styles');
 }
 
 function setLibrarySection(section) {
-  for (const [name, tab, panel] of [['styles','libStylesTab','styleLibrary'],['patterns','libPatternsTab','patternLibrary'],['motion','libMotionTab','motionLibrary'],['music','libMusicTab','musicLibrary']]) {
+  activeSection=section;
+  for (const [name, tab, panel] of [['styles','libStylesTab','styleLibrary'],['patterns','libPatternsTab','patternLibrary'],['motion','libMotionTab','motionLibrary'],['guides','libGuidesTab','guideLibrary'],['music','libMusicTab','musicLibrary']]) {
     const on=section===name;
     $(`#${panel}`).hidden=!on;
     $(`#${tab}`).classList.toggle('on',on);
@@ -72,7 +76,7 @@ function setLibrarySection(section) {
   $('#libCount').hidden=section!=='music';
   document.dispatchEvent(new Event('librarysection'));
 }
-for (const [id,section] of [['libStylesTab','styles'],['libPatternsTab','patterns'],['libMotionTab','motion'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
+for (const [id,section] of [['libStylesTab','styles'],['libPatternsTab','patterns'],['libMotionTab','motion'],['libGuidesTab','guides'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
 
 // ---------- the Music menu in a video ----------
 export async function renderMusicMenu() {
