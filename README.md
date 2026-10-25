@@ -757,3 +757,61 @@ HTML, source or duration using the inspected context hash, including a second ch
 preflight. The page also guards asynchronous loads and detached forms against changed targets,
 versions and source-only changes. Tests use synthetic word timings and free sine/silence audio;
 no real projects, transcription service or paid narration are needed.
+
+### Edit a range of the chosen recording
+
+Open **Edit recording range** in the selected scene's panel, in its latest view. These controls
+use **current edited recording seconds**, from 0 to the selected 48 kHz narration's duration.
+Scene time is recording time plus the displayed `narrationLead`. The original full take and
+its retained original-time ranges are shown separately. Seek the current recording, mark start
+and end (or enter numbers), and **Preview selected range** before choosing **Remove range**,
+**Mute range · voice only**, or **Keep only range**. Each action prepares a result and impact
+report; **Apply reviewed range** selects it. Preparing or dismissing a preview selects nothing.
+The candidate camera uses scene seconds, including the lead. Music and SFX are not muted.
+
+Bounds round to the nearest 1 ms. Remove/keep compose with previous cuts; every retained
+original fragment must be at least 50 ms. Smaller fragments are rejected with their exact
+bounds, never silently dropped. Audio keeps the existing 40 ms join clock, with silent outgoing
+handles and fades so removed speech cannot leak back into a join. Camera source timestamps use
+the same accumulated mapping, then sample once on the video frame grid (within one frame).
+Mutes are sample-accurate half-open windows and persist in original-take coordinates.
+
+Mute preserves scene/audio duration. Remove/keep preserve the existing lead and tail
+(`max(0, scene duration - lead - current audio duration)`), then round the new scene duration
+up to the frame grid. The impact report shows the exact rounding. A scene that already cuts
+off narration by more than one frame must be fitted/reviewed first. Shortening rejects saved
+captions, text items or motion fallbacks that would exceed the new duration, naming each item.
+Correct their timings first; the controls never silently delete, clip or retime these items.
+
+Surviving transcript words follow the cuts. Partially cut words retain their text and their
+surviving timing span and are explicitly reported; point words survive inside half-open kept
+windows. The script stays unchanged and can therefore differ from retained speech. The report
+lists removed/partial words, resolved and fallback `data-at`/`data-sfx`/managed motion anchors.
+Authored absolute CSS/WAAPI/script motion and numeric SFX keep their authored clock and require
+review. Corrected captions remain independent scene-local snapshots, with source staleness
+visible in Captions. They do not automatically follow the new words.
+
+Original take bytes stay intact. **Undo previous recording edit** keeps one previous selected
+waveform, words, camera, take metadata and scene timing across reload/restart. Undo rebuilds the
+current mix, preserving other scenes, music/SFX and unrelated edits; conflicting changes to the
+affected recording, words, camera, HTML or timing reject undo with an explanation. Scene HTML
+history alone does not restore audio. Gentle/off cleanup and original-coordinate mutes survive
+range edits, take reselection, cleanup keep/revert and later recuts; cleanup always starts from
+the original, so it is never applied twice.
+
+Preparation validates candidates without replacing selected files. Apply/undo recheck source,
+scene and mix context after processing, then use a recoverable file-selection journal. An
+interrupted file selection rolls back on reopen. Once selected, a durable completion marker
+finishes ordinary scene/project history; a history failure is reported as **selected, history
+pending**, and gates later edits/latest reads/builds until retry/reopen finishes. Completion
+also repairs a missing version tag after interruption between commit and tag. Filesystem
+selection and git history are not one atomic transaction. External changes to pending history
+files stop completion with a conflict rather than absorb them. Originals and recovery snapshots
+remain available. Unrelated visual clips are reused; mute does not change camera/visual files.
+
+Agent tools require explicit `project`, `video`, and `scene`, through MCP, WebMCP or
+`window.sceneLoop`: `inspect_recording_ranges`, `preview_recording_range` (`action: remove|mute|keep`,
+`from`, `to`, inspected `contextHash`), `apply_recording_range` (reviewed `token` and `contextHash`),
+and `undo_recording_range` (current `contextHash`). No take, external/custom narration or a
+custom soundtrack returns a clear prerequisite. This edits one selected recorded take,
+including audio-only takes; it does not remap arbitrary authored scenes or provide a timeline.

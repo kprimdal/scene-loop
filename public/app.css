@@ -534,3 +534,22 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 
 #sceneSubtitles .text-list {max-height:160px;overflow:auto;}
 #sceneSubtitles .subtitle-warning {color:var(--warn);padding:8px;border:1px solid currentColor;border-radius:6px;}
+
+.recording-ranges {border-bottom:1px solid var(--line);flex:0 1 auto;min-height:0;overflow:auto;max-height:75%;}
+.recording-ranges > summary {padding:10px 14px;cursor:pointer;font-weight:650;}
+.range-body {padding:0 14px 14px;overflow-wrap:anywhere;}
+.range-body p {margin:10px 0;line-height:1.45;}
+.range-body .btn {margin:6px 6px 0 0;white-space:normal;}
+.range-body label {display:grid;gap:6px;margin:12px 0;font-size:13px;min-width:0;}
+.range-body audio,.range-body video {display:block;width:100%;min-width:0;max-height:190px;}
+.range-body audio {height:40px;}
+.range-body input {box-sizing:border-box;width:100%;padding:8px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:6px;}
+.range-inputs {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.range-body pre {white-space:pre-wrap;font-size:11px;overflow-wrap:anywhere;}
+.range-body details {margin-top:14px;}
+.range-body summary {cursor:pointer;}
+.range-clock {font-weight:650;}
+.range-status {color:var(--warn);}
+.range-status:empty {display:none;}
+.range-impact {border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:12px;}
+@media(max-width:760px){.recording-ranges {max-height:none;overflow:visible;}}
