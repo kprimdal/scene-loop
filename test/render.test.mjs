@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { frameSpan, frameCount } from "../lib/render.mjs";
-import { stretches, compositeArgs } from "../lib/composite.mjs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { stretches, compositeArgs, hasAlpha } from "../lib/composite.mjs";
 
 test("frameSpan puts scenes on one frame grid with no drift", () => {
   const fps = 30;
@@ -70,4 +74,22 @@ test('mixed cut/dissolve chains without hold snapshots normalize concat timebase
  }
  }
  }finally{rmSync(root,{recursive:true,force:true});}
+});
+
+test("hasAlpha: VP9 WebM with alpha and ProRes 4444 yes, H.264 and VP9 without alpha no", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "sl-alpha-"));
+  try {
+    const make = (name, ...args) => {
+      const out = join(dir, name);
+      execFileSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "color=c=red@0.5:s=64x64:d=0.2,format=rgba", ...args, out]);
+      return out;
+    };
+    assert.equal(await hasAlpha(make("a.webm", "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p")), true);
+    assert.equal(await hasAlpha(make("a.mov", "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le")), true);
+    assert.equal(await hasAlpha(make("o.webm", "-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p")), false);
+    assert.equal(await hasAlpha(make("o.mp4", "-c:v", "libx264", "-pix_fmt", "yuv420p")), false);
+    assert.equal(await hasAlpha(join(dir, "missing.mp4")), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
