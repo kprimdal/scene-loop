@@ -435,3 +435,7 @@ For a dissolve, text that ends at the outgoing scene's duration disappears at th
 The export uses a fresh picture of that selected version at its exact end for the held part of
 the dissolve. This also works when its scene clip comes from cache. Cuts and scenes without
 text use the existing join path; the clock and the cached clip pixels are unchanged.
+
+## Reference experiment
+
+An [original meadow approximation](examples/reference-study/README.md) tests layered environment motion against one openly licensed film excerpt. The [experiment note](docs/experiments/reference-to-scene.md) records the source, actual render checks and limits in layout, motion, timing and sound.
