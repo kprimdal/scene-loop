@@ -530,3 +530,36 @@ that scene's previous boundary, up to ten changes, and survives server restart.
 itself undoable. Direct `update_scene` boundary edits join the same undo stack. Restoring scene
 HTML does not restore a transition. Cut/dissolve keep the scene starts, total duration,
 narration and soundtrack fixed. Boundary-only changes reuse existing scene clips.
+
+## Task guides and reusable prompts
+
+Library → Guides has four original guides: Explain a concept, Show a workflow, Improve pacing,
+and Review a video. Each includes a short workflow, a worked example, an expected result, a
+review checklist and a reusable prompt. Select a video explicitly. Project instructions stay
+visible above the guides and take priority over their guidance, together with the user's rules.
+
+**Use once · prepare prompt** creates a full copyable snapshot for the chat beside the page. It
+runs no task and attaches nothing. Copy prompt uses the clipboard where available; otherwise it
+selects the full text for manual copy. The prompt names the exact project/video and asks the agent
+to read `get_rules` first. Paid final narration still requires word-for-word script approval.
+
+**Attach to selected video** saves the exact id, version, SHA-256 content hash, workflow, guidance,
+example, checklist and prompt in that video's `guides.json`. At most one copy of each of the four
+catalogue ids can be attached. Catalogue edits never change saved copies. To select a newer copy,
+remove the old one and attach again. Attached contents are inspectable in the page and included
+in `get_rules` immediately after project instructions. Attach/remove never edit `project.md`,
+`AGENTS.md`, scenes, narration, storyboard or scene pins.
+
+Guide changes use the video's existing private Git **project-file** history (`.history`,
+`project/vN`), committing only `guides.json`. **Undo last guide change** (`undo_guides`) restores
+only the previous attachment set, including removals and exact older copies. It keeps up to ten
+changes across restarts. Scene HTML restoration does not restore guides, and guide undo does not
+restore scene content. This is not a custom guide editor or a general project-version restore UI.
+
+The same owner tools are available through MCP, WebMCP and `window.sceneLoop`: `list_guides`,
+`inspect_guide`, `use_guide_once`, `get_video_guides`, `attach_guide`, `remove_guide`, `undo_guides`.
+Inspection returns complete snapshots. Pass catalogue `version`/`contentHash` to one-time use or
+attachment to reject changed contents; pass `contextHash` from `get_video_guides` to mutations to
+reject stale attachment choices. One-time use and mutations require both `project` and `video`
+even on a single-video instance. These guides supply instructions to the existing chat; the
+server never invokes a model, impersonates a chat or automatically executes a guide.

@@ -73,6 +73,7 @@
         <button class="btn on" id="libStylesTab" aria-pressed="true">Visual styles</button>
         <button class="btn" id="libPatternsTab" aria-pressed="false">Patterns</button>
         <button class="btn" id="libMotionTab" aria-pressed="false">Motion</button>
+        <button class="btn" id="libGuidesTab" aria-pressed="false">Guides</button>
         <button class="btn" id="libMusicTab" aria-pressed="false">Music</button>
       </nav>
       <section id="styleLibrary" aria-label="Visual styles">
@@ -106,6 +107,17 @@
         </div>
         <p id="motionStatus" role="status" aria-live="polite"></p>
         <p class="muted small">Motion saves with scene versions. Restoring a scene version also restores its content, style and text. Transitions save in storyboard history: use Undo transition or Reset to default. Scene restore does not restore transitions. Whole-scene effects reveal the video background; the scene boundary blends that picture normally.</p>
+      </section>
+      <section id="guideLibrary" aria-label="Task guides" hidden>
+        <p class="muted">A short workflow, an original example and a reusable prompt for the chat beside the page.</p>
+        <div class="style-target"><label>Selected video<select id="guideVideo" aria-label="Guide video"></select></label><a class="btn" id="guideOpenVideo" hidden>Open video</a></div>
+        <p id="guideTargetLabel" class="muted small"></p>
+        <section id="guideInstructions" class="guide-instructions"></section>
+        <div id="guideList" class="guide-grid"></div>
+        <section id="guideDetail" class="guide-detail"></section>
+        <section id="guideHandoff" class="guide-handoff"></section>
+        <p id="guideStatus" role="status" aria-live="polite"></p>
+        <section id="guideAttached"></section>
       </section>
       <section id="musicLibrary" hidden>
       <div class="chips" id="libTags"></div>
