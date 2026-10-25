@@ -16,6 +16,7 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, sta
 import { pipeline } from "node:stream/promises";
 import { dirname, extname, join, resolve, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { inspectPattern, patternExample } from "./lib/patterns.mjs";
 import { inspectStyle, styleExample } from "./lib/styles.mjs";
 import { examplePage } from "./lib/assemble.mjs";
 import { createRegistry } from "./lib/projects.mjs";
@@ -245,6 +246,14 @@ async function handle(req, res, user) {
     // The camera and microphone it was recorded with, by their labels (which of three mics was it?).
     const devices = { camera: url.searchParams.get("camera")?.slice(0, 200) || null, mic: url.searchParams.get("mic")?.slice(0, 200) || null };
     return send(res, 200, await (await ctx.p()).addTake(take[1], { stream: req, mime: type, model: user.name, devices }));
+  }
+  const patternPreview = url.pathname.match(/^\/api\/patterns\/([a-z-]+)\/preview$/);
+  if (patternPreview && req.method === 'GET') {
+    if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
+    const p = inspectPattern(patternPreview[1]);
+    if (url.searchParams.has('contentHash') && url.searchParams.get('contentHash') !== p.contentHash) return send(res, 409, { error:'This pattern changed. Refresh the Library.' });
+    res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-cache' });
+    return res.end(examplePage(patternExample(p)));
   }
   const stylePreview = url.pathname.match(/^\/api\/styles\/([a-z-]+)\/preview$/);
   if (stylePreview && req.method === "GET") {

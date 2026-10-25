@@ -8,8 +8,11 @@ let styles = [], videos = [], selected = null, scenes = [], busy = false, loadin
 let playing = true, initialized = false;
 setInterval(() => {
   if (!playing || $("#styleLibrary").hidden) return;
-  for (const p of document.querySelectorAll(".style-preview")) if (p.ready && p.currentTime >= p.duration) { p.seek(0); p.play(); }
+  for (const p of document.querySelectorAll(".style-preview:not(.pattern-preview)")) if (p.ready && p.currentTime >= p.duration) { p.seek(0); p.play(); }
 }, 250);
+document.addEventListener('librarysection', () => {
+  for (const p of document.querySelectorAll('.style-preview:not(.pattern-preview)')) !$('#styleLibrary').hidden && playing ? p.play() : p.pause();
+});
 const target = () => $('#styleTarget').value;
 const chosenScenes = () => target() === '*' ? scenes : scenes.filter((s) => s.id === target());
 
@@ -22,15 +25,6 @@ export async function showStyles() {
   $('#styleVideo').replaceChildren(h('option', { value: '', selected: !selected }, 'Choose a video'), ...videos.map((v, i) => h('option', { value: String(i), selected: v === selected }, v.label)));
   $('#styleVideo').onchange = async (e) => { selected = e.target.value === '' ? null : videos[Number(e.target.value)]; await loadTarget(); };
   $('#styleTarget').onchange = renderCurrent;
-  const section = (music) => {
-    $('#styleLibrary').hidden = music;
-    $('#musicLibrary').hidden = !music;
-    $('#libAdd').hidden = !music;
-    for (const [id, on] of [['#libStylesTab', !music], ['#libMusicTab', music]]) { $(id).classList.toggle('on', on); $(id).setAttribute('aria-pressed', on); }
-    for (const p of document.querySelectorAll('.style-preview')) music ? p.pause() : playing && p.play();
-  };
-  $('#libStylesTab').onclick = () => section(false);
-  $('#libMusicTab').onclick = () => section(true);
   $('#styleList').replaceChildren(...styles.map((style) => {
     const preview = h('scene-player', { class: 'style-preview', src: style.previewUrl, 'aria-label': `${style.title} moving example` });
     preview.addEventListener('ready', () => { if (playing && !$('#styleLibrary').hidden) preview.play(); else if (!playing) preview.seek(2.6); });
@@ -41,11 +35,10 @@ export async function showStyles() {
   }));
   $('#styleList').before(h('button', { class: 'btn ghost small style-motion', onclick: (e) => {
     playing = !playing;
-    for (const p of document.querySelectorAll('.style-preview')) playing ? p.play() : p.pause();
+    for (const p of document.querySelectorAll('.style-preview:not(.pattern-preview)')) playing ? p.play() : p.pause();
     e.target.textContent = playing ? 'Pause examples' : 'Play examples';
   } }, 'Pause examples'));
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { playing = false; $('.style-motion').textContent = 'Play examples'; }
-  section(Q.get('section') === 'music');
   await loadTarget(Q.get('scene'));
 }
 
