@@ -1,6 +1,7 @@
 import { $, h, toast, audioTime } from "./util.js";
 import { S, api } from "./state.js";
 import { videoUrl } from "./projects.js";
+import { showStyles } from "./styles.js";
 import { refresh } from "./data.js";
 
 // ---------- the shared library (music beds) ----------
@@ -52,6 +53,7 @@ export function renderLibrary() {
 export async function showLibrary() {
   await loadLibrary();
   renderLibrary();
+  await showStyles();
 }
 
 // ---------- the Music menu in a video ----------
@@ -85,7 +87,7 @@ export async function renderMusicMenu() {
           ),
         )
       : [h("div", { class: "muted small", style: "padding:6px 8px" }, "The library is empty.")]),
-    h("a", { class: "music-open", href: "/?library=1" }, "Open the library →"),
+    h("a", { class: "music-open", href: "/?" + new URLSearchParams({ library: "1", project: S.project, video: S.video, scene: S.sel, section: "music" }) }, "Open the library →"),
   );
 }
 

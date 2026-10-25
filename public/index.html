@@ -28,7 +28,7 @@
         <summary class="btn" id="musicBtn" title="The video's music bed, and the beds in the library">Music</summary>
         <div id="musicList" class="menu music-menu"></div>
       </details>
-      <a class="btn owner-only" id="libraryBtn" href="/?library=1" title="Music shared by every project: listen, see where it is used, add files">Library</a>
+      <a class="btn owner-only" id="libraryBtn" href="/?library=1" title="Visual styles and shared music">Library</a>
       <span class="muted small viewer-only" id="renderState"></span>
       <details class="renders viewer-only">
         <summary class="btn">Renders</summary>
@@ -69,8 +69,25 @@
         <a class="btn ghost" href="/?all=1">All projects</a>
         <button class="btn dark owner-only" id="libAdd" title="Upload a music file with what is known about it">+ Add file</button>
       </div>
+      <nav class="library-tabs" aria-label="Library sections">
+        <button class="btn on" id="libStylesTab" aria-pressed="true">Visual styles</button>
+        <button class="btn" id="libMusicTab" aria-pressed="false">Music</button>
+      </nav>
+      <section id="styleLibrary" aria-label="Visual styles">
+        <p class="muted">Choose a treatment. Keep your content, layout and motion.</p>
+        <div class="style-target">
+          <label>Video<select id="styleVideo" aria-label="Style video"></select></label>
+          <label>Apply to<select id="styleTarget" aria-label="Style target"></select></label>
+          <a class="btn" id="styleOpenVideo" hidden>Open video</a>
+        </div>
+        <div id="styleCurrent" class="style-current" aria-live="polite"></div>
+        <div id="styleList" class="style-grid"></div>
+        <p class="muted small">Examples share the same motion. Styles change background, type and palette roles; they keep authored colours outside those roles. Project themes still apply. Preview your scene to check contrast.</p>
+      </section>
+      <section id="musicLibrary" hidden>
       <div class="chips" id="libTags"></div>
       <div class="lib-list" id="libList"></div>
+      </section>
     </section>
 
     <main class="main">

@@ -32,6 +32,7 @@ export async function refresh() {
   renderRenders();
   $("#musicBtn").classList.toggle("on", !!S.data.music);
   $("#musicBtn").title = S.data.music ? `Music bed: ${S.data.music}${S.data.musicLibrary ? ` (library ${S.data.musicLibrary})` : ""}` : "No music bed. Pick one from the library.";
+  $("#libraryBtn").href = "/?" + new URLSearchParams({ library: "1", project: S.project, video: S.video, scene: S.sel });
   renderMusicMenu();
   if (S.script) renderScript();
   if (S.record) return renderRecord();
