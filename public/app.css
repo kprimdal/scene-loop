@@ -31,7 +31,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* top bar */
 .top { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--paper); border-bottom: 1px solid var(--line); }
-.brand { display: flex; align-items: center; gap: 8px; margin-right: 6px; }
+.brand { display: flex; align-items: center; gap: 8px; margin-right: 6px; color: inherit; text-decoration: none; }
 .brand strong { font-weight: 650; letter-spacing: -0.01em; }
 .mark { width: 18px; height: 18px; border-radius: 5px; background: var(--ink); position: relative; }
 .mark::after { content: ""; position: absolute; inset: 5px; border-radius: 2px; border: 1.5px solid #fff; }
@@ -376,7 +376,7 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .lib-row input { min-width: 0; width: 100%; }
 
 /* Library styles: moving, render-backed examples above the existing music library. */
-.library-tabs { display:flex;gap:8px;margin:0 0 20px; }
+.library-tabs { display:flex;gap:8px;margin:0 auto 20px;max-width:1180px; }
 .library-tabs .on { background:var(--ink);color:var(--paper, #fff); }
 #cardLibrary, #formatLibrary, #sourceLibrary, #musicLibrary, .card-target { max-width:1180px;margin:0 auto; }
 #cardLibrary[hidden], #formatLibrary[hidden], #sourceLibrary[hidden], #musicLibrary[hidden], .card-target[hidden] { display:none; }
@@ -626,3 +626,9 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .format-facts dd { margin:0; }
 .source-row { padding:12px 0; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:6px; }
 .source-row p { margin:0; }
+
+/* ---------- main nav: Projects and Library, in every view ---------- */
+.mainnav { display: flex; gap: 2px; margin-right: 6px; }
+.mainnav a { padding: 6px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 550; font-size: 14px; white-space: nowrap; }
+.mainnav a:hover { color: var(--ink); background: #f2f2f4; }
+.mainnav a.on { color: var(--ink); background: #ececef; }
