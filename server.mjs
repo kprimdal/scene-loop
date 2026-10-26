@@ -144,7 +144,7 @@ const mcp = createMcp({
 });
 
 // ---------- http ----------
-const MIME = { ".ogg": "audio/ogg", ".flac": "audio/flac", ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm" };
+const MIME = { ".ogg": "audio/ogg", ".flac": "audio/flac", ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", ".otf": "font/otf", ".webp": "image/webp", ".gif": "image/gif", ".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav", ".mp4": "video/mp4", ".webm": "video/webm" };
 
 function serveFile(req, res, file) {
   if (!existsSync(file) || !statSync(file).isFile()) return send(res, 404, { error: "not found" });
@@ -294,6 +294,14 @@ async function handle(req, res, user) {
     if (guest) return send(res, 404, { error: "not found" });
     let f = null;
     try { f = demoFile(getCard(cardFile[1]), decodeURIComponent(cardFile[2])); } catch {}
+    return f ? serveFile(req, res, f) : send(res, 404, { error: "not found" });
+  }
+  // A project's brand files (lib/brand.mjs), for its page. Owners only, like project.md;
+  // scenes reach the same files as assets/brand/... under /p/.
+  const brandUrl = url.pathname.match(/^\/brand\/([^/]+)\/(.+)$/);
+  if (brandUrl && req.method === "GET") {
+    let f = null;
+    try { f = guest ? null : registry.brandPath(decodeURIComponent(brandUrl[1]), decodeURIComponent(brandUrl[2])); } catch {}
     return f ? serveFile(req, res, f) : send(res, 404, { error: "not found" });
   }
   // The shared library (lib/library.mjs) is for owners: it spans every project.

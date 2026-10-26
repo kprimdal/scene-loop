@@ -18,4 +18,8 @@ right before a comma or at the end of the sentence. -->
 
 ## Brand
 
+<!-- The brand kit (Brand on the project's page, or get_brand) holds the fonts, colours, logo and
+the rules for how they are used. Write here only what the voice and the script need, e.g. how the
+company name is written. -->
+
 ## Anything else

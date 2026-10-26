@@ -1,6 +1,7 @@
 import { $, h, toast, bytes } from "./util.js";
 import { S, api } from "./state.js";
 import { openInstructions } from "./instructions.js";
+import { renderBrand } from "./brand.js";
 
 const Q = new URLSearchParams(location.search);
 
@@ -143,6 +144,7 @@ function renderProject(p) {
   $("#pTitle").textContent = p.title;
   $("#pSub").replaceChildren(`${p.name} · ${plural(p.videos.length, "video")} · `, ...diskLine(p));
   $("#pTags").replaceChildren(...(p.tags.length ? [tagList(p)] : []));
+  renderBrand(p);
   $("#pActions").replaceChildren(insButton(p), p.layout === "project" ? h("button", { class: "btn dark owner-only", onclick: () => newVideo(p.name) }, "+ New video") : "");
   $("#pVideos").replaceChildren(
     ...(p.videos.length

@@ -44,6 +44,10 @@ Read `README.md` first. Kristian's own video tool, built in the open.
 - A project folder gets a `project.md` next to `storyboard.json` (or at the project root in the
   `videos/` layout). Without it the chat has no pronunciation or voice rules, and `instructions`
   shows false in `list_projects`.
+- A project's look (fonts, colours, logo, shared components) goes in its brand kit, `brand/`
+  (set_brand, add_brand_file), not copied into every video's theme.css and assets/fonts. A video's
+  theme.css and frame.md hold only what is particular to that video. Before 2026-10-26 agents
+  copied a `kit/` folder into each video; kristianprimdal-dk and overdue-clips were moved over.
 
 ## Producing a video
 
