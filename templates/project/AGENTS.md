@@ -5,7 +5,9 @@ app sends you the comments with stills. Your turn's file changes become the scen
 
 - Edit `scene.html` directly. Do not run HyperFrames skills, `hyperframes init` or Studio. The app
   assembles and renders the scenes itself.
-- `frame.md`, if present, is the design spec.
+- The project's brand kit (`brand` in get_rules) holds for every video: its rules, its fonts and
+  its `--brand-*` colours. Brand files are `assets/brand/<file>`. `frame.md`, if present, is the
+  design spec for what is particular to this video.
 - Motion is CSS animations: `animation-delay` is the second in the scene where a move starts, and
   `fill-mode: both` holds the before and after states. Web Animations (`el.animate(...)`) work too.
   The app's clock pauses and seeks every animation, so nothing may run on wall time: no
@@ -45,7 +47,9 @@ app sends you the comments with stills. Your turn's file changes become the scen
   paper, glitch. `assets/sfx/<name>.wav` adds or replaces a sound for this video. Few and quiet:
   an explainer, not a game.
 - Check your change with get_stills or show_scene before you reply.
-- Put video-wide changes (font, colours) in theme.css, not in every scene.
+- Put video-wide changes in theme.css, not in every scene; what every video in the project shares
+  (fonts, palette, logo, images, shared components) goes in the brand kit with set_brand and
+  add_brand_file. Use the kit's logos and images where brand.md says, at their own aspect.
 - The project instructions (first in get_rules) say how names are pronounced and where they may
   sit in a sentence. Follow them in every script and in anything you send to a voice service.
 

@@ -58,6 +58,7 @@
           <div class="p-actions" id="pActions"></div>
           <a class="btn ghost" href="/?all=1">All projects</a>
         </div>
+        <section class="brand-kit" id="pBrand" hidden aria-label="Brand"></section>
         <div class="vrows p-videos" id="pVideos"></div>
       </div>
     </section>
@@ -220,6 +221,28 @@
         <div class="spacer"></div>
         <button class="btn ghost" id="insCancel">Cancel</button>
         <button class="btn dark" id="insSave" title="Save as a new project version (⌘S)">Save</button>
+      </div>
+    </aside>
+    <div class="drawer-shade" id="brandShade" hidden></div>
+    <aside class="drawer brand-drawer" id="brandDrawer" hidden aria-label="Brand">
+      <div class="drawer-head">
+        <div>
+          <b>Brand</b>
+          <div class="muted small" id="brandSub"></div>
+        </div>
+        <div class="spacer"></div>
+        <button class="x" id="brandClose" title="Close (Esc)">×</button>
+      </div>
+      <p class="muted small drawer-note">Every video in this project uses this. brand.md is what the chat reads before it writes a scene. brand.css is loaded in every scene before the video's own theme; name brand files there as assets/brand/&lt;file&gt;.</p>
+      <label class="brand-file">brand.md</label>
+      <textarea id="brandMd" spellcheck="false"></textarea>
+      <label class="brand-file">brand.css</label>
+      <textarea id="brandCss" spellcheck="false"></textarea>
+      <div class="drawer-foot">
+        <span class="muted small" id="brandState"></span>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="brandCancel">Cancel</button>
+        <button class="btn dark" id="brandSave" title="Save as a new project version (⌘S)">Save</button>
       </div>
     </aside>
     <aside class="drawer card-drawer" id="cardDrawer" hidden aria-label="Card"></aside>

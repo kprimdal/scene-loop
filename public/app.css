@@ -226,6 +226,47 @@ body.overview-mode .viewer-only, body:not(.overview-mode) .overview-only { displ
 .p-actions .btn.small { padding: 6px 12px; font-size: 13px; }
 .p-videos { max-width: 1180px; margin: 0 auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 10px; margin-top: 0; }
 
+/* a project's brand kit, above its videos */
+.brand-kit { max-width: 1180px; margin: 0 auto 14px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.brand-kit[hidden] { display: none; }
+.brand-empty, .brand-head { display: flex; align-items: center; gap: 10px; }
+.brand-head { margin-bottom: 10px; }
+.brand-head label.btn { cursor: pointer; }
+.brand-grid { display: flex; flex-wrap: wrap; gap: 14px 32px; }
+.brand-sec { min-width: 0; }
+.brand-label { font-size: 11px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.brand-kit.drop { outline: 2px dashed var(--accent, #2F6FEB); outline-offset: -4px; }
+.brand-logos { display: flex; flex-wrap: wrap; gap: 10px; }
+.brand-images-sec { margin-top: 14px; }
+.brand-images { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.brand-tile { position: relative; margin: 0; min-width: 0; }
+.brand-tile img { display: block; width: 100%; height: 110px; object-fit: contain; cursor: copy; border: 1px solid var(--line); border-radius: 8px; background: repeating-conic-gradient(#f4f4f4 0 25%, #fff 0 50%) 0 0 / 14px 14px; }
+.brand-tile.logo img { width: auto; height: 56px; max-width: 200px; padding: 8px; }
+.brand-tile figcaption { margin-top: 4px; }
+.brand-tile figcaption .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-tile.dark img { background: repeating-conic-gradient(#262626 0 25%, #1c1c1c 0 50%) 0 0 / 14px 14px; border-color: #1c1c1c; }
+.brand-tile .tile-bg { position: absolute; top: 4px; right: 30px; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--paper); color: var(--muted); font-size: 12px; line-height: 1; cursor: pointer; opacity: 0; }
+.brand-tile:hover .tile-bg { opacity: 1; }
+.brand-tile .tile-x { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--paper); color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; opacity: 0; }
+.brand-tile:hover .tile-x, .brand-tile .tile-x:focus-visible { opacity: 1; }
+.brand-tile .tile-x:hover { color: var(--ink); }
+.brand-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; max-width: 640px; }
+.swatch { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.swatch > div { min-width: 0; }
+.swatch .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-more { margin-top: 8px; }
+.brand-more summary { cursor: pointer; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.chip-c { flex: none; width: 26px; height: 26px; border-radius: 7px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.brand-fonts { display: flex; flex-direction: column; gap: 6px; }
+.font-sample { font-size: 22px; line-height: 1.2; }
+.brand-rules { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.brand-rules summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.brand-rules pre { white-space: pre-wrap; font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; margin: 8px 0 0; color: var(--ink); }
+.brand-drawer { width: min(760px, 94vw); }
+.brand-drawer .brand-file { margin: 4px 16px 4px; font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+.brand-drawer textarea { margin-bottom: 6px; }
+
 /* instructions drawer */
 .drawer-shade { position: fixed; inset: 0; z-index: 35; background: rgb(17 18 20 / 0.18); }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 36; width: min(640px, 92vw); display: flex; flex-direction: column; background: var(--paper); border-left: 1px solid var(--line); box-shadow: -12px 0 34px rgb(0 0 0 / 0.12); }
