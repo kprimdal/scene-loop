@@ -1,0 +1,59 @@
+{
+  "id": "presenter",
+  "kind": "pattern",
+  "version": "1.0.0",
+  "title": "Presenter + visuals",
+  "summary": "A speaker beside supporting ideas. Demo uses an original visual stand-in.",
+  "stage": "on-screen",
+  "order": 3,
+  "guidance": "Use a presenter name, label and 1–3 supporting points. media is optional: an existing video (mp4/webm/mov) or image (png/jpg/jpeg/webp) under this video's assets/. Camera clips from list_takes use assets/cam/<source-scene>.mp4 and start at scene time zero. Videos are muted, object-fit cover, freeze at end; ensure their length and crop suit the narration. Omit media for a clearly labelled visual placeholder with no missing request. To use a later camera take, replace that placeholder with the valid cam video via write_scene_html. The region stacks above the points in portrait. Project instructions take priority.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "layout": "presenter",
+    "fields": [
+      {
+        "key": "heading",
+        "label": "Heading",
+        "max": 72
+      },
+      {
+        "key": "name",
+        "label": "Presenter name",
+        "max": 40
+      },
+      {
+        "key": "label",
+        "label": "Presenter label",
+        "max": 60
+      },
+      {
+        "key": "points",
+        "label": "Supporting points",
+        "max": 84,
+        "minItems": 1,
+        "maxItems": 3
+      },
+      {
+        "key": "media",
+        "label": "Project image or camera clip (optional)",
+        "max": 240,
+        "optional": true
+      }
+    ],
+    "defaults": {
+      "heading": "Leave room for discovery",
+      "name": "Alex Morgan",
+      "label": "Your guide to small experiments",
+      "points": [
+        "Start with a question",
+        "Look closely at what changes",
+        "Make the next attempt count"
+      ],
+      "media": ""
+    }
+  }
+}

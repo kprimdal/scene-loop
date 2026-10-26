@@ -1,0 +1,18 @@
+{
+  "title": "Starter library",
+  "description": "The small library that ships with scene-loop: its own styles, motion, transitions, patterns and workflows, and one example of each kind of entry. Point --library at your own library folder to use yours.",
+  "stages": [
+    { "id": "before-script", "title": "Before the script", "intro": "Decide what the video is for before anyone writes a line." },
+    { "id": "hook", "title": "Hook and intro", "intro": "The first seconds decide if anyone sees the rest." },
+    { "id": "script", "title": "Script and recording", "intro": "What is said and how it is captured." },
+    { "id": "main-cut", "title": "Main cut", "intro": "Makes the talking sound natural." },
+    { "id": "motion", "title": "Camera and motion", "intro": "Where the viewer looks, and how it moves." },
+    { "id": "cuts", "title": "Cuts and transitions", "intro": "How one shot becomes the next." },
+    { "id": "on-screen", "title": "On screen", "intro": "What the viewer sees besides the speaker." },
+    { "id": "look", "title": "Look", "intro": "Colours, type and treatment for a whole scene." },
+    { "id": "sound", "title": "Sound", "intro": "Levels and timing. Give the chat numbers: it cannot hear." },
+    { "id": "ending", "title": "Ending", "intro": "Stop while it is good." },
+    { "id": "packaging", "title": "Thumbnail and title", "intro": "Outside the video, but they set what it must deliver." },
+    { "id": "workflow", "title": "Way of working", "intro": "How the video gets made." }
+  ]
+}

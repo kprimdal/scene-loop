@@ -1,0 +1,64 @@
+{
+  "id": "comparison",
+  "kind": "pattern",
+  "version": "1.0.0",
+  "title": "Comparison",
+  "summary": "Put two approaches side by side, with equal weight.",
+  "stage": "on-screen",
+  "order": 2,
+  "guidance": "Use two labels and 1–3 short points per side. Match points in order when possible. Neither side implies good or bad. Both panels arrive early and their points follow. Adapt wording and data-at anchors to narration. Project instructions take priority.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "layout": "comparison",
+    "fields": [
+      {
+        "key": "heading",
+        "label": "Heading",
+        "max": 72
+      },
+      {
+        "key": "leftLabel",
+        "label": "Left side",
+        "max": 32
+      },
+      {
+        "key": "leftPoints",
+        "label": "Left points",
+        "max": 70,
+        "minItems": 1,
+        "maxItems": 3
+      },
+      {
+        "key": "rightLabel",
+        "label": "Right side",
+        "max": 32
+      },
+      {
+        "key": "rightPoints",
+        "label": "Right points",
+        "max": 70,
+        "minItems": 1,
+        "maxItems": 3
+      }
+    ],
+    "defaults": {
+      "heading": "Two ways to find the next idea",
+      "leftLabel": "Explore together",
+      "leftPoints": [
+        "Many perspectives",
+        "A shared starting point",
+        "Make space for surprises"
+      ],
+      "rightLabel": "Explore alone",
+      "rightPoints": [
+        "Time to concentrate",
+        "Follow your own questions",
+        "Bring a fresh view back"
+      ]
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "process",
+  "kind": "pattern",
+  "version": "1.0.0",
+  "title": "Process",
+  "summary": "Turn a sequence into a clear, numbered path.",
+  "stage": "on-screen",
+  "order": 1,
+  "guidance": "Use 2–4 short steps in narration order. Each step appears during the first half of the scene, then holds for reading. Adapt the generated HTML with data-at word anchors after narration is timed. Keep one idea per step. Project instructions take priority.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "layout": "process",
+    "fields": [
+      {
+        "key": "heading",
+        "label": "Heading",
+        "max": 72
+      },
+      {
+        "key": "steps",
+        "label": "Ordered steps",
+        "max": 84,
+        "minItems": 2,
+        "maxItems": 4
+      }
+    ],
+    "defaults": {
+      "heading": "A small idea, ready to grow",
+      "steps": [
+        "Notice what could be better",
+        "Try one small change",
+        "Share what you learn"
+      ]
+    }
+  }
+}

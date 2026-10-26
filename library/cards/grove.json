@@ -1,0 +1,22 @@
+{
+  "id": "grove",
+  "kind": "style",
+  "version": "1.0.0",
+  "title": "Grove",
+  "summary": "Soft mint, deep green, and generous rounded surfaces.",
+  "stage": "look",
+  "order": 3,
+  "tags": [
+    "original",
+    "visual"
+  ],
+  "guidance": "Keep authored content, layout, narration, motion and timing. The treatment sets the root background, ink and font. For intentional surfaces use data-sl-surface; use data-sl-heading, data-sl-muted, data-sl-accent and data-sl-fill for palette roles. Existing explicit child colours/backgrounds remain authored unless assigned a role. Check stills for contrast. Fonts use local fallbacks; package project fonts for portability. Preserve the pinned style block on HTML edits. Project instructions take priority.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "css": "#root { --sl-background:#dfeee6; --sl-ink:#153e35; --sl-muted:#507566; --sl-accent:#22795e; --sl-surface:#f3faf5; --sl-border:#adc9b9; --sl-radius:28px; background:#dfeee6 !important; color:#153e35 !important; font-family:Arial, sans-serif !important; }\n#root * { font-family:inherit !important; }\n#root :is(h1,h2,h3,[data-sl-heading]) { font-family:Arial, sans-serif !important; color:#153e35 !important; }\n#root [data-sl-muted] { color:#507566 !important; }\n#root [data-sl-accent] { color:#22795e !important; }\n#root [data-sl-surface] { background:#f3faf5 !important; color:#153e35 !important; border-color:#adc9b9 !important; border-radius:28px !important; }\n#root [data-sl-fill] { background:#22795e !important; }"
+  }
+}
