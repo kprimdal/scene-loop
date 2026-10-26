@@ -72,6 +72,9 @@ function setLibrarySection(section) {
   }
   $('#cardTarget').hidden=!['cards','formats'].includes(section);
   $('#libAdd').hidden=section!=='music';
+  // The section is in the URL, so a reload or the back button keeps it.
+  const q=new URLSearchParams(location.search);
+  if (q.get('section')!==section) { q.set('section',section); history.replaceState(null,'',`?${q}`); }
   $('#libCount').hidden=section!=='music';
   document.dispatchEvent(new Event('librarysection'));
 }
