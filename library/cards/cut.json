@@ -1,0 +1,18 @@
+{
+  "id": "cut",
+  "kind": "transition",
+  "version": "1.0.0",
+  "title": "Cut",
+  "summary": "The next scene appears at its boundary.",
+  "stage": "cuts",
+  "order": 5,
+  "guidance": "Use for a clear change of scene. No overlap or time removed. The first scene has no incoming boundary.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "duration": 0
+  }
+}

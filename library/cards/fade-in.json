@@ -1,0 +1,27 @@
+{
+  "id": "fade-in",
+  "kind": "motion",
+  "version": "1.0.0",
+  "title": "Fade in",
+  "summary": "Reveal gently, then hold.",
+  "stage": "motion",
+  "order": 1,
+  "guidance": "Use for a quiet entrance. The target is hidden before the cue and stays visible afterwards. Authored opacity and text visibility still apply.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "duration": 0.6,
+    "keyframes": [
+      {
+        "filter": "opacity(0)"
+      },
+      {
+        "filter": "opacity(1)"
+      }
+    ],
+    "easing": "ease-out"
+  }
+}

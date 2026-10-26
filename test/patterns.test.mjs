@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { STARTER, setLibraryDir } from '../lib/cards.mjs';
 import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
@@ -47,11 +48,11 @@ test('creation adapts each pattern, preserves existing scene/text/style/music; e
   await video.updateScene('s01-intro',{narration:'Keep this narration',model:'Tester'});
   await video.setMeta({music:'assets/music/example.mp3',musicLibrary:'example',model:'Tester'});
   const before=await video.sceneHtml('s01-intro'), meta=video.storyboard();
-  const listed=await call('list_patterns');
+  const listed=await call('list_cards',{kind:'pattern'});
   assert.equal(listed.items.length,3);
-  for (const p of listed.items) {
-    const inspection=await call('inspect_pattern',{pattern:p.id});
-    assert.equal(inspection.contentHash,p.contentHash);
+  for (const card of listed.items) {
+    const p=(await call('get_card',{card:card.id})).implementation;
+    assert.equal(p.contentHash.length,64);
     const inputs={...p.defaults,heading:`A different ${p.id} idea`};
     const r=await call('instantiate_pattern',{pattern:p.id,version:p.version,contentHash:p.contentHash,inputs,duration:5,narration:'A different narrated idea.'});
     const created=await video.sceneHtml(r.id);
@@ -87,12 +88,12 @@ test('snapshot survives catalog edits and reopen; preview/export read only autho
   const {root,video,registry,call}=await fixture();
   const r=await call('instantiate_pattern',{pattern:'comparison',inputs:{...inspectPattern('comparison').defaults,heading:'A preserved snapshot'}});
   const original=await video.sceneHtml(r.id);
-  mkdirSync(join(root,'lib'));cpSync(new URL('../lib/patterns.mjs',import.meta.url),join(root,'lib','patterns.mjs'));
-  cpSync(new URL('../catalog',import.meta.url),join(root,'catalog'),{recursive:true});
-  const copy=await import(pathToFileURL(join(root,'lib','patterns.mjs')));
-  const file=join(root,'catalog','patterns','index.json'), next=JSON.parse(readFileSync(file));
-  next[1].version='2.0.0';next[1].guidance='Different';next[1].defaults.heading='Catalog changed';writeFileSync(file,JSON.stringify(next));
-  assert.equal(copy.inspectPattern('comparison').version,'2.0.0');
+  // A scratch copy of the library, never the repository's starter library.
+  const lib=join(root,'library');cpSync(STARTER,lib,{recursive:true});
+  const file=join(lib,'cards','comparison.json'), next=JSON.parse(readFileSync(file));
+  next.version='2.0.0';next.guidance='Different';next.apply.defaults.heading='Catalog changed';writeFileSync(file,JSON.stringify(next));
+  setLibraryDir(lib);
+  try { assert.equal(inspectPattern('comparison').version,'2.0.0'); } finally { setLibraryDir(STARTER); }
   const reopened=await createRegistry(registry.root,{reviewer:'Tester',emit(){}}).get('one','demo');
   assert.deepEqual((await reopened.sceneHtml(r.id)).pattern,original.pattern);
   const sb={...video.storyboard(),scenes:video.storyboard().scenes.filter(s=>s.id===r.id)};

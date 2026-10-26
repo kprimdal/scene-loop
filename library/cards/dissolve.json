@@ -1,0 +1,18 @@
+{
+  "id": "dissolve",
+  "kind": "transition",
+  "version": "1.0.0",
+  "title": "Dissolve",
+  "summary": "Blend in over the previous scene’s held end.",
+  "stage": "cuts",
+  "order": 6,
+  "guidance": "The incoming scene starts at its storyboard time and fades over the outgoing exact-end picture. Total duration and audio timing stay fixed. The first scene has no incoming boundary.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "duration": 0.6
+  }
+}

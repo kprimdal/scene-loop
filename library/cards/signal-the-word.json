@@ -1,0 +1,15 @@
+{
+  "id": "signal-the-word",
+  "kind": "technique",
+  "version": "1",
+  "title": "Show it when it is said",
+  "summary": "Bring a word or picture on screen at the moment the voice says it.",
+  "stage": "on-screen",
+  "what": "Anchor each element to the word that introduces it, so the eye and the ear get the same thing at the same time.",
+  "when": "In every narrated scene with more than one element.",
+  "prompt": { "text": "Bring each element in on the word that introduces it. Use word anchors, not seconds.", "asShown": false },
+  "status": "have",
+  "implementedBy": [{ "tool": "write_scene_html", "note": "data-at=\"word:...\" anchors" }],
+  "related": ["rise"],
+  "sources": [{ "source": "scene-loop" }]
+}
