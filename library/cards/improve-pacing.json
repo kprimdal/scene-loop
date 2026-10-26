@@ -1,0 +1,42 @@
+{
+  "id": "improve-pacing",
+  "kind": "workflow",
+  "version": "1",
+  "title": "Improve pacing",
+  "summary": "Find rushed explanations and empty holds using the script, scene lengths, audio and timed words.",
+  "stage": "workflow",
+  "order": 3,
+  "guidance": "Read get_rules first. Project instructions and the reviewer’s explicit rules take priority over this guide. This is guidance for the chat beside the page, not automatic execution. Read and edit the script in Script view. Do not buy or render final paid narration until the reviewer approves the script word for word. Use existing scene-loop tools; preview with free local audio if needed.",
+  "prompt": {
+    "text": "Review the pacing of this video using this guide. Read project instructions, list scenes, count narration words and inspect available audio/word timing. Show a concise evidence table and at most three targeted changes with scene-local times. Distinguish estimates from measured timing. Inspect actual frames and listen where possible; report limits. Propose script changes for review before any paid narration.",
+    "asShown": false
+  },
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "workflow": [
+      "Read get_rules and list_scenes. Build a small evidence table: scene id, start, duration, narration word count, audio duration/staleness, narration lead and whether word timings exist.",
+      "Compare spoken content and available time. Without audio, label any words-per-minute estimate as provisional, not a measured take. With audio, use the real duration and get_scene_motion word timings; inspect anchorWarnings and sfxWarnings.",
+      "Use show_scene and get_stills around suspected rushes or holds. Name a scene-local time and describe what is visible. Do not infer silence from a still or treat word gaps as measured silence without listening.",
+      "Propose targeted edits in priority order: shorten one line, simplify one visual, or adjust a reading hold. Explain the tradeoff and keep the reviewer’s intended rhythm.",
+      "Apply requested edits with update_scene/write_scene_html. If existing narration audio changes, run fit_scenes_to_narration for those scenes and build_soundtrack when appropriate. Inspect stale audio and lost anchors after script changes. Do not generate paid replacement narration before script approval."
+    ],
+    "example": {
+      "title": "A crowded 4-second explanation",
+      "situation": "A draft scene is 4 s long and has 22 words. There is no audio or word timing yet.",
+      "script": "Before: “A checklist helps us remember every small thing we need to check before we leave the house for a walk every morning.”\nProposed: “Before a walk, check keys, water and weather.”",
+      "visual": "Keep three checks visible together after their reveal. Show one check per phrase rather than 22 words of duplicated narration.",
+      "tools": "list_scenes exposes duration/narration/audio. Count 22 words: 22 ÷ 4 × 60 = 330 provisional words/minute, with no allowance for lead or tail. Propose the 8-word replacement, then update_scene only within the requested edit scope. Inspect get_stills and show_scene. Do not claim measured speech or change a take that does not exist.",
+      "expected": "The proposal targets this scene instead of speeding up the whole video; actual speech and reading time are checked before final timing."
+    },
+    "checklist": [
+      "Is each pacing claim grounded in duration, counted words, actual audio or visible frames?",
+      "Are estimates separated from measured timing?",
+      "Does each proposed edit name a scene/time and the benefit to the viewer?",
+      "Have changed narration, stale takes, word anchors and soundtrack timing been checked?"
+    ]
+  }
+}

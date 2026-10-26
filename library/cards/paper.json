@@ -1,0 +1,22 @@
+{
+  "id": "paper",
+  "kind": "style",
+  "version": "1.0.0",
+  "title": "Paper",
+  "summary": "Warm paper, editorial serifs, and a burnt orange accent.",
+  "stage": "look",
+  "order": 2,
+  "tags": [
+    "original",
+    "visual"
+  ],
+  "guidance": "Keep authored content, layout, narration, motion and timing. The treatment sets the root background, ink and font. For intentional surfaces use data-sl-surface; use data-sl-heading, data-sl-muted, data-sl-accent and data-sl-fill for palette roles. Existing explicit child colours/backgrounds remain authored unless assigned a role. Check stills for contrast. Fonts use local fallbacks; package project fonts for portability. Preserve the pinned style block on HTML edits. Project instructions take priority.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "css": "#root { --sl-background:#f5eddf; --sl-ink:#352b2b; --sl-muted:#77665b; --sl-accent:#b94520; --sl-surface:#fffaf1; --sl-border:#d6c5ae; --sl-radius:2px; background:#f5eddf !important; color:#352b2b !important; font-family:Arial, sans-serif !important; }\n#root * { font-family:inherit !important; }\n#root :is(h1,h2,h3,[data-sl-heading]) { font-family:Georgia, serif !important; color:#352b2b !important; }\n#root [data-sl-muted] { color:#77665b !important; }\n#root [data-sl-accent] { color:#b94520 !important; }\n#root [data-sl-surface] { background:#fffaf1 !important; color:#352b2b !important; border-color:#d6c5ae !important; border-radius:2px !important; }\n#root [data-sl-fill] { background:#b94520 !important; }"
+  }
+}

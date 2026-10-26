@@ -1,0 +1,29 @@
+{
+  "id": "rise",
+  "kind": "motion",
+  "version": "1.0.0",
+  "title": "Rise",
+  "summary": "A small upward entrance with a fade.",
+  "stage": "motion",
+  "order": 3,
+  "guidance": "Use once for a heading or a short group. Adds 28 px of vertical translation without replacing the authored transform. Hidden before the cue; hold afterwards.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "duration": 0.65,
+    "keyframes": [
+      {
+        "filter": "opacity(0)",
+        "translate": "0 28px"
+      },
+      {
+        "filter": "opacity(1)",
+        "translate": "0 0"
+      }
+    ],
+    "easing": "cubic-bezier(0.165,0.84,0.44,1)"
+  }
+}

@@ -2,13 +2,10 @@ import { $, h, toast, audioTime } from "./util.js";
 import { S, api } from "./state.js";
 import { videoUrl } from "./projects.js";
 import { showReferences } from "./references.js";
-import { showGuides } from "./guides.js";
-import { showMotions } from "./motion.js";
-import { showPatterns } from "./patterns.js";
-import { showStyles } from "./styles.js";
+import { showCards, onSection } from "./cards.js";
 import { refresh } from "./data.js";
 
-// ---------- the shared library (music beds) ----------
+// ---------- the Library view: cards (cards.js), references (references.js), music beds ----------
 // /?library=1 is the Library view: every item with a player, its metadata and the videos that
 // use it. In a video, the Music menu in the header shows the bed and sets one from the library.
 // Both read list_library; writes go through the same tools the chat uses, and the upload
@@ -58,27 +55,28 @@ export function renderLibrary() {
 export async function showLibrary() {
   await loadLibrary();
   renderLibrary();
-  await showStyles();
-  await showPatterns();
-  await showMotions();
-  await showGuides();
+  await showCards();
   await showReferences();
-  setLibrarySection(activeSection ?? new URLSearchParams(location.search).get('section') ?? 'styles');
+  setLibrarySection(activeSection ?? new URLSearchParams(location.search).get('section') ?? 'cards');
 }
 
 function setLibrarySection(section) {
   activeSection=section;
-  for (const [name, tab, panel] of [['styles','libStylesTab','styleLibrary'],['patterns','libPatternsTab','patternLibrary'],['motion','libMotionTab','motionLibrary'],['guides','libGuidesTab','guideLibrary'],['references','libReferencesTab','referenceLibrary'],['music','libMusicTab','musicLibrary']]) {
+  const sections=[['cards','libCardsTab','cardLibrary'],['formats','libFormatsTab','formatLibrary'],['sources','libSourcesTab','sourceLibrary'],['references','libReferencesTab','referenceLibrary'],['music','libMusicTab','musicLibrary']];
+  if (!sections.some(([name])=>name===section)) section='cards';
+  for (const [name, tab, panel] of sections) {
     const on=section===name;
     $(`#${panel}`).hidden=!on;
     $(`#${tab}`).classList.toggle('on',on);
     $(`#${tab}`).setAttribute('aria-pressed',on);
   }
+  $('#cardTarget').hidden=!['cards','formats'].includes(section);
   $('#libAdd').hidden=section!=='music';
   $('#libCount').hidden=section!=='music';
   document.dispatchEvent(new Event('librarysection'));
 }
-for (const [id,section] of [['libStylesTab','styles'],['libPatternsTab','patterns'],['libMotionTab','motion'],['libGuidesTab','guides'],['libReferencesTab','references'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
+for (const [id,section] of [['libCardsTab','cards'],['libFormatsTab','formats'],['libSourcesTab','sources'],['libReferencesTab','references'],['libMusicTab','music']]) $(`#${id}`).onclick=()=>setLibrarySection(section);
+onSection(setLibrarySection);
 
 // ---------- the Music menu in a video ----------
 export async function renderMusicMenu() {

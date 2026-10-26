@@ -177,24 +177,24 @@ test("a commenter sees only their project and none of the owner's tools", async 
     assert.equal((await anna(path)).status, 404, path);
   assert.equal((await owner("/p/film/film/.history/HEAD")).status, 404, "nobody gets the history over HTTP");
   assert.deepEqual((await anna("/api/tools")).json, []);
-  for (const name of ["list_guides", "inspect_guide", "use_guide_once", "get_video_guides", "attach_guide", "remove_guide", "undo_guides", "list_motions", "inspect_motion", "get_scene_motion", "apply_motion", "remove_motion", "apply_transition", "undo_transition", "reset_transition", "list_styles", "inspect_style", "apply_style", "remove_style", "set_scene_text", "get_scene_subtitles", "generate_scene_subtitles", "set_scene_subtitles", "list_patterns", "inspect_pattern", "instantiate_pattern"]) {
+  for (const name of ["list_cards", "get_card", "list_formats", "list_sources", "use_card_once", "get_video_cards", "attach_card", "detach_card", "undo_cards", "get_scene_motion", "apply_motion", "remove_motion", "apply_transition", "undo_transition", "reset_transition", "apply_style", "remove_style", "set_scene_text", "get_scene_subtitles", "generate_scene_subtitles", "set_scene_subtitles", "instantiate_pattern"]) {
     assert.equal((await anna(`/api/tools/${name}?project=film`, { json: { args: { style: "paper", scene: "s01-intro", model: "test" } } })).status, 403, `commenter cannot call ${name}`);
   }
-  for (const name of ["get_video_guides", "use_guide_once", "attach_guide", "remove_guide", "undo_guides"]) {
-    assert.equal((await anna(`/api/tools/${name}`, {json:{args:{project:"secret",video:"secret",guide:"explain-concept",model:"test"}}})).status,403);
+  for (const name of ["get_video_cards", "use_card_once", "attach_card", "detach_card", "undo_cards"]) {
+    assert.equal((await anna(`/api/tools/${name}`, {json:{args:{project:"secret",video:"secret",card:"explain-concept",model:"test"}}})).status,403);
     assert.equal((await anna(`/api/tools/${name}?project=secret`, {json:{args:{project:"secret",video:"secret"}}})).status,404);
   }
-  assert.equal((await anna("/api/patterns/process/preview")).status, 403);
-  assert.equal((await anna("/api/patterns/process/preview?project=secret")).status, 404);
-  assert.equal((await owner("/api/patterns/process/preview")).status, 200);
-  assert.equal((await owner("/api/patterns/process/preview?contentHash=stale")).status, 409);
+  assert.equal((await anna("/api/cards/process/preview")).status, 403);
+  assert.equal((await anna("/api/cards/process/preview?project=secret")).status, 404);
+  assert.equal((await owner("/api/cards/process/preview")).status, 200);
+  assert.equal((await owner("/api/cards/process/preview?contentHash=stale")).status, 409);
+  assert.equal((await owner("/api/cards/review-video/preview")).status, 404, "a workflow has no demo");
+  assert.equal((await owner("/api/cards/nope/preview")).status, 404);
+  assert.equal((await owner("/api/cards/process/files/..%2F..%2Flibrary.json")).status, 404, "no file outside a demo folder");
   assert.equal((await owner("/api/tools/instantiate_pattern?project=film", { json:{args:{pattern:"process",title:"Owner creates",model:"test"}} })).status,200);
-  assert.equal((await anna("/api/styles/paper/preview")).status, 403);
-  assert.equal((await anna("/api/styles/paper/preview?project=secret")).status, 404);
-  assert.equal((await owner("/api/styles/paper/preview")).status, 200);
-  for (const id of ["fade-in","fade-out","rise","pop","cut","dissolve"]) {
-    assert.equal((await anna(`/api/motions/${id}/preview`)).status,403);
-    assert.equal((await owner(`/api/motions/${id}/preview`)).status,200);
+  for (const id of ["paper", "fade-in", "fade-out", "rise", "pop", "cut", "dissolve"]) {
+    assert.equal((await anna(`/api/cards/${id}/preview`)).status, 403);
+    assert.equal((await owner(`/api/cards/${id}/preview`)).status, 200);
   }
   const style = await owner("/api/tools/apply_style?project=film", { json: { args: { style: "paper", scene: "s01-intro", model: "test" } } });
   assert.equal(style.status, 200);

@@ -26,10 +26,10 @@ for(const layout of ['project','legacy','single'])test(`references persist priva
   const f=fixture(layout);t.after(()=>rmSync(f.root,{recursive:true,force:true}));
   const {call,change,attach,list,registry,pr,project,video}=f;
   if(layout==='project') {
-    const style=(await call('list_styles')).items[0];await call('apply_style',{style:style.id,scene:'s01-intro'});
+    const style=(await call('list_cards',{kind:'style'})).items[0];await call('apply_style',{style:style.id,scene:'s01-intro'});
     await call('set_scene_text',{scene:'s01-intro',items:[{id:'text-study',text:'Keep this pin',position:'lower',style:'plain',start:0,end:2}]});
     await call('apply_motion',{scene:'s01-intro',motion:'pop',target:'scene',start:0,duration:.5});
-    await call('attach_guide',{guide:'explain-concept'});
+    await call('attach_card',{card:'explain-concept'});
     await call('instantiate_pattern',{pattern:'process',id:'pinned-pattern',title:'Keep pattern',duration:4});
   }
   const otherRules=await call('get_rules');

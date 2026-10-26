@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { STARTER, setLibraryDir } from '../lib/cards.mjs';
 import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -46,8 +47,8 @@ test('style scene scope: pin, context, preserve content/music/timing/comments, r
   assert.match(rules.instructions, /approved wording/);
   assert.deepEqual(rules.styles[0].style, inspectStyle('paper'));
   assert.deepEqual((await call('list_scenes')).scenes[0].style, styled.style);
-  assert.equal((await call('list_styles')).items.length, 3);
-  assert.match((await call('inspect_style', { style: 'paper' })).exampleHtml, /data-sl-surface/);
+  assert.equal((await call('list_cards', { kind: 'style' })).items.length, 3);
+  assert.match((await call('get_card', { card: 'paper' })).implementation.exampleHtml, /data-sl-surface/);
   assert.ok(toolList().some((t) => t.name === 'apply_style' && t.inputSchema.properties.project));
   // New agent-authored content keeps the exact pin even if its replacement HTML omits it.
   await call('write_scene_html', { scene: id, html: before.replace('My video', 'A revised heading'), resolves: [] });
@@ -80,18 +81,19 @@ test('video scope changes every current scene, is idempotent, and removal uses o
   await assert.rejects(call('remove_style', { scope: 'oops' }), /scope/);
 });
 
-test('later catalog updates cannot change the pinned CSS, agent context, preview or export build', async () => {
+test('later catalog updates cannot change the pinned CSS, agent context, preview or export build', async (t) => {
   const { root, video, call } = await fixture();
-  // Update a scratch catalog, never the repository's catalog or a production project.
-  mkdirSync(join(root, 'lib'), { recursive: true });
-  cpSync(new URL('../lib/styles.mjs', import.meta.url), join(root, 'lib', 'styles.mjs'));
-  cpSync(new URL('../catalog', import.meta.url), join(root, 'catalog'), { recursive: true });
-  const catalog = await import(pathToFileURL(join(root, 'lib', 'styles.mjs')));
+  // Update a scratch copy of the library, never the repository's starter library or a production project.
+  const lib = join(root, 'library');
+  cpSync(STARTER, lib, { recursive: true });
+  setLibraryDir(lib);
+  t.after(() => setLibraryDir(STARTER));
+  const catalog = { inspectStyle };
   const original = catalog.inspectStyle('signal');
   await video.setStyle(original, { scene: 's01-intro' });
-  const file = join(root, 'catalog', 'styles', 'index.json');
+  const file = join(lib, 'cards', 'signal.json');
   const next = JSON.parse(readFileSync(file, 'utf8'));
-  next[0].version = '2.0.0'; next[0].css = '#root { background:red !important; }';
+  next.version = '2.0.0'; next.apply.css = '#root { background:red !important; }';
   writeFileSync(file, JSON.stringify(next));
   assert.equal(catalog.inspectStyle('signal').version, '2.0.0');
   const current = await video.sceneHtml('s01-intro');

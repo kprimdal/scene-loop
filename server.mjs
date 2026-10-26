@@ -12,14 +12,15 @@
 //   The people who may log in are in <dir>/.people.json (lib/people.mjs, managed on /people);
 //   --invite-owner adds the first owner and prints their invite link. See lib/auth.mjs.
 import { createServer } from "node:http";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync, statSync, realpathSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, statSync, realpathSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { dirname, extname, join, resolve, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectMotion, motionExample } from "./lib/motion.mjs";
 import { inspectPattern, patternExample } from "./lib/patterns.mjs";
 import { inspectStyle, styleExample } from "./lib/styles.mjs";
-import { examplePage } from "./lib/assemble.mjs";
+import { examplePage, demoPage } from "./lib/assemble.mjs";
+import { getCard, setLibraryDir, libraryDir, loadLibrary, demoFile } from "./lib/cards.mjs";
 import { serveReferenceMedia, readReferenceUpload, MAX_REFERENCE_BYTES } from "./lib/references.mjs";
 import { createRegistry } from "./lib/projects.mjs";
 import { toolList, callTool, withoutFiles } from "./lib/tools.mjs";
@@ -40,6 +41,9 @@ const rootArg = resolve(args.find((a, i) => !a.startsWith("--") && !takesValue(i
 const REVIEWER = flag("--reviewer") ?? process.env.SCENE_LOOP_REVIEWER ?? "The reviewer";
 const HOST = flag("--host") ?? process.env.SCENE_LOOP_HOST ?? "127.0.0.1";
 const PUBLIC_URL = flag("--url") ?? process.env.SCENE_LOOP_URL;
+// --library <dir>: the Library folder (cards, formats, sources, demos). Without it, the starter
+// library in this repository. SCENE_LOOP_LIBRARY does the same.
+if (flag("--library")) setLibraryDir(flag("--library"));
 if (!existsSync(rootArg) || !statSync(rootArg).isDirectory()) {
   console.error(`${rootArg} is not a directory. Usage: node server.mjs <projectDir|projectsRoot> [--port 4300] [--host 127.0.0.1] [--reviewer Name]`);
   process.exit(1);
@@ -132,7 +136,8 @@ const mcp = createMcp({
   serverInfo: { name: "scene-loop", version: VERSION },
   instructions:
     "scene-loop makes videos scene by scene. Scenes are HTML files; every write becomes a version with stills, and a reviewer pins comments on frames in the web UI. " +
-    "Projects hold videos. Call get_rules first: the project's instructions (how names are pronounced, voice, tone) come first and hold for every script and voiceover, then the video's rules and the scene contract. " +
+    "Projects hold videos. Call get_rules first: the project's instructions (how names are pronounced, voice, tone) come first and hold for every script and voiceover, then the video's format, its attached Library cards, the video's rules and the scene contract. " +
+    "The Library (list_cards, get_card, list_formats) holds techniques for making a video good, each with when to use it and a prompt, and the styles, motion, transitions and patterns scene-loop can apply. " +
     "Use list_projects to see projects and their videos; pass `project` and `video` when there is more than one. " +
     "After write_scene_html, call get_stills to see the frames. Comments from the reviewer come through get_pending_comments with a still each; pass their ids in resolves when you apply them. " +
     "Pass your model name in `model` on writes. render starts a job; poll get_render.",
@@ -266,30 +271,30 @@ async function handle(req, res, user) {
     const devices = { camera: url.searchParams.get("camera")?.slice(0, 200) || null, mic: url.searchParams.get("mic")?.slice(0, 200) || null };
     return send(res, 200, await (await ctx.p()).addTake(take[1], { stream: req, mime: type, model: user.name, devices }));
   }
-  const motionPreview = url.pathname.match(/^\/api\/motions\/([a-z-]+)\/preview$/);
-  if (motionPreview && req.method==='GET') {
-    if (guest) return send(res,403,{error:"Your account can watch and comment only."});
-    const p=inspectMotion(motionPreview[1]);
-    if (url.searchParams.has('contentHash') && url.searchParams.get('contentHash')!==p.contentHash) return send(res,409,{error:'This motion changed. Refresh the Library.'});
-    res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'});
-    return res.end(examplePage(motionExample(p),p.kind==='transition'?{type:p.id,duration:p.duration}:null));
-  }
-  const patternPreview = url.pathname.match(/^\/api\/patterns\/([a-z-]+)\/preview$/);
-  if (patternPreview && req.method === 'GET') {
+  // A card's moving example: its demo scene from the library, or the example its
+  // implementation makes (style, motion, transition, pattern). Owners only, like the Library.
+  const cardPreview = url.pathname.match(/^\/api\/cards\/([a-z0-9-]+)\/preview$/);
+  if (cardPreview && req.method === "GET") {
     if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
-    const p = inspectPattern(patternPreview[1]);
-    if (url.searchParams.has('contentHash') && url.searchParams.get('contentHash') !== p.contentHash) return send(res, 409, { error:'This pattern changed. Refresh the Library.' });
-    res.writeHead(200, { 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-cache' });
-    return res.end(examplePage(patternExample(p)));
-  }
-  const stylePreview = url.pathname.match(/^\/api\/styles\/([a-z-]+)\/preview$/);
-  if (stylePreview && req.method === "GET") {
-    if (guest) return send(res, 403, { error: "Your account can watch and comment only." });
-    const style = inspectStyle(stylePreview[1]);
-    if (url.searchParams.has("contentHash") && url.searchParams.get("contentHash") !== style.contentHash) return send(res, 409, { error: "This style changed. Refresh the Library." });
-    const html = examplePage(styleExample(style));
+    let c;
+    try { c = getCard(cardPreview[1]); } catch (e) { return send(res, 404, { error: e.message }); }
+    if (url.searchParams.has("contentHash") && url.searchParams.get("contentHash") !== c.contentHash) return send(res, 409, { error: "This card changed. Refresh the Library." });
+    let html;
+    if (c.demo) html = demoPage(readFileSync(demoFile(c), "utf8"), `/api/cards/${c.id}/files/`);
+    else if (c.kind === "style") html = examplePage(styleExample(inspectStyle(c.id)));
+    else if (c.kind === "pattern") html = examplePage(patternExample(inspectPattern(c.id)));
+    else if (c.kind === "motion" || c.kind === "transition") { const p = inspectMotion(c.id); html = examplePage(motionExample(p), p.kind === "transition" ? { type: p.id, duration: p.duration } : null); }
+    else return send(res, 404, { error: `${c.title} has no demo yet.` });
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
     return res.end(html);
+  }
+  // The files next to a demo (images, clips), for its preview page.
+  const cardFile = url.pathname.match(/^\/api\/cards\/([a-z0-9-]+)\/files\/(.+)$/);
+  if (cardFile && req.method === "GET") {
+    if (guest) return send(res, 404, { error: "not found" });
+    let f = null;
+    try { f = demoFile(getCard(cardFile[1]), decodeURIComponent(cardFile[2])); } catch {}
+    return f ? serveFile(req, res, f) : send(res, 404, { error: "not found" });
   }
   // The shared library (lib/library.mjs) is for owners: it spans every project.
   const lib = url.pathname.match(/^\/library\/([a-z]+)\/([^/]+)$/);
@@ -369,6 +374,9 @@ server.listen(PORT, HOST, async () => {
   const videos = names.flatMap((n) => registry.videoNames(n).map((v) => [n, v]));
   const shown = `http://${["0.0.0.0", "::", "127.0.0.1"].includes(HOST) ? "localhost" : HOST.includes(":") ? `[${HOST}]` : HOST}:${PORT}`;
   console.log(`scene-loop ${VERSION} on ${shown}${HOST === "127.0.0.1" ? "" : ` (listening on ${HOST})`}  (${registry.single ? `one video in ${rootArg}` : `${names.length} project(s), ${videos.length} video(s) in ${rootArg}`})`);
+  const library = loadLibrary();
+  console.log(`Library: ${library.title}, ${library.cards.length} cards, ${library.formats.length} formats, ${library.sources.length} sources (${libraryDir()})`);
+  for (const e of library.errors) console.warn(`Library: ${e.file} left out: ${e.problems.join("; ")}`);
   if (auth.enabled()) console.log(`Login on (${people.list().filter((p) => p.email).length} people). MCP needs a bearer token or the OAuth flow; see docs/self-host.md.`);
   else console.log(`MCP: claude mcp add --transport http scene-loop ${shown}/mcp`);
   if (args.includes("--no-login") && people.loginsOn()) console.warn("--no-login is ignored: there are people on the list, so everyone logs in.");

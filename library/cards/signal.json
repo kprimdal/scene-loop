@@ -1,0 +1,22 @@
+{
+  "id": "signal",
+  "kind": "style",
+  "version": "1.0.0",
+  "title": "Signal",
+  "summary": "Electric blue, crisp type, and a dark canvas.",
+  "stage": "look",
+  "order": 1,
+  "tags": [
+    "original",
+    "visual"
+  ],
+  "guidance": "Keep authored content, layout, narration, motion and timing. The treatment sets the root background, ink and font. For intentional surfaces use data-sl-surface; use data-sl-heading, data-sl-muted, data-sl-accent and data-sl-fill for palette roles. Existing explicit child colours/backgrounds remain authored unless assigned a role. Check stills for contrast. Fonts use local fallbacks; package project fonts for portability. Preserve the pinned style block on HTML edits. Project instructions take priority.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "css": "#root { --sl-background:#101a32; --sl-ink:#f3f5ff; --sl-muted:#aab9d8; --sl-accent:#83a9ff; --sl-surface:#1c2b49; --sl-border:#344a72; --sl-radius:16px; background:#101a32 !important; color:#f3f5ff !important; font-family:Arial, sans-serif !important; }\n#root * { font-family:inherit !important; }\n#root :is(h1,h2,h3,[data-sl-heading]) { font-family:Arial, sans-serif !important; color:#f3f5ff !important; }\n#root [data-sl-muted] { color:#aab9d8 !important; }\n#root [data-sl-accent] { color:#83a9ff !important; }\n#root [data-sl-surface] { background:#1c2b49 !important; color:#f3f5ff !important; border-color:#344a72 !important; border-radius:16px !important; }\n#root [data-sl-fill] { background:#83a9ff !important; }"
+  }
+}
