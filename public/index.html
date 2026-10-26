@@ -9,13 +9,15 @@
   </head>
   <body>
     <header class="top">
-      <div class="brand">
+      <a class="brand" href="/?all=1" title="Every project">
         <span class="mark"></span>
         <strong>Scene loop</strong>
-      </div>
+      </a>
+      <nav class="mainnav" aria-label="Main">
+        <a id="projectsNav" href="/?all=1" title="Every project and video">Projects</a>
+        <a class="owner-only" id="libraryBtn" href="/?library=1" title="Techniques, formats, styles, motion and shared music">Library</a>
+      </nav>
       <nav class="crumbs viewer-only" id="crumbs">
-        <a class="crumb-all" id="allProjects" href="/?all=1" title="Every project and video">All projects</a>
-        <span class="sep" id="allSep">/</span>
         <select id="projectSel" class="project-sel" title="Project"></select>
         <span class="sep">/</span>
         <select id="videoSel" class="project-sel" title="Video"></select>
@@ -28,7 +30,6 @@
         <summary class="btn" id="musicBtn" title="The video's music bed, and the beds in the library">Music</summary>
         <div id="musicList" class="menu music-menu"></div>
       </details>
-      <a class="btn owner-only" id="libraryBtn" href="/?library=1" title="Techniques, formats, styles, motion and shared music">Library</a>
       <span class="muted small viewer-only" id="renderState"></span>
       <details class="renders viewer-only">
         <summary class="btn">Renders</summary>
@@ -66,7 +67,7 @@
         <h1 id="libTitle">Library</h1>
         <span class="muted" id="libCount"></span>
         <div class="spacer"></div>
-        <a class="btn ghost" href="/?all=1">All projects</a>
+        <a class="btn" id="libBack" hidden></a>
         <button class="btn dark owner-only" id="libAdd" title="Upload a music file with what is known about it">+ Add file</button>
       </div>
       <nav class="library-tabs" aria-label="Library sections">

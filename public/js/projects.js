@@ -44,7 +44,6 @@ export function pickView() {
 export function renderCrumbs() {
   const p = proj();
   // Always a way back: the overview is where new projects and videos are made.
-  $("#allProjects").hidden = $("#allSep").hidden = !!S.single;
   $("#projectSel").replaceChildren(...S.projects.filter((x) => x.videos.length).map((x) => h("option", { value: x.name, selected: x.name === S.project }, x.title)));
   $("#videoSel").replaceChildren(...p.videos.map((v) => h("option", { value: v.name, selected: v.name === S.video }, v.title)));
 }
