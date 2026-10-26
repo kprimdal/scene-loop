@@ -1,0 +1,27 @@
+{
+  "id": "fade-out",
+  "kind": "motion",
+  "version": "1.0.0",
+  "title": "Fade out",
+  "summary": "Disappear gently, then stay hidden.",
+  "stage": "motion",
+  "order": 2,
+  "guidance": "Use near the end of a thought. The target stays visible before the cue and hidden afterwards. Exact-end pictures hold this state under a dissolve.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "duration": 0.6,
+    "keyframes": [
+      {
+        "filter": "opacity(1)"
+      },
+      {
+        "filter": "opacity(0)"
+      }
+    ],
+    "easing": "ease-in"
+  }
+}

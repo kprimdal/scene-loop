@@ -1,0 +1,18 @@
+{
+  "id": "widescreen",
+  "version": "1",
+  "title": "Widescreen video",
+  "summary": "A 16:9 video for a website, a course or YouTube.",
+  "aspect": "16:9",
+  "width": 1920,
+  "height": 1080,
+  "length": "1 to 15 minutes",
+  "hook": "The first 30 seconds",
+  "captions": "Optional",
+  "rules": [
+    "Say in the first 30 seconds what the viewer gets from the video.",
+    "One idea per scene."
+  ],
+  "cards": ["signal-the-word", "explain-concept"],
+  "sources": [{ "source": "scene-loop" }]
+}

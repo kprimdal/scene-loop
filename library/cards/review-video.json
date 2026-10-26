@@ -1,0 +1,42 @@
+{
+  "id": "review-video",
+  "kind": "workflow",
+  "version": "1",
+  "title": "Review a video",
+  "summary": "Give a prioritized review with concrete scene/time observations and an actionable next edit.",
+  "stage": "workflow",
+  "order": 4,
+  "guidance": "Read get_rules first. Project instructions and the reviewer’s explicit rules take priority over this guide. This is guidance for the chat beside the page, not automatic execution. Read and edit the script in Script view. Do not buy or render final paid narration until the reviewer approves the script word for word. Use existing scene-loop tools; preview with free local audio if needed.",
+  "prompt": {
+    "text": "Review this video using this guide. Follow project instructions and pending reviewer comments. Inspect actual frames and available diagnostics, then report at most three priorities with scene id, scene-local time, observation, viewer impact and a specific next edit. Separate observations from assumptions and state coverage limits. Leave scene edits and comment resolution for an explicit request.",
+    "asShown": false
+  },
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "workflow": [
+      "Read get_rules, list_scenes and get_pending_comments. Establish the video’s goal and audience; pending reviewer comments are part of the brief.",
+      "Inspect get_scene_html when you need implementation context. Use get_stills and show_scene to inspect the opening, each key explanation and each boundary. Read missingAssets, systemFonts, anchorWarnings, sfxWarnings and stale-audio flags.",
+      "For each finding, record scene id, scene-local time (and video time when useful), visible or audible observation, viewer impact and one specific next edit. Separate observations from assumptions.",
+      "Prioritize blockers first (missing media, unreadable essential text, incorrect sequence), comprehension second, polish third. State which parts you inspected and which audio/motion you could not assess.",
+      "Return a short review with up to three priorities and a checklist. Use add_comment with scene, t and text for requested pinned review notes. Do not mark existing comments resolved or edit scenes unless requested."
+    ],
+    "example": {
+      "title": "A result arrives before its cause",
+      "situation": "An illustrated workflow scene named save-demo begins at video time 12 s. You inspect the frame at scene time 2.4 s.",
+      "script": "“Save the checklist, then find it in the list.”",
+      "visual": "Suppose the inspected frame shows a success badge while the Save control is still obscured. Report that specific ordering if observed; do not assert it from this example alone.",
+      "tools": "Use show_scene for save-demo and get_stills for its saved version. If the ordering is observed, report “P2 · save-demo · +2.4 s (video 14.4 s): Success appears before the Save action is visible. Reveal the Save action before the confirmation.” add_comment can pin that text at t: 2.4 when review notes are requested.",
+      "expected": "The reviewer can locate and assess each claim, and the next edit has a clear purpose."
+    },
+    "checklist": [
+      "Does every finding name an inspected scene and time?",
+      "Are the top issues prioritized by viewer impact?",
+      "Does each issue propose a concrete next edit without implying it already happened?",
+      "Are review coverage, unverified audio/motion and existing reviewer comments explicit?"
+    ]
+  }
+}

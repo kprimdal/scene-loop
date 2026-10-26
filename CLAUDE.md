@@ -36,6 +36,11 @@ Read `README.md` first. Kristian's own video tool, built in the open.
 - **Branch work on agent-server goes in a worktree** (`git worktree add /srv/work/scene-loop-<name>
   -b <name> main`), never in `/srv/work/scene-loop` itself: the deploy cron hard-resets that
   checkout to origin/main (it skips when the checkout is not on main, but do not rely on it).
+- **Library content is not in this repo.** `library/` here is the small starter (our own styles,
+  motion, patterns, workflows). What we learn about making videos good (technique cards, formats,
+  sources, demos) goes in the private repo `kprimdal/scene-loop-library`
+  (`/srv/work/scene-loop-library` on agent-server), loaded with `--library`. Its CLAUDE.md says how
+  to add a source; check with `node bin/check-library.mjs <dir>` from here.
 - A project folder gets a `project.md` next to `storyboard.json` (or at the project root in the
   `videos/` layout). Without it the chat has no pronunciation or voice rules, and `instructions`
   shows false in `list_projects`.

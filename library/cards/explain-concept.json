@@ -1,0 +1,42 @@
+{
+  "id": "explain-concept",
+  "kind": "workflow",
+  "version": "1",
+  "title": "Explain a concept",
+  "summary": "Turn one idea into a spoken explanation and a visual that makes the relationship clear.",
+  "stage": "workflow",
+  "order": 1,
+  "guidance": "Read get_rules first. Project instructions and the reviewer’s explicit rules take priority over this guide. This is guidance for the chat beside the page, not automatic execution. Read and edit the script in Script view. Do not buy or render final paid narration until the reviewer approves the script word for word. Use existing scene-loop tools; preview with free local audio if needed.",
+  "prompt": {
+    "text": "Help me explain one concept in this video. Ask for the concept/audience if they are missing. Read project instructions first, inspect existing scenes, propose one learning goal, and map a concise script to a concrete visual relationship. Use this guide’s workflow and checklist. Put script drafts in the video for review; inspect the actual frames and report the result.",
+    "asShown": false
+  },
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "workflow": [
+      "Use get_rules and list_scenes to identify the audience, existing narration and one idea the viewer should understand. State the learning goal in one sentence.",
+      "Write a short script: familiar situation, new relationship, then a concrete consequence. Put proposed narration into create_scene or update_scene so the reviewer can read it in Script view.",
+      "Map each sentence to visible evidence, not a second paragraph of on-screen text. Inspect the comparison or process pattern with inspect_pattern when it fits; instantiate_pattern adds a new editable scene.",
+      "Use get_scene_html and write_scene_html to adapt the visual to the explanation. Use CSS/WAAPI and data-at word anchors when words are timed; otherwise use explicit authored fallback seconds.",
+      "Inspect get_stills and show_scene at the explanation’s key moments. Report what the visual explains, what remains uncertain, and any script that needs approval."
+    ],
+    "example": {
+      "title": "A rain barrel is a buffer",
+      "situation": "An original explanation for someone new to water storage. No footage or voice is required for this draft.",
+      "script": "Rain arrives in bursts. A barrel stores some of that water. Later, the garden can use it a little at a time.",
+      "visual": "Three labelled cards: Rain → Barrel → Garden. First show an uneven stream into the barrel; then a smaller stream out. Keep the barrel visible across both moments so storage is the relationship, not just three unrelated nouns.",
+      "tools": "Inspect process, then instantiate_pattern with heading “A barrel buffers a burst” and steps [“Rain arrives”, “Barrel stores”, “Garden uses”], duration 10, and the script as narration. Read get_scene_html, replace the generic cards with the two streams if useful, then inspect get_stills. This proposes a draft; it does not claim these calls ran.",
+      "expected": "The viewer can explain why the garden still receives water after the rain stops."
+    },
+    "checklist": [
+      "Does each sentence have visible evidence at the moment it matters?",
+      "Can the viewer identify what enters, what is stored and what leaves?",
+      "Is on-screen text shorter than the narration, with no unsupported claims?",
+      "Have you checked the actual scene and left final narration for script approval?"
+    ]
+  }
+}

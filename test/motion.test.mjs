@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { STARTER, setLibraryDir } from '../lib/cards.mjs';
 import assert from 'node:assert/strict';
 import { mkdtempSync,cpSync,mkdirSync,readFileSync,writeFileSync,readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -36,7 +37,7 @@ test('bounded implemented catalog, serialized snapshots, safe timing/anchors/ids
 test('tools preserve authored/pattern/style/text state; stale contexts and incompatible target changes fail before writes; removal and restore',async()=>{
   const{video,registry,call}=await fixture();
   const other=await registry.get('other','demo'), untouched=(await other.sceneHtml('s01-intro')).html;
-  for(const channel of ['page','mcp'])for(const name of ['list_motions','inspect_motion','get_scene_motion','apply_motion','remove_motion','apply_transition','reset_transition','undo_transition'])assert.ok(toolList(channel).some(t=>t.name===name));
+  for(const channel of ['page','mcp'])for(const name of ['list_cards','get_card','get_scene_motion','apply_motion','remove_motion','apply_transition','reset_transition','undo_transition'])assert.ok(toolList(channel).some(t=>t.name===name));
   const p=await call('instantiate_pattern',{pattern:'process',inputs:{heading:'A new process',steps:['Choose','Make','Check']}});
   await call('apply_style',{scene:p.id,style:'paper'});
   await call('set_scene_text',{scene:p.id,items:[{id:'text-name',text:'Keep this title',position:'lower',style:'dark',start:.1,end:3}]});
@@ -80,11 +81,11 @@ test('narration cues re-time with new words, missing/out-of-scene cues report fa
   await call('remove_narration_words');
   const missing=await call('get_scene_motion');assert.equal(missing.timing[0].t,.3);assert.match(missing.timing[0].warnings.join(' '),/not found/);
   assert.ok((await call('list_scenes')).scenes[0].motionWarnings.length);
-  const copyRoot=join(root,'copy');mkdirSync(join(copyRoot,'lib'),{recursive:true});
-  for(const file of ['motion.mjs','motion-runtime.mjs','chrome.mjs'])cpSync(new URL('../lib/'+file,import.meta.url),join(copyRoot,'lib',file));
-  cpSync(new URL('../catalog',import.meta.url),join(copyRoot,'catalog'),{recursive:true});
-  const file=join(copyRoot,'catalog/motion/index.json'),data=JSON.parse(readFileSync(file));data[2].version='2';data[2].keyframes[0].translate='0 900px';writeFileSync(file,JSON.stringify(data));
-  const copy=await import(pathToFileURL(join(copyRoot,'lib/motion.mjs')));assert.equal(copy.inspectMotion('rise').version,'2');
+  // A library change gives a new version to inspect; saved choices keep their pinned copy.
+  const libCopy=join(root,'library');cpSync(STARTER,libCopy,{recursive:true});
+  const file=join(libCopy,'cards/rise.json'),data=JSON.parse(readFileSync(file));data.version='2';data.apply.keyframes[0].translate='0 900px';writeFileSync(file,JSON.stringify(data));
+  setLibraryDir(libCopy);
+  try { assert.equal(inspectMotion('rise').version,'2'); } finally { setLibraryDir(STARTER); }
   const reopened=await createRegistry(registry.root,{reviewer:'Tester',emit(){}}).get('one','demo');assert.deepEqual((await reopened.sceneHtml('s01-intro')).motions,original.motions);
   await assert.rejects(call('update_scene',{duration:.4}),/Edit or remove motion/);
 });

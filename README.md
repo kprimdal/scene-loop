@@ -76,7 +76,8 @@ The tools, all defined once in `lib/tools.mjs`:
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
 | Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render`, `delete_renders` |
-| Library | `list_styles`, `inspect_style`, `apply_style`, `remove_style`, `list_patterns`, `inspect_pattern`, `instantiate_pattern`, `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
+| Library | `list_cards`, `get_card`, `list_formats`, `list_sources`, `get_video_cards`, `attach_card`, `detach_card`, `undo_cards`, `use_card_once`, `apply_style`, `remove_style`, `get_scene_motion`, `apply_motion`, `remove_motion`, `apply_transition`, `undo_transition`, `reset_transition`, `instantiate_pattern` |
+| Music | `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
 
 Stills come back as images in the tool result, so Claude sees its own frames in the chat. Every
 write becomes a version that records the model and the channel it came through (`mcp`, `webmcp`
@@ -120,6 +121,9 @@ chat or the New project button, and inside it one folder per video (`create_vide
 video on the project's page). Each video keeps its own versions, comments and renders. `/` shows a
 card per project, `?project=x` lists that project's videos, and `?project=x&video=y` opens one.
 With only one project, `/` goes straight to its page, or to its video if it has just one.
+
+`--library ~/my-library` points the Library at your own folder of cards, formats and sources (see
+[The Library](#the-library)); without it the starter library in `library/` is used.
 
 Older layouts still work without moving anything. Point the server at a folder that has a
 `storyboard.json` and it serves that one video. A root whose folders each have a `storyboard.json`
@@ -377,19 +381,81 @@ Third-party code and the required notice are in [NOTICE.md](NOTICE.md).
 
 I'm not taking pull requests yet. Issues are welcome.
 
-## Visual styles in the Library
+## The Library
 
-Library contains moving examples of three original treatments: Signal, Paper and Grove, alongside
-its Music tab. Open Library from a video to keep its selected scene as the default target. Choose
-another video or **Entire video** to apply to all its current scenes. Application never inserts the
-example's content: it keeps authored HTML, motion, narration, scene timing and music.
+The Library is what scene-loop knows about making a video good, as cards. A **technique** card says
+what a technique is, when to use it, what to tell the chat (a prompt, marked *as shown* when it is
+copied word for word from its source), where it was learned, and whether scene-loop does it today
+(in scene-loop, in part, not yet). The other cards are things scene-loop can apply: a **style**
+(colours and type for a scene), **motion** (an entrance or exit), a **transition** (the boundary
+into a scene), a **pattern** (a starting layout for a new scene) and a **workflow** (steps, an
+example and a checklist for a whole task). Cards sit in stages, in the order a video is made:
+before the script, hook, script, main cut, camera and motion, cuts, on screen, look, sound, ending,
+thumbnail and title, way of working.
 
-`list_styles` and `inspect_style` expose the catalog to the chat; `apply_style` and `remove_style`
-use the same controls as the page. `get_rules`, `list_scenes` and `get_scene_html` include selected
-styles. Project instructions remain first in `get_rules` and take priority over style guidance.
+A **format** is one kind of video: YouTube long-form, a vertical short, a LinkedIn clip, a launch
+video, a course lesson. It holds the canvas, length, hook window, captions, rules and the cards
+that matter most for it. `set_video format: <id>` saves a copy on a video, and `get_rules` gives
+the chat its rules. A **source** is where cards came from: a video, an article, a book, a study,
+our own notes, with the cards that cite it.
+
+Open **Library** in the header. Choose a video and scene at the top; filter the cards by format,
+kind, status or words; open a card for all of it and what you can do with it in that video:
+
+- a technique or workflow: **Attach to video** (the chat gets a saved copy with `get_rules`, after
+  the project instructions; up to 12, undo up to 10 changes) or **Copy prompt for once**;
+- a style: apply to this scene or the entire video, or remove it;
+- motion: on an element of the scene, at a narration word or a second;
+- a transition: into the chosen scene, with undo and reset to the default dissolve;
+- a pattern: fill in its fields and make a new scene in the chosen video.
+
+The **Formats** tab sets a video's format, **Sources** lists where the cards came from. The chat
+has the same through `list_cards` (filter by kind, stage, format, status, words), `get_card`,
+`list_formats`, `list_sources`, `attach_card`, `detach_card`, `undo_cards`, `get_video_cards`
+and `use_card_once`. A card's `implementation` is the exact versioned object the apply tools
+take; `use` says which tool.
+
+### Your own library
+
+The Library is a folder of JSON files, read by the server and never written by it:
+
+```
+library.json            title, and the stages in order
+cards/<id>.json         one card per file
+formats/<id>.json       one format per file
+sources/<id>.json       one source per file
+demos/<id>/scene.html   a card's moving example, with its assets beside it
+```
+
+Start the server with `--library <dir>` (or `SCENE_LOOP_LIBRARY=<dir>`) to use yours. Without it,
+the starter library in `library/` is used: scene-loop's own styles, motion, transitions,
+patterns and workflows, and one technique, format and source as examples. A library can live in
+a repository of its own (a private one, if the content should not be public), and grow by
+commits: a coding agent adds a source and the cards learned from it, runs the check, and opens a
+pull request. A `git pull` in the folder shows on the next read; there is no restart.
+
+`node bin/check-library.mjs <dir>` checks every file before a commit: the fields each kind needs,
+ids that match their file names, sources, formats and related cards that exist, demo files that
+exist, and no em dashes. A file that fails the check is left out of the Library and named in
+`list_cards` (`errors`) and in the server log; the rest still load.
+
+A demo is a scene like any other (`<template>` with a root that has `data-width`, `data-height`
+and `data-duration`), played with the same clock as a video. Its files load from its own folder.
+Style, motion, transition and pattern cards without a demo show the example their implementation
+makes.
+
+## Style cards
+
+The starter library has three original treatments: Signal, Paper and Grove. Applying one never
+inserts the example's content: it keeps authored HTML, motion, narration, scene timing and music.
+Choose **Entire video** in the card to apply to all its current scenes.
+
+`apply_style` and `remove_style` use the same controls as the page. `get_rules`, `list_scenes`
+and `get_scene_html` include selected styles. Project instructions remain first in `get_rules`
+and take priority over style guidance.
 
 Each scene stores a full copy of its style (version, SHA-256 content hash, CSS and guidance) in a
-marked block in `scene.html`. Later catalog edits cannot change that scene. Normal HTML tool edits
+marked block in `scene.html`. Later library edits cannot change that scene. Normal HTML tool edits
 retain its pin; use the style tools to change or remove it. Applying and removing save normal scene
 versions, so Compare and Restore work as before. Restore also restores that version's authored
 content; remove the style instead to keep subsequent content edits. Entire video means the scenes
@@ -440,16 +506,16 @@ text use the existing join path; the clock and the cached clip pixels are unchan
 
 An [original meadow approximation](examples/reference-study/README.md) tests layered environment motion against one openly licensed film excerpt. The [experiment note](docs/experiments/reference-to-scene.md) records the source, actual render checks and limits in layout, motion, timing and sound.
 
-## Reusable scene patterns
+## Pattern cards
 
-Library → Patterns has three original moving examples: Process, Comparison, and Presenter +
-visuals. Choose a target video, choose a pattern, replace the example text, name the scene and
-set its duration (3–60 seconds, default 8). Create adds a **new** scene; Open new scene takes you
-back to the usual preview, comments and versions. Visual styles and Music remain Library tabs.
+The starter library has three original patterns: Process, Comparison, and Presenter + visuals.
+Choose a video at the top of the Library, open a pattern card, replace the example text, name the
+scene and set its duration (3–60 seconds, default 8). Create adds a **new** scene; Open new scene
+takes you back to the usual preview, comments and versions.
 
-The chat uses `list_patterns`, `inspect_pattern`, then `instantiate_pattern`. Inspection returns
-exact version, content hash, guidance, defaults and field limits. Pass the version/hash back to
-creation to reject a catalog change since inspection. Supply plain strings and arrays of lines
+The chat uses `list_cards` (kind `pattern`), `get_card`, then `instantiate_pattern`. The card's
+`implementation` holds the exact version, content hash, guidance, defaults and field limits. Pass
+the version/hash back to creation to reject a library change since then. Supply plain strings and arrays of lines
 in `inputs`, following the inspected field keys; omitted inputs use the complete example.
 Process accepts 2–4 steps; Comparison accepts 1–3 points per side; Presenter accepts 1–3 points.
 Headings are at most 72 characters; each field's exact limit is in inspection and on the form.
@@ -457,7 +523,7 @@ Creation uses the target video's width and height (240–7680 px each), with sta
 layouts and compact layouts for square/4:3 canvases. Motion uses scene-local CSS animations: staged reveals during the first half, then a
 reading hold. It runs through the normal frozen clock and renderer.
 
-Every generated scene is ordinary editable HTML, with no catalog request during playback or
+Every generated scene is ordinary editable HTML, with no library request during playback or
 export. Its provenance block snapshots the pattern descriptor, original inputs, canvas, duration,
 media kind and content hash (including the generator source). `get_rules`, `list_scenes` and
 `get_scene_html` expose that snapshot. It records the starting point, not a claim about later
@@ -471,7 +537,7 @@ Presenter media is optional. Supply an existing path under **this video's** `ass
 `assets/cam/<source-scene>.mp4` returned by `list_takes`. Images: PNG, JPEG, WebP. Video containers:
 MP4, WebM, MOV, with H.264, VP8/9 or AV1 visual streams. Paths must be local (no URLs, traversal or
 symlink escapes); missing, corrupt, unsupported or audio-only media is rejected before creation.
-The file stays project media, not a catalog asset. Video is muted, starts at scene time zero and
+The file stays project media, not a library asset. Video is muted, starts at scene time zero and
 holds its last frame; frame it for the narration length. The portrait region uses `object-fit:
 cover`, so inspect its crop. No media creates a labelled graphic placeholder with **no missing
 media request**. When a camera take exists later, the agent can replace that region through
@@ -480,29 +546,28 @@ pretend footage. The layouts use local font fallbacks; package project fonts for
 across machines. Apply a Library style after creation if desired, and check contrast and long
 text in the actual scene before export.
 
-## Motion and scene boundaries
+## Motion and transition cards
 
-Library → Motion offers four original scene effects (Fade in, Fade out, Rise, Pop) and two
-incoming boundaries (Cut, Dissolve). Choose a video and scene, choose an effect, then select
-Whole scene, its semantic heading, one of its text items, or a named element supplied by the
-scene author. Enter a scene-local start and duration, or choose a narration word/sentence and
-an authored fallback start. Missing words and cues outside the scene use that fallback with a
+The starter library has four original scene effects (Fade in, Fade out, Rise, Pop) and two
+incoming boundaries (Cut, Dissolve). Choose a video and scene at the top of the Library, open an
+effect, then select Whole scene, its semantic heading, one of its text items, or a named element
+supplied by the scene author. Enter a scene-local start and duration, or choose a narration word
+and an authored fallback start. Missing words and cues outside the scene use that fallback with a
 visible warning. The fallback must fit the scene. Effects hold before and after their interval;
-authored visibility and timed-text start/end still apply. Use Replay scene to inspect the result;
-use Preview boundary in whole video to see an incoming cut/dissolve. The first scene has no
-incoming boundary.
+authored visibility and timed-text start/end still apply. Open the video to see the result. The
+first scene has no incoming boundary.
 
-The chat uses `list_motions`, `inspect_motion`, `get_scene_motion`, then `apply_motion` or
+The chat uses `list_cards`, `get_card`, `get_scene_motion`, then `apply_motion` or
 `apply_transition`. `get_scene_motion` supplies exact pinned choices and guidance, target labels,
 scene version, narration/word timings, resolved seconds, warnings and `contextHash`. Pass the
 context hash back to reject a changed target, narration timing, storyboard or scene. Pass the
-catalog `version` and `contentHash` back to reject catalog changes. `apply_motion` accepts
+implementation's `version` and `contentHash` back to reject library changes. `apply_motion` accepts
 `motion`, `target`, `start`, optional `anchor` (the existing word/sentence syntax), and `duration`.
 At most four choices fit one scene. `remove_motion` accepts the choice `id`, or `all`.
 These tools use the same handlers over MCP, WebMCP and `window.sceneLoop`.
 
 Motion pins include the exact descriptor, guidance, keyframes and implementation in scene HTML.
-Playback makes no catalog request. Ordinary `write_scene_html`, style and text edits retain the
+Playback makes no library request. Ordinary `write_scene_html`, style and text edits retain the
 pins, or return an actionable conflict if a target disappears or becomes incompatible. Use
 `data-motion-target="card" data-motion-label="Idea card"` on an existing block/flex/grid element
 to offer a named target; names use a lowercase letter followed by letters, digits or hyphens
@@ -531,38 +596,35 @@ itself undoable. Direct `update_scene` boundary edits join the same undo stack. 
 HTML does not restore a transition. Cut/dissolve keep the scene starts, total duration,
 narration and soundtrack fixed. Boundary-only changes reuse existing scene clips.
 
-## Task guides and reusable prompts
+## Workflow cards and attached cards
 
-Library → Guides has four original guides: Explain a concept, Show a workflow, Improve pacing,
-and Review a video. Each includes a short workflow, a worked example, an expected result, a
-review checklist and a reusable prompt. Select a video explicitly. Project instructions stay
-visible above the guides and take priority over their guidance, together with the user's rules.
+The starter library has four workflow cards: Explain a concept, Show a workflow, Improve pacing,
+and Review a video. Each has a short workflow, a worked example, an expected result, a review
+checklist and a reusable prompt. Technique cards are attached the same way.
 
-**Use once · prepare prompt** creates a full copyable snapshot for the chat beside the page. It
-runs no task and attaches nothing. Copy prompt uses the clipboard where available; otherwise it
-selects the full text for manual copy. The prompt names the exact project/video and asks the agent
+**Copy prompt for once** gives a full copy of the card for the chat beside the page, for one task:
+it attaches nothing and runs nothing. The prompt names the exact project/video and asks the chat
 to read `get_rules` first. Paid final narration still requires word-for-word script approval.
 
-**Attach to selected video** saves the exact id, version, SHA-256 content hash, workflow, guidance,
-example, checklist and prompt in that video's `guides.json`. At most one copy of each of the four
-catalogue ids can be attached. Catalogue edits never change saved copies. To select a newer copy,
-remove the old one and attach again. Attached contents are inspectable in the page and included
-in `get_rules` immediately after project instructions. Attach/remove never edit `project.md`,
-`AGENTS.md`, scenes, narration, storyboard or scene pins.
+**Attach to video** saves a copy of the card (id, version, content hash, what, when, prompt,
+guidance, sources; for a workflow also its steps, example and checklist) in that video's
+`cards.json`. One copy per card, at most 12. Library edits never change saved copies: to take a
+newer version, detach the old one and attach again. Attached cards are in `get_rules` right after
+the project instructions, which take priority over them. Attaching and detaching never edit
+`project.md`, `AGENTS.md`, scenes, narration, storyboard or scene pins.
 
-Guide changes use the video's existing private Git **project-file** history (`.history`,
-`project/vN`), committing only `guides.json`. **Undo last guide change** (`undo_guides`) restores
-only the previous attachment set, including removals and exact older copies. It keeps up to ten
-changes across restarts. Scene HTML restoration does not restore guides, and guide undo does not
-restore scene content. This is not a custom guide editor or a general project-version restore UI.
+Card changes use the video's private Git **project-file** history (`.history`, `project/vN`),
+committing only `cards.json`. **Undo last card change** (`undo_cards`) restores the previous set,
+including removals and exact older copies, up to ten changes across restarts. Scene restore does
+not restore cards, and card undo does not restore scene content. A video from before the card
+library keeps its `guides.json` (attached task guides): those copies read as attached workflow
+cards until the first change writes `cards.json`.
 
-The same owner tools are available through MCP, WebMCP and `window.sceneLoop`: `list_guides`,
-`inspect_guide`, `use_guide_once`, `get_video_guides`, `attach_guide`, `remove_guide`, `undo_guides`.
-Inspection returns complete snapshots. Pass catalogue `version`/`contentHash` to one-time use or
-attachment to reject changed contents; pass `contextHash` from `get_video_guides` to mutations to
-reject stale attachment choices. One-time use and mutations require both `project` and `video`
-even on a single-video instance. These guides supply instructions to the existing chat; the
-server never invokes a model, impersonates a chat or automatically executes a guide.
+The tools are `get_video_cards`, `attach_card`, `detach_card`, `undo_cards` and `use_card_once`.
+Pass the card's `version`/`contentHash` to reject changed contents, and `contextHash` from
+`get_video_cards` to reject stale attachment choices. Attaching, detaching, undo and one-time use
+need both `project` and `video`, even on a single-video instance. Cards are instructions for the
+chat beside the page; the server never calls a model or runs a card by itself.
 
 ## Project reference videos
 

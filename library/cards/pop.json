@@ -1,0 +1,29 @@
+{
+  "id": "pop",
+  "kind": "motion",
+  "version": "1.0.0",
+  "title": "Pop",
+  "summary": "A compact scale entrance with a fade.",
+  "stage": "motion",
+  "order": 4,
+  "guidance": "Use sparingly for one important point. Multiplies the authored scale from 0.86 to 1 around its existing transform origin; never replaces transform. Hidden before the cue; hold afterwards.",
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "duration": 0.45,
+    "keyframes": [
+      {
+        "filter": "opacity(0)",
+        "scale": "0.86"
+      },
+      {
+        "filter": "opacity(1)",
+        "scale": "1"
+      }
+    ],
+    "easing": "cubic-bezier(0.165,0.84,0.44,1)"
+  }
+}

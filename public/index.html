@@ -28,7 +28,7 @@
         <summary class="btn" id="musicBtn" title="The video's music bed, and the beds in the library">Music</summary>
         <div id="musicList" class="menu music-menu"></div>
       </details>
-      <a class="btn owner-only" id="libraryBtn" href="/?library=1" title="Visual styles and shared music">Library</a>
+      <a class="btn owner-only" id="libraryBtn" href="/?library=1" title="Techniques, formats, styles, motion and shared music">Library</a>
       <span class="muted small viewer-only" id="renderState"></span>
       <details class="renders viewer-only">
         <summary class="btn">Renders</summary>
@@ -63,62 +63,43 @@
 
     <section class="overview library" id="library" hidden>
       <div class="ov-head">
-        <h1>Library</h1>
+        <h1 id="libTitle">Library</h1>
         <span class="muted" id="libCount"></span>
         <div class="spacer"></div>
         <a class="btn ghost" href="/?all=1">All projects</a>
         <button class="btn dark owner-only" id="libAdd" title="Upload a music file with what is known about it">+ Add file</button>
       </div>
       <nav class="library-tabs" aria-label="Library sections">
-        <button class="btn on" id="libStylesTab" aria-pressed="true">Visual styles</button>
-        <button class="btn" id="libPatternsTab" aria-pressed="false">Patterns</button>
-        <button class="btn" id="libMotionTab" aria-pressed="false">Motion</button>
-        <button class="btn" id="libGuidesTab" aria-pressed="false">Guides</button>
+        <button class="btn on" id="libCardsTab" aria-pressed="true">Cards</button>
+        <button class="btn" id="libFormatsTab" aria-pressed="false">Formats</button>
+        <button class="btn" id="libSourcesTab" aria-pressed="false">Sources</button>
         <button class="btn" id="libReferencesTab" aria-pressed="false">References</button>
         <button class="btn" id="libMusicTab" aria-pressed="false">Music</button>
       </nav>
-      <section id="styleLibrary" aria-label="Visual styles">
-        <p class="muted">Choose a treatment. Keep your content, layout and motion.</p>
-        <div class="style-target">
-          <label>Video<select id="styleVideo" aria-label="Style video"></select></label>
-          <label>Apply to<select id="styleTarget" aria-label="Style target"></select></label>
-          <a class="btn" id="styleOpenVideo" hidden>Open video</a>
+      <div class="card-target" id="cardTarget">
+        <label>Video<select id="cardVideo" aria-label="Library video"></select></label>
+        <label>Scene<select id="cardScene" aria-label="Library scene"></select></label>
+        <a class="btn" id="cardOpenVideo" hidden>Open video</a>
+        <span class="card-target-info" id="cardTargetInfo"></span>
+      </div>
+      <section id="cardLibrary" aria-label="Cards">
+        <div class="card-filters">
+          <label>Format<select id="cardFormat" aria-label="Format"></select></label>
+          <div class="chips-inline" id="cardKinds"></div>
+          <div class="chips-inline" id="cardStatus"></div>
+          <input id="cardSearch" type="search" placeholder="Find a card" aria-label="Find a card">
+          <span class="muted small" id="cardCount"></span>
         </div>
-        <div id="styleCurrent" class="style-current" aria-live="polite"></div>
-        <div id="styleList" class="style-grid"></div>
-        <p class="muted small">Examples share the same motion. Styles change background, type and palette roles; they keep authored colours outside those roles. The project theme remains loaded, but styles can override its palette and type. Preview your scene to check contrast.</p>
+        <details id="cardErrors" class="card-errors" hidden></details>
+        <div id="cardGrid"></div>
       </section>
-      <section id="patternLibrary" aria-label="Scene patterns" hidden>
-        <p class="muted">Start with a layout. Add your content, then edit the scene in your video.</p>
-        <div class="style-target"><label>Target video<select id="patternVideo" aria-label="Pattern video"></select></label></div>
-        <button class="btn ghost small" id="patternMotion">Pause examples</button>
-        <div id="patternList" class="style-grid"></div>
-        <form id="patternForm" class="pattern-form" hidden></form>
-        <div id="patternResult" class="pattern-result" aria-live="polite"></div>
-        <p class="muted small">Each scene keeps its starting pattern and version. Future Library changes cannot change it. Restore edits through scene versions.</p>
+      <section id="formatLibrary" aria-label="Formats" hidden>
+        <p class="muted">Each format holds the canvas, length, hook window and rules for one kind of video. Set one on a video, and the chat gets its rules with get_rules.</p>
+        <div id="formatList" class="format-grid"></div>
       </section>
-      <section id="motionLibrary" aria-label="Motion and transitions" hidden>
-        <p class="muted">Choose a small entrance, an exit, or a scene boundary. Examples use the same clock as your video.</p>
-        <div class="style-target"><label>Video<select id="motionVideo" aria-label="Motion video"></select></label><label>Scene<select id="motionScene" aria-label="Motion scene"></select></label><a class="btn" id="motionOpenVideo" hidden>Open video</a></div>
-        <button class="btn ghost small" id="motionPlay">Pause examples</button>
-        <div id="motionList" class="style-grid"></div>
-        <div class="motion-workspace">
-          <div><h2>Your scene</h2><scene-player id="motionPreview" aria-label="Applied scene preview"></scene-player><div class="motion-preview-controls"><button class="btn" id="motionReplay">Replay scene</button><button class="btn" id="motionWhole">Preview boundary in whole video</button></div><p id="motionPreviewLabel" class="muted small"></p></div>
-          <div><form id="motionForm" class="pattern-form" hidden></form><div id="motionCurrent" class="style-current"></div></div>
-        </div>
-        <p id="motionStatus" role="status" aria-live="polite"></p>
-        <p class="muted small">Motion saves with scene versions. Restoring a scene version also restores its content, style and text. Transitions save in storyboard history: use Undo transition or Reset to default. Scene restore does not restore transitions. Whole-scene effects reveal the video background; the scene boundary blends that picture normally.</p>
-      </section>
-      <section id="guideLibrary" aria-label="Task guides" hidden>
-        <p class="muted">A short workflow, an original example and a reusable prompt for the chat beside the page.</p>
-        <div class="style-target"><label>Selected video<select id="guideVideo" aria-label="Guide video"></select></label><a class="btn" id="guideOpenVideo" hidden>Open video</a></div>
-        <p id="guideTargetLabel" class="muted small"></p>
-        <section id="guideInstructions" class="guide-instructions"></section>
-        <div id="guideList" class="guide-grid"></div>
-        <section id="guideDetail" class="guide-detail"></section>
-        <section id="guideHandoff" class="guide-handoff"></section>
-        <p id="guideStatus" role="status" aria-live="polite"></p>
-        <section id="guideAttached"></section>
+      <section id="sourceLibrary" aria-label="Sources" hidden>
+        <p class="muted">Where the cards were learned from. New sources and cards come into the Library through commits to its repository.</p>
+        <div id="sourceList"></div>
       </section>
       <section id="referenceLibrary" aria-label="Project references" hidden>
         <p class="muted">Save a video or source link. Select the range and describe what matters. Reference guidance does not insert media into a render.</p>
@@ -240,6 +221,7 @@
         <button class="btn dark" id="insSave" title="Save as a new project version (⌘S)">Save</button>
       </div>
     </aside>
+    <aside class="drawer card-drawer" id="cardDrawer" hidden aria-label="Card"></aside>
     <aside class="drawer lib-form" id="libDrawer" hidden>
       <div class="drawer-head">
         <div>

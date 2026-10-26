@@ -1,0 +1,42 @@
+{
+  "id": "show-workflow",
+  "kind": "workflow",
+  "version": "1",
+  "title": "Show a workflow",
+  "summary": "Show what a person does, what changes, and how they know each step worked.",
+  "stage": "workflow",
+  "order": 2,
+  "guidance": "Read get_rules first. Project instructions and the reviewer’s explicit rules take priority over this guide. This is guidance for the chat beside the page, not automatic execution. Read and edit the script in Script view. Do not buy or render final paid narration until the reviewer approves the script word for word. Use existing scene-loop tools; preview with free local audio if needed.",
+  "prompt": {
+    "text": "Help me show a workflow in this video. Read project instructions and inspect the scenes. Identify the start, the result, and each action/result pair. Use a graphic overview or existing verified footage as appropriate. Put the script in the video before a recording, check the actual frames, and call out missing footage or steps you cannot verify.",
+    "asShown": false
+  },
+  "sources": [
+    {
+      "source": "scene-loop"
+    }
+  ],
+  "apply": {
+    "workflow": [
+      "Read get_rules and list_scenes. Define the starting state, desired result and the shortest path between them.",
+      "For each step, pair an action with an observable result. Draft narration in create_scene or update_scene before recording screens.",
+      "Inspect process with inspect_pattern for a graphic overview. Use instantiate_pattern for a new scene; replace example labels with actual actions and outcomes.",
+      "If the workflow needs a screen recording, do one dry take first. Use existing media only: probe_media, cut_clip, then the returned local video tag in write_scene_html. Never pretend a graphic is a recording.",
+      "Use show_scene and get_stills to check the cursor/action, resulting state and a reading hold. Report any missing footage or unverified behavior."
+    ],
+    "example": {
+      "title": "Name and save a reusable checklist",
+      "situation": "An original generic checklist workflow, represented with graphics until a real recording is available.",
+      "script": "Give the checklist a name. Add the three checks you repeat. Save it, then look for the saved checklist in the list.",
+      "visual": "Action: enter “Before a walk”. Result: the name appears. Action: add Keys, Water, Weather. Result: three checks appear. Action: save. Result: the named checklist appears in the list. Label the scene “Illustrated workflow” when using graphics.",
+      "tools": "Inspect process, then instantiate_pattern with heading “Save a checklist” and steps [“Name → Before a walk”, “Add → 3 checks”, “Save → Find in list”], duration 10 and the draft script. Inspect get_stills. If real footage is later supplied, use probe_media/cut_clip rather than an invented asset path.",
+      "expected": "The viewer sees both the input action and its confirmation; the final state matches the opening goal."
+    },
+    "checklist": [
+      "Does every action have an observable result?",
+      "Are illustrated steps clearly distinguished from captured footage?",
+      "Does the order match the real workflow, with no hidden prerequisite?",
+      "Is the final confirmation readable before the scene ends?"
+    ]
+  }
+}
