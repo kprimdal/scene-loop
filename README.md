@@ -36,8 +36,9 @@ take.
   shows every project and its videos.
 - A brand kit per project (`brand/`): the rules the chat follows (`brand.md`), the fonts, colours
   and shared classes (`brand.css`, loaded in every scene before the video's own theme) and the
-  font and logo files. Every video in the project uses it, so a new video starts on brand. The
-  project's page shows the logos, colours and fonts and edits the two files.
+  fonts, logos and images. Every video in the project uses it, so a new video starts on brand.
+  The project's page shows the logos, colours, fonts and images with their sizes, takes new
+  files by drop, and edits the two files.
 - A Script view: every scene's narration in one column, editable in place, with word and
   character counts, the estimated spoken length against the scene durations, each scene's audio
   length and whether its words are timed.
@@ -72,7 +73,7 @@ The tools, all defined once in `lib/tools.mjs`:
 
 | | |
 | --- | --- |
-| Projects | `list_projects`, `create_project`, `create_video`, `get_project_instructions`, `set_project_instructions`, `get_brand`, `set_brand`, `add_brand_file` |
+| Projects | `list_projects`, `create_project`, `create_video`, `get_project_instructions`, `set_project_instructions`, `get_brand`, `set_brand`, `add_brand_file`, `remove_brand_file` |
 | Start here | `get_rules`: the project instructions, the brand kit, the video's agent rules, design spec, theme and the scene contract, with the script status first |
 | Scenes | `list_scenes`, `create_scene`, `update_scene`, `reorder_scenes`, `remove_scene`, `get_scene_html`, `write_scene_html`, `set_scene_text`, `get_stills`, `show_scene`, `restore_version` |
 | Review | `get_pending_comments`, `add_comment` |
@@ -152,7 +153,8 @@ has the image, the settings, and nginx, Caddy and Cloudflare Tunnel.
   project.md           instructions for the chat (pronunciation, voice, tone); the
                        frontmatter has title and tags. Edited from Instructions in the page.
   brand/               optional brand kit for every video: brand.md (rules), brand.css (fonts,
-                       --brand-* colours, shared classes) and their files (fonts/, logos).
+                       --brand-* colours, shared classes) and their files (fonts/, logos
+                       with "logo" in the name, images/).
                        Each video sees it as assets/brand/, a link the app keeps.
   videos/<video>/      one video, laid out as below
 ```

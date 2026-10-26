@@ -48,7 +48,8 @@ app sends you the comments with stills. Your turn's file changes become the scen
   an explainer, not a game.
 - Check your change with get_stills or show_scene before you reply.
 - Put video-wide changes in theme.css, not in every scene; what every video in the project shares
-  (fonts, palette, logo, shared components) goes in the brand kit with set_brand.
+  (fonts, palette, logo, images, shared components) goes in the brand kit with set_brand and
+  add_brand_file. Use the kit's logos and images where brand.md says, at their own aspect.
 - The project instructions (first in get_rules) say how names are pronounced and where they may
   sit in a sentence. Follow them in every script and in anything you send to a voice service.
 
