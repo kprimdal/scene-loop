@@ -1,18 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRegistry, TEMPLATE_DIR } from "../lib/projects.mjs";
 import { callTool } from "../lib/tools.mjs";
 import { filesFor } from "../lib/remote.mjs";
-import { brandSummary } from "../lib/brand.mjs";
+import { brandSummary, imageSize } from "../lib/brand.mjs";
 
 const CSS = `@font-face { font-family: "Brand Sans"; src: url("assets/brand/fonts/brand-sans.woff2") format("woff2"); font-weight: 100 900; }
 :root { --brand-ink: #111111; --brand-accent: rgb(47 111 235); --brand-gap: 24px; }
 .scene { font-family: "Brand Sans" !important; }
 `;
+
+// A 3×2 png.
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAMAAAACCAYAAACddGYaAAAAEklEQVR4nGP4z8DwHwYZYBwAj8EM9Lc7k2cAAAAASUVORK5CYII=", "base64");
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "sl-brand-"));
@@ -85,6 +88,21 @@ test("a project's brand kit: saved as a version, linked into every video, in eve
   assert.ok(lstatSync(join(root, "one", "videos", "second", "assets", "brand")).isSymbolicLink());
   assert.equal((await registry.list()).find((p) => p.name === "one").brand, true);
 
+  // Images: listed apart from the logos, with their size, in the page and in the rules; removable.
+  await call("add_brand_file", { path: "images/team.png", base64: PNG.toString("base64") });
+  const withImage = await call("get_brand");
+  assert.deepEqual(withImage.images.map((i) => [i.path, i.width, i.height, i.url]), [["images/team.png", 3, 2, "/brand/one/images/team.png"]]);
+  assert.deepEqual(withImage.logos.map((l) => l.path), ["logo.svg"]);
+  assert.deepEqual((await call("get_rules")).brand.images, [{ asset: "assets/brand/images/team.png", width: 3, height: 2 }]);
+  await call("set_theme_css", { css: '.scene { background: url("assets/brand/images/team.png"); }' });
+  const gone = await call("remove_brand_file", { path: "images/team.png" });
+  assert.equal(gone.removed, "images/team.png");
+  assert.deepEqual(gone.stillNamedIn, ["demo"]);
+  assert.equal(existsSync(join(root, "one", "brand", "images")), false);
+  assert.deepEqual((await call("get_brand")).images, []);
+  await assert.rejects(call("remove_brand_file", { path: "brand.css" }), /set_brand/);
+  await assert.rejects(call("remove_brand_file", { path: "nope.png" }), /no file/);
+
   // A video-folder project has no project above it, so no brand.
   await assert.rejects(callTool("get_brand", { project: "old", model: "Tester" }, { registry, via: "mcp" }), /single video folder/);
 });
@@ -102,4 +120,22 @@ test("brandSummary reads colours, fonts and logos and skips comments", () => {
   assert.deepEqual(s.colours, [{ name: "--brand-x", value: "#123" }, { name: "--a", value: "#fff" }, { name: "--c", value: "hsl(10 20% 30%)" }]);
   assert.deepEqual(s.fonts, [{ family: "X", src: "assets/brand/x.woff2", weight: null, style: "italic" }]);
   assert.deepEqual(s.logos, ["img/logo-dark.svg"]);
+  assert.deepEqual(s.images, ["photo.jpg"]);
+});
+
+test("imageSize reads png, gif, jpeg, webp and svg headers", (t) => {
+  const d = mkdtempSync(join(tmpdir(), "sl-img-"));
+  t.after(() => rmSync(d, { recursive: true, force: true }));
+  const at = (name, bytes) => (writeFileSync(join(d, name), bytes), imageSize(join(d, name)));
+  assert.deepEqual(at("a.png", PNG), { width: 3, height: 2 });
+  assert.deepEqual(at("a.gif", Buffer.from("R0lGODlhBQAEAIAAAP///wAAACwAAAAABQAEAAACBISPqVcAOw==", "base64")), { width: 5, height: 4 });
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0, 0xff, 0xc0, 0, 11, 8, 0, 40, 0, 120, 1, 1, 0x11, 0]);
+  assert.deepEqual(at("a.jpg", jpeg), { width: 120, height: 40 });
+  const webp = Buffer.alloc(30);
+  webp.write("RIFF", 0); webp.write("WEBP", 8); webp.write("VP8X", 12); webp.writeUIntLE(639, 24, 3); webp.writeUIntLE(359, 27, 3);
+  assert.deepEqual(at("a.webp", webp), { width: 640, height: 360 });
+  assert.deepEqual(at("a.svg", '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="200px" height="50">'), { width: 200, height: 50 });
+  assert.deepEqual(at("b.svg", '<svg viewBox="0 0 120 30" width="100%">'), { width: 120, height: 30 });
+  assert.deepEqual(at("c.svg", "<svg/>"), {});
+  assert.deepEqual(at("x.txt", "hello"), {});
 });

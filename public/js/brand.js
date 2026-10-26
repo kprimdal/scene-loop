@@ -3,8 +3,8 @@ import { S, api } from "./state.js";
 
 // ---------- a project's brand kit (lib/brand.mjs) ----------
 // On the project's page, above its videos: the logos, the colours, the fonts drawn in
-// themselves and the rules. Edit opens brand.md and brand.css side by side; Add file puts a
-// font or a logo in the brand folder.
+// themselves, the images and the rules. Edit opens brand.md and brand.css side by side; Add
+// files (or a drop on the panel) puts fonts, logos and images in the brand folder.
 const tool = (name, args) => api(`/api/tools/${name}`, { body: { args, via: "page-js" } });
 
 let shown = null; // { project, json } of what the panel shows, so a live update that changed nothing does not redraw it
@@ -26,6 +26,22 @@ function loadFonts(b) {
 const SWATCHES = 18;
 const swatch = (c) => h("div", { class: "swatch", title: `var(${c.name})` }, h("span", { class: "chip-c", style: `background:${c.value}` }), h("div", {}, h("div", { class: "small" }, c.name.replace(/^--/, "")), h("div", { class: "muted small mono" }, c.value)));
 
+// A logo or an image: the picture on a checkerboard (a white logo shows), its path and size.
+// A click copies the path a scene uses; × takes it out of the kit.
+// A logo named white, light or inverse is for dark backgrounds, so it starts on a dark one; ◐ swaps.
+function tile(project, img, cls) {
+  const dims = img.width ? `${img.width}×${img.height} · ` : "";
+  const dark = cls.includes("logo") && /white|light|invers|negativ|knockout/i.test(img.path);
+  const fig = h("figure", { class: cls + (dark ? " dark" : ""), title: `${img.asset}\nClick to copy the path a scene uses` },
+    h("img", { src: img.url, alt: img.path, loading: "lazy", onclick: () => copy(img.asset) }),
+    h("figcaption", {}, h("div", { class: "small" }, img.path), h("div", { class: "muted small" }, dims + bytes(img.size))),
+    h("button", { class: "tile-x owner-only", title: `Remove ${img.path} from the brand kit`, onclick: () => removeFile(project, img.path) }, "×"),
+    h("button", { class: "tile-bg", title: "Light or dark background", onclick: () => fig.classList.toggle("dark") }, "◐"),
+  );
+  return fig;
+}
+const copy = (text) => navigator.clipboard?.writeText(text).then(() => toast(`Copied ${text}`), () => toast(text)) ?? toast(text);
+
 export async function renderBrand(p) {
   const box = $("#pBrand");
   if (p.layout !== "project" || S.guest) return (box.hidden = true);
@@ -43,7 +59,7 @@ export async function renderBrand(p) {
   if (!b.exists) {
     return box.replaceChildren(
       h("div", { class: "brand-empty" },
-        h("div", {}, h("b", {}, "Brand"), h("div", { class: "muted small" }, "No brand kit yet. Fonts, colours, logo and rules that every video in this project uses, so a new video starts on brand.")),
+        h("div", {}, h("b", {}, "Brand"), h("div", { class: "muted small" }, "No brand kit yet. Fonts, colours, logos, images and rules that every video in this project uses, so a new video starts on brand.")),
         h("div", { class: "spacer" }),
         h("button", { class: "btn small owner-only", onclick: () => openBrand(p.name, b) }, "Add brand kit"),
       ),
@@ -51,17 +67,17 @@ export async function renderBrand(p) {
   }
   loadFonts(b);
   const families = [...new Set(b.fonts.map((f) => f.family))];
-  const others = b.files.filter((f) => f.kind !== "kit" && f.kind !== "font" && !b.logos.some((l) => l.path === f.path));
+  const others = b.files.filter((f) => f.kind === "file");
   box.replaceChildren(
     h("div", { class: "brand-head" },
       h("b", {}, "Brand"),
       h("span", { class: "muted small" }, `brand/ · used by every video here as assets/brand/`),
       h("div", { class: "spacer" }),
-      h("label", { class: "btn small owner-only", title: "Put a font, a logo or an image in the brand folder" }, "Add file", h("input", { type: "file", hidden: true, accept: ".woff2,.woff,.ttf,.otf,.svg,.png,.jpg,.jpeg,.webp,.gif", onchange: (e) => addFile(p.name, e.target) })),
+      h("label", { class: "btn small owner-only", title: "Put fonts, logos and images in the brand folder. You can also drop files on this panel." }, "Add files", h("input", { type: "file", hidden: true, multiple: true, accept: ACCEPT, onchange: (e) => addFiles(p.name, e.target) })),
       h("button", { class: "btn small owner-only", onclick: () => openBrand(p.name, b) }, "Edit"),
     ),
     h("div", { class: "brand-grid" },
-      b.logos.length ? h("div", { class: "brand-sec" }, h("div", { class: "brand-label" }, "Logo"), h("div", { class: "brand-logos" }, b.logos.map((l) => h("figure", {}, h("img", { src: l.url, alt: l.path }), h("figcaption", { class: "muted small" }, l.path))))) : null,
+      b.logos.length ? h("div", { class: "brand-sec" }, h("div", { class: "brand-label" }, "Logo"), h("div", { class: "brand-logos" }, b.logos.map((l) => tile(p.name, l, "brand-tile logo")))) : null,
       h("div", { class: "brand-sec" }, h("div", { class: "brand-label" }, "Colours"),
         b.colours.length
           ? [h("div", { class: "brand-swatches" }, b.colours.slice(0, SWATCHES).map(swatch)),
@@ -73,28 +89,76 @@ export async function renderBrand(p) {
           : h("div", { class: "muted small" }, "No fonts yet. Add the file, then declare it with @font-face in brand.css.")),
       others.length ? h("div", { class: "brand-sec" }, h("div", { class: "brand-label" }, "Other files"), h("div", { class: "muted small mono" }, others.map((f) => h("div", {}, `${f.path} · ${bytes(f.size)}`)))) : null,
     ),
+    b.images.length ? h("div", { class: "brand-sec brand-images-sec" }, h("div", { class: "brand-label" }, `Images · ${b.images.length}`), h("div", { class: "brand-images" }, b.images.map((i) => tile(p.name, i, "brand-tile")))) : null,
     b.markdown ? h("details", { class: "brand-rules" }, h("summary", {}, "Rules (brand.md)"), h("pre", {}, b.markdown)) : null,
   );
 }
 
-async function addFile(project, input) {
-  const file = input.files[0];
-  input.value = "";
-  if (!file) return;
-  const font = /\.(woff2?|ttf|otf)$/i.test(file.name);
-  const path = prompt("Where in the brand folder?", (font ? "fonts/" : "") + file.name.toLowerCase().replace(/[^\w.-]+/g, "-"));
-  if (!path) return;
+const ACCEPT = ".woff2,.woff,.ttf,.otf,.svg,.png,.jpg,.jpeg,.webp,.gif";
+const FONT = /\.(woff2?|ttf|otf)$/i, IMAGE = /\.(svg|png|jpe?g|webp|gif)$/i;
+// Where a file goes in the brand folder: fonts in fonts/, a logo at the top, other images in images/.
+const placeFor = (name) => {
+  const n = name.toLowerCase().replace(/[^\w.-]+/g, "-").replace(/^[-.]+/, "");
+  return FONT.test(n) ? `fonts/${n}` : IMAGE.test(n) && !/logo/.test(n) ? `images/${n}` : n;
+};
+
+// One file asks where it goes; several (or a drop) go where placeFor puts them.
+async function addFiles(project, files) {
+  if (files instanceof HTMLInputElement) {
+    const input = files;
+    files = [...input.files];
+    input.value = "";
+  }
+  files = files.filter((f) => FONT.test(f.name) || IMAGE.test(f.name));
+  if (!files.length) return toast("Fonts and images only: woff2, woff, ttf, otf, svg, png, jpg, webp, gif.");
+  let paths = files.map((f) => placeFor(f.name));
+  if (files.length === 1) {
+    const path = prompt("Where in the brand folder?", paths[0]);
+    if (!path) return;
+    paths = [path];
+  }
+  const added = [];
+  for (const [i, file] of files.entries()) {
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let bin = "";
+      for (let j = 0; j < buf.length; j += 0x8000) bin += String.fromCharCode(...buf.subarray(j, j + 0x8000));
+      const r = await tool("add_brand_file", { project, path: paths[i], base64: btoa(bin), model: S.reviewer });
+      added.push(r);
+    } catch (e) {
+      toast(`${file.name}: ${e.message}`);
+    }
+  }
+  shown = null;
+  if (added.length === 1) toast(added[0].next ?? `Added ${added[0].asset}`);
+  else if (added.length) toast(`Added ${added.length} files to the brand kit.${added.some((r) => r.next) ? " Declare the fonts with @font-face in brand.css." : ""}`);
+}
+
+async function removeFile(project, path) {
+  if (!confirm(`Remove ${path} from the brand kit? Every video in the project loses it.`)) return;
   try {
-    const buf = new Uint8Array(await file.arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-    const r = await tool("add_brand_file", { project, path, base64: btoa(bin), model: S.reviewer });
-    toast(r.next ?? `Added ${r.asset}`);
+    const r = await tool("remove_brand_file", { project, path, model: S.reviewer });
     shown = null;
+    toast(r.stillNamedIn ? `Removed ${path}. Still named in ${r.stillNamedIn.join(", ")}.` : `Removed ${path}.`);
   } catch (e) {
     toast(e.message);
   }
 }
+
+// Files dropped anywhere on the panel go in the kit.
+const panel = $("#pBrand");
+panel.addEventListener("dragover", (e) => {
+  if (S.guest || !shown || !e.dataTransfer?.types.includes("Files")) return;
+  e.preventDefault();
+  panel.classList.add("drop");
+});
+panel.addEventListener("dragleave", (e) => !panel.contains(e.relatedTarget) && panel.classList.remove("drop"));
+panel.addEventListener("drop", (e) => {
+  panel.classList.remove("drop");
+  if (S.guest || !shown || !e.dataTransfer?.files.length) return;
+  e.preventDefault();
+  addFiles(shown.project, [...e.dataTransfer.files]);
+});
 
 // ---------- the editor: brand.md and brand.css ----------
 let editing = null; // { project, md, css } as loaded
