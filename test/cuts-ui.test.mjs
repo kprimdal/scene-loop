@@ -27,6 +27,8 @@ test('Record view Split & cut: split with keys, cut two parts, listen, apply as 
     await page.goto(url);await wait('!!window.sceneLoop');
     await page.evaluate(`(async()=>{await window.sceneLoop.update_scene({scene:'s01-intro',duration:4,model:'test'});await window.sceneLoop.add_take({scene:'s01-intro',path:${JSON.stringify(source)}});await window.sceneLoop.choose_take({scene:'s01-intro',take:1,keep:[[0,3]]});})()`);
     await page.evaluate('document.querySelector("#recordBtn").click()');await wait('document.querySelector("#recTakes")?.textContent.includes("Split & cut")');
+    // Cleanup is the chat's job now: the used take has no Cleanup button and the panel no editors.
+    assert.equal(await page.evaluate('[...document.querySelectorAll("#recTakes button")].some(b=>b.textContent==="Cleanup") || !!document.querySelector("#noiseCleanup,#recordingRanges,#sceneText,#sceneSubtitles")'),false);
     // X in the Record view opens the editor on the used take.
     await page.evaluate('window.dispatchEvent(new KeyboardEvent("keydown",{key:"x",bubbles:true}))');
     await wait('!!document.querySelector(".cut-dialog canvas") && document.querySelector(".cut-time").textContent.includes("/ 3.00 s")');
