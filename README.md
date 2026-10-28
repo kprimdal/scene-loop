@@ -723,11 +723,10 @@ there are no remote downloads, Keep integration, automatic analysis or reconstru
 
 ## Review recording cleanup
 
-Ask the chat, or press **Cleanup** beside the used take in Record. Choose **Gentle cleanup** or **Cleanup off**, then **Prepare preview**.
-Listen to Before (the current selected audio) and After (the pending candidate). Playback is
-manual; starting another review player pauses the first. The original full recording and the
-same edit without cleanup are available separately. The original includes unused material,
-so its player time is not the scene's time.
+Ask the chat; there is no cleanup control on the page. It prepares Gentle cleanup or Cleanup off
+as a candidate next to the current audio, and the original full recording and the same edit
+without cleanup are available separately. The original includes unused material, so its time is
+not the scene's time.
 
 Gentle is the existing 80 Hz high-pass plus adaptive `afftdn` at 10 dB reduction. Off uses the
 same saved ranges, 40 ms crossfades and end fades without those filters. Both come from the
@@ -735,8 +734,8 @@ preserved original, never from the already processed narration. Cleanup can affe
 compare by ear. It does not promise to remove clicks, clipping, other voices or every noise.
 Old takes keep their existing gentle treatment until explicitly changed.
 
-**Keep** selects the candidate and rebuilds the soundtrack, including other narration, music
-and sound effects. **Revert** restores the exact previous scene waveform and treatment, then
+Keep selects the candidate and rebuilds the soundtrack, including other narration, music
+and sound effects. Revert restores the exact previous scene waveform and treatment, then
 rebuilds the current mix. Revert is one level, survives reload/restart, and applies only while
 the same take, source and cuts remain selected. It does not undo script, cuts, camera, scene,
 Library or pin changes. The selected mode stays with that take when it is reselected or cut
@@ -745,7 +744,7 @@ Scene render clips remain cached when their pictures did not change.
 
 The last `build_soundtrack` loudness setting is reused. Earlier builds did not save this
 setting; their cleanup rebuild uses -16 LUFS. Each scene keeps its own narration lead. A custom
-soundtrack must first be replaced explicitly with `build_soundtrack`. These controls support
+soundtrack must first be replaced explicitly with `build_soundtrack`. These tools support
 chosen recorded camera and audio-only takes with saved ranges; external narration, no take,
 and missing original media produce an explanation.
 
