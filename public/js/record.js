@@ -1,4 +1,3 @@
-import { openNoiseReview, closeNoiseReview, stopNoisePlayback } from "./noise.js";
 import { openCuts, closeCuts } from "./cuts.js";
 import { $, h, toast, audioTime, countWords } from "./util.js";
 import { S, api } from "./state.js";
@@ -54,7 +53,6 @@ export function setRecord(on = !S.record) {
     startMedia();
     loadTakes();
   } else {
-    closeNoiseReview();
     closeCuts();
     stopMedia();
     selectScene(cur().id, true);
@@ -230,7 +228,6 @@ function renderTakes() {
         h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), play(k.url)) }, "Play"),
         k.chosen ? h("span", { class: "rec-used" }, "used") : h("button", { class: "rec-btn", onclick: (e) => (e.target.blur(), choose(cur().id, k.n)) }, "Use"),
         k.chosen ? h("button", { class: "rec-btn", title: "Split the take and cut parts out of it (X)", onclick: (e) => (e.target.blur(), cutTake()) }, "Split & cut") : null,
-        k.chosen ? h("button", { class:"rec-btn", onclick:()=>openNoiseReview(cur().id) }, "Cleanup") : null,
         k.chosen ? null : h("button", { class: "rec-btn ghost", title: "Delete this take", onclick: (e) => (e.target.blur(), removeTakes(cur().id, [k.n])) }, "Delete"),
       ),
     ),
@@ -418,7 +415,6 @@ function start() {
   if (!R.stream) return toast("No camera or microphone yet.");
   if (!window.MediaRecorder) return toast("This browser cannot record.");
   if (R.editing) return;
-  stopNoisePlayback();
   showPlayback(false);
   $("#recPrompt").scrollTop = 0;
   R.y = R.yShown = 0;
@@ -545,7 +541,6 @@ function showPlayback(on) {
 }
 
 function play(url) {
-  stopNoisePlayback();
   const pb = $("#recPlayback");
   if (!pb.hidden && pb.dataset.src === url) return showPlayback(false);
   pb.src = pb.dataset.src = url;
@@ -560,7 +555,7 @@ function playLast() {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (document.querySelector(".noise-dialog[open], .cut-dialog[open]")) return;
+  if (document.querySelector(".cut-dialog[open]")) return;
   if (!S.record || e.metaKey || e.ctrlKey || e.altKey) return;
   if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName) && e.key !== "Escape") return;
   if (e.repeat) return;
