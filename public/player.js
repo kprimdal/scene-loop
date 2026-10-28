@@ -66,8 +66,9 @@ class ScenePlayer extends HTMLElement {
       this._audio.preload = "auto";
       this._mediaStart = Number(sl.audio.mediaStart) || 0;
       // The page compares its length with the storyboard: a soundtrack laid to older cuts drifts.
+      // An older version plays its own voice instead (audio.voice), which starts at the lead.
       const a = this._audio;
-      a.addEventListener("loadedmetadata", () => a === this._audio && this.dispatchEvent(new CustomEvent("soundtrack", { detail: { duration: a.duration } })), { once: true });
+      if (!sl.audio.voice) a.addEventListener("loadedmetadata", () => a === this._audio && this.dispatchEvent(new CustomEvent("soundtrack", { detail: { duration: a.duration } })), { once: true });
     }
     this._t = 0;
     sl.seek(0);
@@ -126,6 +127,12 @@ class ScenePlayer extends HTMLElement {
     const a = this._audio;
     if (!a) return;
     const want = this._mediaStart + this._t;
+    // Before the voice starts it waits at 0; after it ends it stays ended (play() would restart it).
+    if (want < 0 || want >= a.duration) {
+      a.pause();
+      if (want < 0 && a.currentTime) a.currentTime = 0;
+      return;
+    }
     if (force || Math.abs(a.currentTime - want) > 0.15) a.currentTime = want;
     if (a.paused) a.play().catch(() => {});
   }

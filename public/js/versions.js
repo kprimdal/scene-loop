@@ -20,7 +20,7 @@ export function renderVersions() {
   $("#versionsBtn").classList.toggle("on", !!S.showVersions);
   $("#versionsSec").hidden = !S.showVersions;
   $("#viewing").replaceChildren(
-    S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
+    S.mode === "scene" ? `viewing v${viewed(sc)}${S.view[sc.id] ? " (pinned)" : " (latest)"}${S.view[sc.id] && S.ownMedia ? " · its own take, without music" : ""}` : `whole video uses v${S.picked[sc.id] ?? latest(sc)}`,
   );
   renderNarration(sc);
   const box = $("#versions");
