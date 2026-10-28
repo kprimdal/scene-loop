@@ -1,4 +1,3 @@
-import { syncNoiseReview } from "./noise.js";
 import { $, h, toast } from "./util.js";
 import { S, api, scene, latest, viewed, sceneAt, tc } from "./state.js";
 import { player } from "./stage.js";
@@ -43,7 +42,6 @@ const CHAT_PROMPT = "Apply my pending comments in scene-loop (get_pending_commen
 
 export function renderPanel() {
   const sc = scene();
-  syncNoiseReview();
   $("#panelTitle").textContent = `${S.data.scenes.indexOf(sc) + 1}. ${sc.title}`;
   $("#panelSub").textContent = `${sc.id} · ${sc.duration.toFixed(2)} s`;
   const pending = sc.comments.filter((c) => c.status === "pending");
