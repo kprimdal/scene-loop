@@ -437,26 +437,12 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 @media(max-width:850px) { .style-grid {grid-template-columns:1fr;} .style-preview {max-height:330px;} }
 @media(max-width:520px) { .library.overview {padding:18px 14px 30px;} .library .ov-head {flex-wrap:wrap;gap:10px;} .lib-list {grid-template-columns:minmax(0,1fr);} .style-target {flex-direction:column;align-items:stretch;} .style-target label {min-width:0;} .style-current {align-items:start;flex-direction:column;} }
 
-/* A small scene text editor, with the existing player as its live draft preview. */
-.scene-text { border-bottom:1px solid var(--line); min-height:0; flex:0 1 auto; overflow-y:auto; max-height:60%; }
-.scene-text summary { cursor:pointer; padding:10px 14px; font-weight:650; }
-.text-body { padding:0 14px 12px; }
-.text-body label { display:grid;gap:4px;font-size:12px;min-width:0; }
-.text-body textarea,.text-body select,.text-body input { width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);padding:7px;font:inherit; }
-.text-body textarea { resize:vertical; }
-.text-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px; }
-.text-actions,.text-list { display:flex;gap:6px;flex-wrap:wrap;margin:8px 0; }
-.text-list .btn { max-width:100%;overflow:hidden;text-overflow:ellipsis; }
-.text-list .on { border-color:var(--accent);background:var(--accent-soft); }
-.text-body p { margin:8px 0 0;overflow-wrap:anywhere; }
-.text-status { color:var(--warn); }
 @media(max-width:760px) {
   body:not(.overview-mode):not(.record-mode) { height:auto;min-height:100%;overflow:auto;display:block; }
   body:not(.overview-mode) .top { flex-wrap:wrap;gap:6px;padding:10px; }
   .main { display:flex;flex-direction:column;overflow:visible; }
   .left { overflow:visible;padding:12px; }
   .panel { border-left:0;border-top:1px solid var(--line);min-height:300px; }
-  .scene-text { max-height:none;overflow:visible; }
   .chat { max-height:200px;flex:auto; }
   .pending { max-height:250px; }
   .filmstrip { position:relative; }
@@ -546,9 +532,7 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .reference-notes h4 {margin:16px 0 6px;}.reference-notes p {margin-top:0;}
 @media(max-width:760px){.reference-workspace{grid-template-columns:minmax(0,1fr)}.reference-fields{grid-template-columns:minmax(0,1fr)}.reference-card,.reference-attached,#referenceDetail:not(:empty){padding:14px}.reference-filters{flex-direction:column;align-items:stretch}.reference-attached .style-card-heading,#referenceDetail .style-card-heading{flex-wrap:wrap}}
 
-/* Cleanup compares immutable audio candidates; it fits the existing scene/record workflow. */
-.noise-cleanup {border-bottom:1px solid var(--line);flex:0 1 auto;min-height:0;overflow:auto;max-height:65%;}
-.noise-cleanup > summary {padding:10px 14px;cursor:pointer;font-weight:650;}
+/* Cleanup review in the Record view compares immutable audio candidates. */
 .noise-body {padding:0 14px 14px;overflow-wrap:anywhere;}
 .noise-body p {margin:10px 0;line-height:1.45;}
 .noise-body .btn {margin:6px 6px 0 0;white-space:normal;}
@@ -563,7 +547,6 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .noise-body summary {cursor:pointer;}
 .noise-dialog {color:var(--ink);background:var(--paper);width:min(580px,calc(100vw - 36px));max-height:85vh;padding:16px;border:1px solid var(--line);border-radius:12px;box-sizing:border-box;}
 .noise-dialog::backdrop {background:rgb(0 0 0 / .65);}
-@media(max-width:760px) {.noise-cleanup {max-height:none;overflow:visible;}}
 @media(max-width:520px) {
   .record {overflow-y:auto;grid-template-rows:minmax(180px,1fr) auto auto auto;}
   .rec-bar {flex-wrap:wrap;gap:8px;}
@@ -572,28 +555,6 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
   .rec-media {justify-self:center;}
   .rec-takes {max-height:180px;}
 }
-
-#sceneSubtitles .text-list {max-height:160px;overflow:auto;}
-#sceneSubtitles .subtitle-warning {color:var(--warn);padding:8px;border:1px solid currentColor;border-radius:6px;}
-
-.recording-ranges {border-bottom:1px solid var(--line);flex:0 1 auto;min-height:0;overflow:auto;max-height:75%;}
-.recording-ranges > summary {padding:10px 14px;cursor:pointer;font-weight:650;}
-.range-body {padding:0 14px 14px;overflow-wrap:anywhere;}
-.range-body p {margin:10px 0;line-height:1.45;}
-.range-body .btn {margin:6px 6px 0 0;white-space:normal;}
-.range-body label {display:grid;gap:6px;margin:12px 0;font-size:13px;min-width:0;}
-.range-body audio,.range-body video {display:block;width:100%;min-width:0;max-height:190px;}
-.range-body audio {height:40px;}
-.range-body input {box-sizing:border-box;width:100%;padding:8px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:6px;}
-.range-inputs {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.range-body pre {white-space:pre-wrap;font-size:11px;overflow-wrap:anywhere;}
-.range-body details {margin-top:14px;}
-.range-body summary {cursor:pointer;}
-.range-clock {font-weight:650;}
-.range-status {color:var(--warn);}
-.range-status:empty {display:none;}
-.range-impact {border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:12px;}
-@media(max-width:760px){.recording-ranges {max-height:none;overflow:visible;}}
 
 /* Split & cut: the used take on a timeline, over the Record view */
 .cut-dialog {color:#e8e9eb;background:#0c0d0f;width:min(1200px,calc(100vw - 36px));max-height:92vh;padding:16px;border:1px solid #2a2c31;border-radius:12px;box-sizing:border-box;}
