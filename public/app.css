@@ -226,8 +226,8 @@ body.overview-mode .viewer-only, body:not(.overview-mode) .overview-only { displ
 .p-actions .btn.small { padding: 6px 12px; font-size: 13px; }
 .p-videos { max-width: 1180px; margin: 0 auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 10px; margin-top: 0; }
 
-/* a project's brand kit, above its videos */
-.brand-kit { max-width: 1180px; margin: 0 auto 14px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+/* a project's brand kit, below its videos */
+.brand-kit { max-width: 1180px; margin: 14px auto 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
 .brand-kit[hidden] { display: none; }
 .brand-empty, .brand-head { display: flex; align-items: center; gap: 10px; }
 .brand-head { margin-bottom: 10px; }
