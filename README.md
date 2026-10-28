@@ -44,8 +44,9 @@ take.
   length and whether its words are timed.
 - Filmstrip of scenes, a preview with This scene / Whole video, a timecode readout, frame stepping
   with the arrow keys, and an activity panel per scene with a player for the scene's narration.
-- Pause, drag a box on the frame, write a comment. The chat gets the comment with a still and the
-  box drawn on it (`get_pending_comments`) and marks it resolved when it writes the fix.
+- Pause, drag a box on the frame, write a comment. The chat gets the comment with a still, the
+  box drawn on it and the elements under the box (`get_pending_comments`) and marks it resolved
+  when it writes the fix.
 - Every change the chat saves becomes a new version with 5 stills. You can compare versions, flip
   between them at the same timestamp, or bring an old one back. The video is always every scene's
   latest version.
@@ -75,7 +76,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | --- | --- |
 | Projects | `list_projects`, `create_project`, `create_video`, `get_project_instructions`, `set_project_instructions`, `get_brand`, `set_brand`, `add_brand_file`, `remove_brand_file` |
 | Start here | `get_rules`: the project instructions, the brand kit, the video's agent rules, design spec, theme and the scene contract, with the script status first |
-| Scenes | `list_scenes`, `create_scene`, `update_scene`, `reorder_scenes`, `remove_scene`, `get_scene_html`, `write_scene_html`, `set_scene_text`, `get_stills`, `show_scene`, `restore_version` |
+| Scenes | `list_scenes`, `create_scene`, `update_scene`, `reorder_scenes`, `remove_scene`, `get_scene_html`, `write_scene_html`, `set_scene_text`, `get_stills`, `inspect_scene`, `show_scene`, `restore_version` |
 | Review | `get_pending_comments`, `add_comment` |
 | Narration | `set_narration_audio`, `remove_narration_audio`, `set_narration_words`, `remove_narration_words`, `fit_scenes_to_narration`, `build_soundtrack` |
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
@@ -196,7 +197,10 @@ base64) and measures it.
 word) + audio + tail (0.6 s), rounded up to the frame grid; scenes without audio keep their
 duration. `build_soundtrack` puts every block `lead` seconds into its scene, pads with silence,
 joins, normalises to -16 LUFS and writes `assets/narration.m4a`. A block longer than its scene is
-reported as an overrun; fit again. The lead is stored per scene as `narrationLead`, because the
+reported as an overrun; fit again. The result measures the finished mix (`measured`: integrated
+loudness, true peak, loudness range, clipped samples, and every 2 s or more without sound with its
+scenes) and says in `loudnessWarnings` what to fix: a true peak above -1 dBTP, clipping, a level
+off the target, a gap. The lead is stored per scene as `narrationLead`, because the
 word anchors need it.
 
 Word timings: `set_narration_words` takes the raw ElevenLabs Scribe JSON or whisper-cli JSON
@@ -220,10 +224,27 @@ within a frame.
 
 **The clock.** Every `@keyframes` animation, `el.animate()` and `<video>` in the page is paused
 and set to the frame's time by the page clock (`lib/clock.js`), the same in the preview, the stills
-and the render. So a scene must not run on wall time (`setTimeout`, `requestAnimationFrame` loops,
-`Date.now()`, CSS transitions). Something drawn in script registers
-`window.__seek["<id>"] = (t) => ...`. Prefix ids and `@keyframes` names with the scene id; all
+and the render. Scene scripts get the same clock (`lib/timeshim.js`, after Kinetograph's
+determinism shim): `requestAnimationFrame`, `setTimeout`, `setInterval`, `Date`,
+`performance.now()` and a seeded `Math.random()` follow the frame, each scene on its own scene
+seconds. A seek forward replays the frames in between, so a page opened at 12 s draws what a page
+played to 12 s draws, and a render split over parallel pages matches; an animation or CSS
+transition a timer starts begins at that frame. A seek back cannot undo a script, so draw each
+frame from the time you are given, never on top of the previous one. Something drawn in script is
+simplest as `window.__seek["<id>"] = (t) => ...`. Prefix ids and `@keyframes` names with the scene id; all
 scenes share one page. Scene ids must start with a letter: they become CSS ids and animation names.
+
+**Checking a scene.** The chat cannot watch a video, so it gets the scene in forms it can read
+(from Kinetograph's `strip`, `lint` and `inspect`). `get_stills` with `sheet: true` is one picture
+of 12 frames spread over the scene, each labelled with its time: the whole motion for the price of
+one still. Every set of stills also runs a layout check, at the still times and just after each
+animation comes to rest: text cut off by its box, by a parent with `overflow: hidden` or by the
+frame edge, text on text, text too small to read on a phone, an image that did not load. Each
+finding names the element, its text and the times (`layoutWarnings` in `get_stills` and
+`list_scenes`). An element an animation is moving at that moment, and one that cannot be seen, is
+not checked. `inspect_scene` gives every visible element's box in canvas pixels at a time, with
+its font size and whether it is moving, so a misplaced element is fixed by the numbers; with a
+region it lists the elements under a box, as a comment on an area does.
 
 **Old GSAP scenes** (a paused GSAP timeline in `window.__timelines["<id>"]`) keep playing: the page
 loads GSAP from jsDelivr for them and the clock seeks the timeline. Rewriting one is mechanical,
@@ -362,8 +383,8 @@ Stretches of a scene in which nothing but `<video>` elements move (a slide with 
 between two fades) are not screenshotted frame by frame: the stretch is captured once with the
 videos blacked out, plus one mask per video, and ffmpeg lays the video frames in
 (`lib/composite.mjs`). A 2-minute, 3-scene slides-and-webcam video went from 85 s to 20 s on a
-Mac. Scenes with a GSAP timeline, a `window.__seek` drawing function, an animation without an
-end, or a video under a CSS filter, blend mode, transform or `object-position` render frame by
+Mac. Scenes with a GSAP timeline, a `window.__seek` drawing function, a script on timers or
+`requestAnimationFrame`, an animation without an end, or a video under a CSS filter, blend mode, transform or `object-position` render frame by
 frame as before; `SCENE_LOOP_COMPOSITE=0` turns the shortcut off. A page load that times out is
 retried once with twice the time (`SCENE_LOOP_LOAD_TIMEOUT`, default 60 s, doubled for pages
 with video), and a failed chunk fails the render job (`get_render` carries the error) instead of

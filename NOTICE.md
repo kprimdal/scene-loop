@@ -2,7 +2,8 @@ Required Notice: Copyright 2026 Kristian Primdal (https://github.com/kprimdal/sc
 
 ## Third-party code
 
-None is bundled in this repo.
+None is bundled in this repo. `lib/timeshim.js` seeds `Math.random` with mulberry32, a public
+domain algorithm by Tommy Ettinger, written here from its description.
 
 - At runtime the app runs Chrome (or chrome-headless-shell) and ffmpeg as separate programs.
   Pages of scenes written for the old GSAP contract load GSAP from jsDelivr. They keep their
