@@ -2,7 +2,7 @@ import { $, h, toast, bytes } from "./util.js";
 import { S, api } from "./state.js";
 
 // ---------- a project's brand kit (lib/brand.mjs) ----------
-// On the project's page, above its videos: the logos, the colours, the fonts drawn in
+// On the project's page, below its videos: the logos, the colours, the fonts drawn in
 // themselves, the images and the rules. Edit opens brand.md and brand.css side by side; Add
 // files (or a drop on the panel) puts fonts, logos and images in the brand folder.
 const tool = (name, args) => api(`/api/tools/${name}`, { body: { args, via: "page-js" } });
