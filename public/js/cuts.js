@@ -204,7 +204,13 @@ export function openCuts(id) {
     parts = [{ from: 0, to: d.seconds, cut: false }];
     audio.src = d.currentUrl;
     if (d.camUrl) cam.src = d.camUrl;
-    body.replaceChildren(...(d.camUrl ? [cam] : []), canvas, tools, message);
+    // A take chosen in the Record view keeps the scene's old duration until it is fitted, and the
+    // camera clip is cut to the scene: past its end the picture stands still and Cut is refused.
+    const short = d.duration + 1 / fps() < lead() + d.seconds;
+    const fit = short && h('div', { class: 'cut-review' },
+      h('p', { class: 'cut-warn' }, `The scene is ${d.duration.toFixed(2)} s but the recording runs ${(lead() + d.seconds).toFixed(2)} s with its lead. The camera clip and the video stop at ${d.duration.toFixed(2)} s.`),
+      h('div', { class: 'cut-tools' }, h('span', { class: 'spacer' }), btn('Fit the scene to the recording', () => fitScene())));
+    body.replaceChildren(...(d.camUrl ? [cam] : []), canvas, tools, ...(fit ? [fit] : []), message);
     body.classList.toggle('no-cam', !d.camUrl);
     audio.currentTime = 0;
     wave(d.currentUrl);
@@ -220,6 +226,18 @@ export function openCuts(id) {
       if (r.historyPending) { load(await call('inspect_recording_ranges')); return say(r.historyWarning); }
       load(r);
       say(done);
+    } catch (e) { if (dialog.open) say(e.message); }
+    finally { busy = false; dialog.querySelectorAll('button').forEach((b) => (b.disabled = false)); draw(); }
+  }
+  async function fitScene() {
+    audio.pause();
+    busy = true; dialog.querySelectorAll('button').forEach((b) => (b.disabled = true));
+    say('Fitting the scene and cutting the camera clip again…');
+    try {
+      await call('fit_scenes_to_narration', { scenes: [id], lead: lead(), model: S.reviewer });
+      if (!dialog.open) return;
+      load(await call('inspect_recording_ranges'));
+      say(`The scene is now ${d.duration.toFixed(2)} s.`);
     } catch (e) { if (dialog.open) say(e.message); }
     finally { busy = false; dialog.querySelectorAll('button').forEach((b) => (b.disabled = false)); draw(); }
   }
