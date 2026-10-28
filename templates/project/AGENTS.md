@@ -10,11 +10,15 @@ app sends you the comments with stills. Your turn's file changes become the scen
   design spec for what is particular to this video.
 - Motion is CSS animations: `animation-delay` is the second in the scene where a move starts, and
   `fill-mode: both` holds the before and after states. Web Animations (`el.animate(...)`) work too.
-  The app's clock pauses and seeks every animation, so nothing may run on wall time: no
-  `setTimeout`, `requestAnimationFrame` loops, `Date.now()` or CSS transitions for motion.
+  The app's clock pauses and seeks every animation to the frame being shown.
+- Scripts run on the scene's clock too: `requestAnimationFrame`, `setTimeout`, `setInterval`,
+  `Date`, `performance.now()` and `Math.random()` (seeded) follow the frame, not the wall. Draw
+  each frame from the time you are given (the rAF timestamp, `performance.now()`), never on top
+  of what the previous frame drew: a render opens the scene at any time and the preview seeks
+  back.
 - Prefix element ids and `@keyframes` names with the scene id. All scenes share one page.
-- Something you draw yourself (a canvas, a counting number) registers
-  `window.__seek["<scene id>"] = function (t) { ... }` and draws the state at scene time `t`.
+- Something you draw yourself (a canvas, a counting number) is simplest as
+  `window.__seek["<scene id>"] = function (t) { ... }`, which draws the state at scene time `t`.
 - Anchor to words, not to seconds, whenever the scene has narration. Put `data-at="word:brush"`
   on an element to start its CSS animation on that word; use `word:brush#2` for the second
   occurrence, `sentence:2` for a sentence start, and offsets such as `word:brush+0.3` or
@@ -46,7 +50,9 @@ app sends you the comments with stills. Your turn's file changes become the scen
   error (a soft no), riser (1.2 s: anchor it 1.2 s before the word, `riser@word:x-1.2`), thud,
   paper, glitch. `assets/sfx/<name>.wav` adds or replaces a sound for this video. Few and quiet:
   an explainer, not a game.
-- Check your change with get_stills or show_scene before you reply.
+- Check your change before you reply: `get_stills` with `sheet: true` shows the whole scene in
+  one picture, then single stills for detail. Fix what its `layoutWarnings` name (text cut off,
+  text on text, text too small). `inspect_scene` gives every element's box in pixels at a time.
 - Put video-wide changes in theme.css, not in every scene; what every video in the project shares
   (fonts, palette, logo, images, shared components) goes in the brand kit with set_brand and
   add_brand_file. Use the kit's logos and images where brand.md says, at their own aspect.

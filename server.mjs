@@ -139,7 +139,7 @@ const mcp = createMcp({
     "Projects hold videos. Call get_rules first: the project's instructions (how names are pronounced, voice, tone) come first and hold for every script and voiceover, then the video's format, its attached Library cards, the video's rules and the scene contract. " +
     "The Library (list_cards, get_card, list_formats) holds techniques for making a video good, each with when to use it and a prompt, and the styles, motion, transitions and patterns scene-loop can apply. " +
     "Use list_projects to see projects and their videos; pass `project` and `video` when there is more than one. " +
-    "After write_scene_html, call get_stills to see the frames. Comments from the reviewer come through get_pending_comments with a still each; pass their ids in resolves when you apply them. " +
+    "After write_scene_html, call get_stills to see the frames (sheet: true for the whole scene in one picture) and fix what its layoutWarnings name. Comments from the reviewer come through get_pending_comments with a still each; pass their ids in resolves when you apply them. " +
     "Pass your model name in `model` on writes. render starts a job; poll get_render.",
 });
 
