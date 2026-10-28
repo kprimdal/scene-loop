@@ -20,11 +20,13 @@ export async function loadPlayer(force = false) {
   $("#shade").hidden = false;
   const b = mode === "scene" ? await api(`/api/build/scene/${sc.id}?v=${viewed(sc)}`) : await api("/api/build/whole");
   S.picked = b.picked ?? {};
+  S.sceneDuration = mode === "scene" ? (b.duration ?? sc.duration) : null; // an older version keeps its own length
+  S.ownMedia = mode === "scene" && !!b.pinned;
   let failed = null;
   const onErr = (e) => (failed = e.detail);
   player.addEventListener("error", onErr);
   player.setAttribute("src", b.url);
-  const want = mode === "scene" ? sc.duration : S.data.duration;
+  const want = duration();
   const t0 = Date.now();
   while (!failed && !(player.ready && Math.abs(player.duration - want) < 0.05) && Date.now() - t0 < 30000) await new Promise((r) => setTimeout(r, 100));
   player.removeEventListener("error", onErr);
@@ -52,7 +54,7 @@ player.addEventListener("soundtrack", (e) => {
 });
 
 export function duration() {
-  return S.mode === "scene" ? scene().duration : S.data.duration;
+  return S.mode === "scene" ? (S.sceneDuration ?? scene().duration) : S.data.duration;
 }
 
 export function renderTrack() {
