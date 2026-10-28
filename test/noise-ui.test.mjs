@@ -9,7 +9,7 @@ import {TEMPLATE_DIR} from '../lib/projects.mjs';
 import {launch} from '../lib/chrome.mjs';
 
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
-test('page cleanup: listen, exclusive playback, preview/reload/keep/revert, stale selection, Record and Library at 1280 and 390px',{timeout:90000},async()=>{
+test('Record cleanup: listen, exclusive playback, preview/keep/revert, stale context, closes on scene change, at 1280 and 390px',{timeout:90000},async()=>{
   const root=mkdtempSync(join(tmpdir(),'sl-noise-ui-'));cpSync(TEMPLATE_DIR,join(root,'scratch/videos/demo'),{recursive:true});
   const source=join(root,'source.wav');execFileSync('ffmpeg',['-y','-v','error','-f','lavfi','-i',"aevalsrc='0.02*(random(0)-0.5)+if(between(t,0.4,1.8),0.2*sin(2*PI*240*t),0)':s=48000:d=2.5",source]);
   const port=await new Promise(r=>{const s=createServer().listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>r(p));});});
@@ -19,50 +19,43 @@ test('page cleanup: listen, exclusive playback, preview/reload/keep/revert, stal
     while(!logs.includes('MCP:')){if(server.exitCode!==null)throw new Error(logs);await delay(30);}
     const page=await browser.newPage({width:1280,height:1000});
     const url=`http://127.0.0.1:${port}/?project=scratch&video=demo`;
-    const wait=async(code)=>{const end=Date.now()+20000;while(!await page.evaluate(code)){if(Date.now()>end)throw new Error(`Wait ${code}: ${await page.evaluate('document.querySelector("#noiseCleanup")?.textContent')}`);await delay(30);}};
+    const wait=async(code)=>{const end=Date.now()+20000;while(!await page.evaluate(code)){if(Date.now()>end)throw new Error(`Wait ${code}: ${await page.evaluate('document.querySelector(".noise-dialog")?.textContent')}`);await delay(30);}};
     const click=sel=>page.evaluate(`document.querySelector(${JSON.stringify(sel)}).click()`);
-    const named=text=>page.evaluate(`[...document.querySelectorAll('#noiseCleanup button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`);
+    const named=text=>page.evaluate(`[...document.querySelectorAll('.noise-dialog .noise-body button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`);
+    const idle='![...document.querySelectorAll(".noise-dialog button")].some(b=>b.disabled)';
+    const openReview=async()=>{await click('#recordBtn');await wait('document.querySelector("#recTakes")?.textContent.includes("Cleanup")');await page.evaluate('[...document.querySelectorAll("#recTakes button")].find(b=>b.textContent==="Cleanup").click()');await wait('document.querySelector(".noise-dialog")?.textContent.includes("Take 1")');};
     await page.goto(url);await wait('!!window.sceneLoop');
-    await click('#noiseCleanup summary');await wait('document.querySelector("#noiseCleanup").textContent.includes("Choose a recorded take")');
+    assert.equal(await page.evaluate('!!document.querySelector("#noiseCleanup,#recordingRanges,#sceneText,#sceneSubtitles")'),false);
     await page.evaluate(`(async()=>{await window.sceneLoop.add_take({scene:'s01-intro',path:${JSON.stringify(source)}});await window.sceneLoop.choose_take({scene:'s01-intro',take:1,keep:[[0,2.5]]});})()`);
-    await named('Refresh recording');await wait('document.querySelector("#noiseCleanup").textContent.includes("In use: Gentle cleanup")');
-    await named('Prepare preview');await wait('document.querySelector("#noiseCleanup").textContent.includes("Pending preview: Cleanup off")');
-    assert.equal(await page.evaluate('document.querySelectorAll("#noiseCleanup audio").length'),4);
-    await page.evaluate('document.querySelector("#noiseCleanup audio").play()');await delay(120);
-    assert.ok(await page.evaluate('document.querySelector("#noiseCleanup audio").currentTime>0'));
-    await page.evaluate('document.querySelectorAll("#noiseCleanup audio")[1].play()');
-    assert.equal(await page.evaluate('document.querySelector("#noiseCleanup audio").paused'),true);
-    await click('#playBtn');assert.equal(await page.evaluate('document.querySelectorAll("#noiseCleanup audio")[1].paused'),true);await click('#playBtn');
-    await page.goto(url);await wait('!!window.sceneLoop');await click('#noiseCleanup summary');await wait('document.querySelector("#noiseCleanup").textContent.includes("Pending preview: Cleanup off")');
-    await named('Keep cleanup off');await wait('document.querySelector("#noiseCleanup").textContent.includes("In use: Cleanup off (kept)") && ![...document.querySelectorAll("#noiseCleanup button")].some(b=>b.disabled)');
-    await page.goto(url);await wait('!!window.sceneLoop');await click('#noiseCleanup summary');await wait('document.querySelector("#noiseCleanup").textContent.includes("Revert to prior gentle cleanup")');
-    await named('Revert to prior gentle cleanup');await wait('document.querySelector("#noiseCleanup").textContent.includes("In use: Gentle cleanup (kept)") && ![...document.querySelectorAll("#noiseCleanup button")].some(b=>b.disabled)');
-    // A context change after inspection is rejected by the API.
-    await page.evaluate('window.sceneLoop.update_scene({scene:"s01-intro",title:"Changed while open",model:"UI test"})');
+    await openReview();await wait('document.querySelector(".noise-dialog").textContent.includes("In use: Gentle cleanup")');
+    await named('Prepare preview');await wait('document.querySelector(".noise-dialog").textContent.includes("Pending preview: Cleanup off")');
+    assert.equal(await page.evaluate('document.querySelectorAll(".noise-dialog audio").length'),4);
+    await page.evaluate('document.querySelector(".noise-dialog audio").play()');await delay(120);
+    assert.ok(await page.evaluate('document.querySelector(".noise-dialog audio").currentTime>0'));
+    await page.evaluate('document.querySelectorAll(".noise-dialog audio")[1].play()');
+    assert.equal(await page.evaluate('document.querySelector(".noise-dialog audio").paused'),true);
+    await page.evaluate('window.dispatchEvent(new KeyboardEvent("keydown",{key:"e",bubbles:true}))');assert.equal(await page.evaluate('!!document.querySelector("#recText textarea")'),false);
+    await named('Keep cleanup off');await wait(`document.querySelector(".noise-dialog").textContent.includes("In use: Cleanup off (kept)") && ${idle}`);
+    await named('Revert to prior gentle cleanup');await wait(`document.querySelector(".noise-dialog").textContent.includes("In use: Gentle cleanup (kept)") && ${idle}`);
+    await click('.noise-dialog > button');await page.evaluate('document.querySelector(".rec-bar button[title^=Close]").click()');
     // Explicit old API context from a stale inspected view cannot overwrite the change.
     await page.evaluate('(async()=>{window.staleNoise=await window.sceneLoop.inspect_noise_cleanup({scene:"s01-intro"});})()');
     await page.evaluate('window.sceneLoop.update_scene({scene:"s01-intro",title:"New title",model:"UI test"})');
     const result=await page.evaluate('(async()=>{try{await window.sceneLoop.preview_noise_cleanup({scene:"s01-intro",mode:"off",contextHash:window.staleNoise.contextHash});return "wrong";}catch(e){return e.message;}})()');assert.match(result,/changed/);
+    // A review left open closes when another scene is selected under it.
     await page.evaluate('window.sceneLoop.create_scene({id:"empty",title:"Empty scene",duration:2,model:"UI test"})');
     await wait('document.querySelector(".card[data-id=empty]")');
-    await page.evaluate('window.oldNoiseButton=[...document.querySelectorAll("#noiseCleanup button")].find(b=>b.textContent==="Prepare preview")');
-    await page.evaluate('window.sceneLoop.show_scene({scene:"empty"})');await wait('document.querySelector("#noiseCleanup").textContent.includes("Choose a recorded take")');
-    await page.evaluate('window.oldNoiseButton.click()');assert.equal((await page.evaluate('window.sceneLoop.inspect_noise_cleanup({scene:"empty"})')).supported,false);
-    await page.evaluate('window.sceneLoop.show_scene({scene:"s01-intro"})');await wait('document.querySelector("#noiseCleanup").textContent.includes("In use:")');
-    await click('#recordBtn');await wait('document.querySelector("#recTakes")?.textContent.includes("Cleanup")');
-    await page.evaluate('[...document.querySelectorAll("#recTakes button")].find(b=>b.textContent==="Cleanup").click()');await wait('document.querySelector(".noise-dialog")?.textContent.includes("Take 1")');
-    await page.evaluate('window.dispatchEvent(new KeyboardEvent("keydown",{key:"e",bubbles:true}))');assert.equal(await page.evaluate('!!document.querySelector("#recText textarea")'),false);
-    await click('.noise-dialog > button');await page.evaluate('document.querySelector(".rec-bar button[title^=Close]").click()');
+    await openReview();await page.evaluate('window.sceneLoop.show_scene({scene:"empty"})');await wait('!document.querySelector(".noise-dialog")');
+    await page.evaluate('document.querySelector(".rec-bar button[title^=Close]")?.click()');
     assert.equal(await page.evaluate('document.documentElement.scrollWidth'),1280);
-    const mobile=await browser.newPage({width:390,height:844});await mobile.goto(url);
-    const end=Date.now()+20000;while(!await mobile.evaluate('!!window.sceneLoop')){if(Date.now()>end)throw new Error('mobile');await delay(30);}
-    await mobile.evaluate('document.querySelector("#noiseCleanup summary").click()');
-    while(!await mobile.evaluate('document.querySelector("#noiseCleanup").textContent.includes("In use:")'))await delay(30);
+    const mobile=await browser.newPage({width:390,height:844});await mobile.goto(url+"&scene=s01-intro");
+    const mwait=async(code)=>{const end=Date.now()+20000;while(!await mobile.evaluate(code)){if(Date.now()>end)throw new Error(`Mobile wait ${code}: ${await mobile.evaluate('JSON.stringify({sel:document.querySelector("#panelSub")?.textContent,rec:document.querySelector("#recTakes")?.textContent,dialog:document.querySelector(".noise-dialog")?.textContent})')}`);await delay(30);}};
+    await mwait('!!window.sceneLoop && document.querySelector("#panelSub").textContent.startsWith("s01-intro")');
     assert.equal(await mobile.evaluate('document.documentElement.scrollWidth'),390);
     await mobile.evaluate('document.querySelector("#recordBtn").click()');
-    while(!await mobile.evaluate('document.querySelector("#recTakes")?.textContent.includes("Cleanup")'))await delay(30);
+    await mwait('document.querySelector("#recTakes")?.textContent.includes("Cleanup")');
     await mobile.evaluate('[...document.querySelectorAll("#recTakes button")].find(b=>b.textContent==="Cleanup").click()');
-    while(!await mobile.evaluate('document.querySelector(".noise-dialog")?.textContent.includes("Take 1")'))await delay(30);
+    await mwait('document.querySelector(".noise-dialog")?.textContent.includes("Take 1")');
     assert.equal(await mobile.evaluate('document.documentElement.scrollWidth'),390);
     await mobile.evaluate('document.querySelector(".noise-dialog > button").click();document.querySelector(".rec-bar button[title^=Close]").click()');
     await page.goto(`http://127.0.0.1:${port}/?library=1&project=scratch&video=demo`);await wait('!!document.querySelector("#libMusicTab")');await click('#libMusicTab');

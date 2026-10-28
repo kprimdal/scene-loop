@@ -77,22 +77,10 @@ function mount(container, id, stillHere) {
   paint();
   return {refresh:()=>call('inspect_noise_cleanup',{}),key};
 }
-let panel = null;
-export function renderNoise() {
+// A Record cleanup review belongs to one scene; close it when another scene is selected.
+export function syncNoiseReview() {
   const dialog = document.querySelector('.noise-dialog');
   if (dialog && dialog.dataset.scope !== scope(S.sel)) closeNoiseReview();
-  const container = $('#noiseCleanup');
-  if (!container || S.guest || !S.sel) return;
-  const key = scope(S.sel);
-  const sc=S.data.scenes.find(s=>s.id===S.sel);
-  const stamp=JSON.stringify([S.data.stamp,sc?.versions.at(-1)?.v,sc?.words,sc?.audio]);
-  if (!panel || panel.key !== key) {
-    stopNoisePlayback();
-    panel = mount(container,S.sel,()=>S.sel && scope(S.sel)===key);
-    panel.stamp=stamp;
-    container.ontoggle = () => {if(container.open) panel.refresh(); else stopNoisePlayback();};
-    if(container.open) panel.refresh();
-  } else if(panel.stamp!==stamp) {panel.stamp=stamp;if(container.open)panel.refresh();}
 }
 export function openNoiseReview(id) {
   if (S.guest) return;
