@@ -4,8 +4,6 @@ import { player, setMode, renderTrack, loadPlayer } from "./stage.js";
 import { saveScriptNarration } from "./script.js";
 
 import { refresh } from "./data.js";
-import { renderSubtitles } from "./subtitles.js";
-import { renderText } from "./text.js";
 
 const AGENT = { claude: "Claude", codex: "Codex", chat: "Chat", manual: "Manual edit", restore: "Restore", import: "Import" };
 
@@ -123,8 +121,6 @@ export function renderCompare() {
   const el = $("#compare");
   const sc = scene();
   const on = S.compare && S.mode === "scene";
-  renderText();
-  renderSubtitles();
   el.hidden = $("#flipBtn").hidden = $("#closeCompare").hidden = !on;
   if (!on) return;
   const row = (v) => {

@@ -43,7 +43,7 @@ take.
   character counts, the estimated spoken length against the scene durations, each scene's audio
   length and whether its words are timed.
 - Filmstrip of scenes, a preview with This scene / Whole video, a timecode readout, frame stepping
-  with the arrow keys, and an activity panel per scene with a player for the scene's narration.
+  with the arrow keys, and an activity panel per scene with what the chat did and the open comments.
 - Pause, drag a box on the frame, write a comment. The chat gets the comment with a still, the
   box drawn on it and the elements under the box (`get_pending_comments`) and marks it resolved
   when it writes the fix.
@@ -503,11 +503,10 @@ portable typography, package fonts in the project and adjust its theme.
 
 ## Text on screen
 
-Open **Text on screen** in a scene's activity panel. Add up to four text items, choose Centre
-title, Top heading or Lower third, and White · shadow, Dark card or Light card. Each item accepts
-240 characters on up to four lines, including Danish text. The player previews drafts as you type;
-**Preview start** seeks to the item's first instant. **Save text** keeps the list as an ordinary
-scene version. **Cancel** discards the draft. Remove an item and save to remove it from the video.
+Ask the chat for it; the page has no text editor of its own. A scene holds up to four text items,
+each Centre title, Top heading or Lower third, in White · shadow, Dark card or Light card. Each item
+accepts 240 characters on up to four lines, including Danish text. Saving the list makes an
+ordinary scene version; an empty list removes the text from the video.
 
 Times are seconds within the scene: visible at start, hidden at end (`0 ≤ start < end ≤ duration`).
 Shortening a scene past an item's end is rejected: adjust or remove the text first, then shorten.
@@ -524,8 +523,7 @@ scene duration and version. It is available through MCP, WebMCP and `window.scen
 Text is plain content, stored with its generated CSS inside the scene HTML. Ordinary
 `write_scene_html` edits retain it, as do style changes. Scene versions restore text together with
 that version's authored content and pinned style. An old version whose text exceeds the current
-scene duration cannot be restored until you extend the scene. Historical versions and Whole video
-are view only in the text controls; switch to the latest version in This scene to edit. Preview,
+scene duration cannot be restored until you extend the scene. Preview,
 stills and export use the same HTML and frozen clock, without another renderer.
 
 For a dissolve, text that ends at the outgoing scene's duration disappears at that boundary.
@@ -725,8 +723,7 @@ there are no remote downloads, Keep integration, automatic analysis or reconstru
 
 ## Review recording cleanup
 
-Open **Recording cleanup** in the selected scene's activity panel, or **Cleanup** beside the
-used take in Record. Choose **Gentle cleanup** or **Cleanup off**, then **Prepare preview**.
+Ask the chat, or press **Cleanup** beside the used take in Record. Choose **Gentle cleanup** or **Cleanup off**, then **Prepare preview**.
 Listen to Before (the current selected audio) and After (the pending candidate). Playback is
 manual; starting another review player pauses the first. The original full recording and the
 same edit without cleanup are available separately. The original includes unused material,
@@ -771,8 +768,7 @@ write failures; it does not guarantee durability against storage-device or files
 
 ## Selected-scene captions
 
-Open **Captions** in the selected scene's activity panel, in **This scene** at its latest
-version. **Generate draft from words** uses the existing `.words.json` timings, with that
+Ask the chat; the page has no caption editor of its own. Generating a draft uses the existing `.words.json` timings, with that
 scene's `narrationLead` (default 0.35 s) added exactly once. There is no transcription or model
 call. Missing timings explain the prerequisite. Draft grouping breaks at sentence endings,
 pauses over 0.6 s, 10 words, 72 characters or 5 seconds. Valid zero-duration words from
@@ -787,26 +783,21 @@ A point may coincide with or lie inside a neighboring spoken interval; it does n
 overlapping displayed cues.
 This infers display timing only; it does not invent or change transcript/audio timing.
 
-The panel's **Inferred timing** notice and saved `provenance.derivationNotes` identify the
+The saved `provenance.derivationNotes` identify the
 point-timed source word indexes, generated cue bounds and the context used. Notes describe the
 generated draft; later user corrections can override its display times. Derivation version 2
 owns this rule. Existing version 1 pins stay intact until explicit regeneration; ordinary edits
 retain their provenance. Overlapping spoken-word intervals, reversed or invalid source timing still needs review.
 Words outside scene bounds after lead produce an actionable length/lead error without clipping.
 
-Select a cue to correct its display text and start/end seconds. Choose **Dark card**, **Light
-card** or **White · shadow**. **Preview cue** seeks to that cue; **Preview draft** shows all
-current edits. **Save captions** persists the draft. **Cancel**, closing the panel, or changing
-scene, version, comparison or video discards the draft and restores the saved picture. Draft
-previews do not write a version. History and whole-video modes allow inspection, with editing
-available only on the latest selected scene. Text/motion/music/library/record controls remain
-independent.
+Each cue's display text and start/end seconds can be corrected, in a Dark card, Light card or
+White · shadow style. Drafts are not saved until `set_scene_subtitles` is called.
 
 Captions are ordered, non-overlapping, scene-local **[start,end)** intervals: visible at start,
 hidden at end, including end equal to scene duration. Limits are 200 cues per scene, 84 plain
 text characters and 2 explicit lines per cue, and at most 8 seconds per cue. Text wraps inside
 the frame in landscape and portrait. Long words wrap too. Bottom-centre placement can overlap
-lower thirds, a camera inset or other authored content; the panel states this, and both must be
+lower thirds, a camera inset or other authored content; both must be
 reviewed together. There is no automatic collision solver or caption motion target.
 
 The separate `scene-loop:subtitles` block in scene HTML pins the exact cues, style descriptor
@@ -820,16 +811,15 @@ cached clips. No clock or clip-joining changes are involved.
 
 Saved timings are **snapshots**. Script, word-file, narration audio, chosen-take metadata and
 lead fingerprints are stored in provenance, together with the derivation version and its timing
-contract. If these inputs change, the panel and `get_scene_subtitles` show `stale` and the
+contract. If these inputs change, `get_scene_subtitles` shows `stale` and the
 changed components. Corrections and displayed times stay fixed. They do **not** follow the
-new words automatically. **Regenerate draft from words** explicitly replaces the draft from
-the current source; only saving it rebases provenance. Cancel keeps the old corrections.
+new words automatically. Regenerating replaces the draft from the current source; only saving
+it rebases provenance.
 Ordinary corrections to a stale snapshot keep its original provenance and stale status.
 Shortening a scene or fitting narration past a saved cue end is rejected before the storyboard
 or lead changes. Edit/remove caption timing first, then fit. There is no silent retiming.
 
-**Remove cue** and **Remove all captions** change only the draft until saved. **Open scene
-history** leads to normal scene versions; restoring a version restores captions with that
+Captions live in normal scene versions; restoring a version restores captions with that
 version's authored content, styles, text and motion. Restore rejects captions outside the
 current scene duration. It does not restore binary audio, transcripts or the storyboard lead;
 restored captions can therefore show stale source diagnostics.
@@ -847,19 +837,16 @@ Agent equivalents over MCP, WebMCP and `window.sceneLoop`:
 
 All three require an explicit project/video and the existing owner gate. Writes reject changed
 HTML, source or duration using the inspected context hash, including a second check after motion
-preflight. The page also guards asynchronous loads and detached forms against changed targets,
-versions and source-only changes. Tests use synthetic word timings and free sine/silence audio;
+preflight. Tests use synthetic word timings and free sine/silence audio;
 no real projects, transcription service or paid narration are needed.
 
 ### Edit a range of the chosen recording
 
-Open **Edit recording range** in the selected scene's panel, in its latest view. These controls
-use **current edited recording seconds**, from 0 to the selected 48 kHz narration's duration.
+Ask the chat, with the seconds or the words to cut. Ranges use **current edited recording seconds**, from 0 to the selected 48 kHz narration's duration.
 Scene time is recording time plus the displayed `narrationLead`. The original full take and
-its retained original-time ranges are shown separately. Seek the current recording, mark start
-and end (or enter numbers), and **Preview selected range** before choosing **Remove range**,
-**Mute range · voice only**, or **Keep only range**. Each action prepares a result and impact
-report; **Apply reviewed range** selects it. Preparing or dismissing a preview selects nothing.
+its retained original-time ranges are reported separately. Remove, mute (voice only) or keep only
+a range; each prepares a result and an impact report, and applying it selects it. Preparing a
+preview selects nothing.
 The candidate camera uses scene seconds, including the lead. Music and SFX are not muted.
 
 Bounds round to the nearest 1 ms. Remove/keep compose with previous cuts; every retained
@@ -874,7 +861,7 @@ Mute preserves scene/audio duration. Remove/keep preserve the existing lead and 
 up to the frame grid. The impact report shows the exact rounding. A scene that already cuts
 off narration by more than one frame must be fitted/reviewed first. Shortening rejects saved
 captions, text items or motion fallbacks that would exceed the new duration, naming each item.
-Correct their timings first; the controls never silently delete, clip or retime these items.
+Correct their timings first; a range edit never silently deletes, clips or retimes these items.
 
 Surviving transcript words follow the cuts. Partially cut words retain their text and their
 surviving timing span and are explicitly reported; point words survive inside half-open kept
@@ -882,9 +869,9 @@ windows. The script stays unchanged and can therefore differ from retained speec
 lists removed/partial words, resolved and fallback `data-at`/`data-sfx`/managed motion anchors.
 Authored absolute CSS/WAAPI/script motion and numeric SFX keep their authored clock and require
 review. Corrected captions remain independent scene-local snapshots, with source staleness
-visible in Captions. They do not automatically follow the new words.
+visible in `get_scene_subtitles`. They do not automatically follow the new words.
 
-Original take bytes stay intact. **Undo previous recording edit** keeps one previous selected
+Original take bytes stay intact. Undo keeps one previous selected
 waveform, words, camera, take metadata and scene timing across reload/restart. Undo rebuilds the
 current mix, preserving other scenes, music/SFX and unrelated edits; conflicting changes to the
 affected recording, words, camera, HTML or timing reject undo with an explanation. Scene HTML
