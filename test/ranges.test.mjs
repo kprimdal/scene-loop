@@ -98,18 +98,20 @@ async function observePresentedFrames(page) {
 }
 async function waitForPresentedFrame(page) {
  return page.evaluate(`(async()=>{
-   const started=performance.now(),fps=window.__sl.fps;
+   // The page's own timers and frames follow the page clock (lib/timeshim.js); wait on real ones.
+   const real=window.__slReal||{setTimeout,clearTimeout,requestAnimationFrame,now:()=>performance.now()};
+   const started=real.now(),fps=window.__sl.fps;
    const frames=await Promise.all([...document.querySelectorAll('video')].filter(v=>getComputedStyle(v).visibility!=='hidden').map(v=>{
      const state=v.__rangeTestFrame;
      const expected=Math.floor(Math.min(v.currentTime,Math.max(0,v.duration-1/fps))*fps+1e-6)/fps;
      return new Promise((resolve,reject)=>{
-       const done=()=>{if(state.last!==null && Math.abs(state.last-expected)<.5/fps){clearTimeout(timer);state.waiters.delete(done);resolve({expected,presented:state.last,callbacks:state.callbacks});}};
-       const timer=setTimeout(()=>{state.waiters.delete(done);reject(new Error('Video frame was not presented: '+JSON.stringify({expected,presented:state.last,currentTime:v.currentTime,seeking:v.seeking,readyState:v.readyState})));},10000);
+       const done=()=>{if(state.last!==null && Math.abs(state.last-expected)<.5/fps){real.clearTimeout(timer);state.waiters.delete(done);resolve({expected,presented:state.last,callbacks:state.callbacks});}};
+       const timer=real.setTimeout(()=>{state.waiters.delete(done);reject(new Error('Video frame was not presented: '+JSON.stringify({expected,presented:state.last,currentTime:v.currentTime,seeking:v.seeking,readyState:v.readyState})));},10000);
        state.waiters.add(done);done();
      });
    }));
-   await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-   return {waitMs:performance.now()-started,frames};
+   await new Promise(resolve=>real.requestAnimationFrame(()=>real.requestAnimationFrame(resolve)));
+   return {waitMs:real.now()-started,frames};
  })()`);
 }
 test('camera marker sync, decoded selection and actual cut/dissolve exports agree; unaffected clips reused',{timeout:120000},async t=>{
