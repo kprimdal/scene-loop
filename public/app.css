@@ -323,7 +323,7 @@ body.scripting .transport { margin-top: 4px; }
 form.logout { margin: 0; display: contents; }
 
 /* record view: the narration as a teleprompter at the very top, next to the camera */
-.record { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; }
+.record { position: fixed; inset: 0; z-index: 60; background: #000; color: #fff; display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; grid-template-columns: minmax(0, 1fr); }
 .record[hidden] { display: none; }
 body.record-mode { overflow: hidden; }
 .rec-prompt { overflow-y: auto; scrollbar-width: none; padding: 18px 0 40px; border-top: 4px solid transparent; }
@@ -353,10 +353,13 @@ body.rec-live .rec-prompt { border-top-color: #e5484d; }
 .rec-warn[hidden] { display: none; }
 .rec-count { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 61; width: 120px; height: 120px; border-radius: 50%; background: rgb(229 72 77 / 0.9); color: #fff; font: 700 76px/120px Inter, ui-sans-serif, system-ui, sans-serif; text-align: center; }
 .rec-count[hidden] { display: none; }
-.rec-bar { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-top: 1px solid #222; background: #0b0b0c; font-size: 13px; }
+/* the controls take a line of their own when the screen is too narrow for one row */
+.rec-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 18px; border-top: 1px solid #222; background: #0b0b0c; font-size: 13px; }
+.rec-where { max-width: 280px; }
+.rec-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; margin-left: auto; }
 .rec-where b { font-weight: 650; margin-right: 8px; }
 .rec-where span { color: #9a9ca2; }
-.rec-status { color: #c9cbd0; margin-left: 12px; }
+.rec-status { flex: 1 1 320px; min-width: 0; color: #c9cbd0; margin-left: 12px; }
 .rec-status.live { color: #ff6b6f; font-weight: 650; font-variant-numeric: tabular-nums; }
 .rec-btn { border: 1px solid #34363b; background: #17181a; color: #e8e9eb; padding: 5px 10px; border-radius: 8px; font-weight: 550; font-size: 12px; }
 .rec-btn:hover { border-color: #55575d; }
@@ -379,6 +382,12 @@ body.rec-live .rec-prompt { border-top-color: #e5484d; }
 .rec-meter span.hot { background: #e5484d; }
 .rec-dev { font-size: 11px; color: #7a7c82; }
 .rec-keys { padding: 6px 18px 10px; background: #0b0b0c; color: #6d6f75; font-size: 12px; }
+/* a laptop screen: a smaller camera and takes list leave the text more room */
+@media (max-height: 860px) {
+  .rec-media, .rec-screen { width: 256px; }
+  .rec-takes { max-height: 140px; }
+  .rec-bottom { padding: 8px 18px; }
+}
 
 .rec-takes-head { display: flex; justify-content: flex-end; margin-bottom: 6px; }
 
@@ -534,7 +543,8 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 
 @media(max-width:520px) {
   .record {overflow-y:auto;grid-template-rows:minmax(180px,1fr) auto auto auto;}
-  .rec-bar {flex-wrap:wrap;gap:8px;}
+  .rec-bar {gap:8px;}
+  .rec-status {margin-left:0;}
   .rec-bottom {grid-template-columns:minmax(0,1fr);}
   .rec-take {flex-wrap:wrap;}
   .rec-media {justify-self:center;}
