@@ -156,8 +156,11 @@ With Entra on:
   Someone who is not on the list gets "not on this scene-loop's list".
 - Only owners connect a chat. On `/authorize`, an owner who is not signed in clicks "Sign in with
   Microsoft and allow", signs in, and goes straight back to the chat.
+- A browser session or a chat connection made from a Microsoft sign-in ends 30 days after that
+  sign-in at the latest, however often its refresh token is used. So someone who is disabled in
+  Entra but still on the list is out within 30 days. Removing them on People ends it at once.
 - Agent tokens on People and Account still work, as a fallback for a client that cannot run
-  OAuth.
+  OAuth. They do not depend on Entra: revoke them when someone leaves.
 - The ID token is checked with no extra library: RS256 signature against Entra's published
   keys, issuer, audience, tenant, expiry and a nonce. The PKCE verifier and the nonce come from
   a random value in a 10-minute cookie, so a sign-in only finishes in the browser that started
