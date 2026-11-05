@@ -24,7 +24,10 @@ test('Library page: grid, filters, drawer actions per kind, formats, sources, ta
     const page = await browser.newPage({ width: 1280, height: 1000 });
     const wait = async (code) => { const end = Date.now() + 15000; while (!(await page.evaluate(code))) { if (Date.now() > end) throw new Error(`Wait: ${code}\n${await page.evaluate('document.querySelector("#toast")?.textContent')}`); await new Promise((r) => setTimeout(r, 30)); } };
     const click = (sel) => page.evaluate(`document.querySelector(${JSON.stringify(sel)}).click()`);
-    const button = (text, within = '#cardDrawer') => page.evaluate(`[...document.querySelectorAll(${JSON.stringify(within + ' button')})].find(b=>b.textContent.trim()===${JSON.stringify(text)}).click()`);
+    // Waits for the button first: the drawer re-renders after the events stream reports a change,
+    // and a click between the wait above it and that re-render found no button.
+    const find = (text, within) => `[...document.querySelectorAll(${JSON.stringify(within + ' button')})].find(b=>b.textContent.trim()===${JSON.stringify(text)})`;
+    const button = async (text, within = '#cardDrawer') => { await wait(`!!${find(text, within)}`); await page.evaluate(`${find(text, within)}.click()`); };
     const input = (sel, value) => page.evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change'));e.dispatchEvent(new Event('input'));})()`);
     const idle = '![...document.querySelectorAll("#cardAction button")].some(b=>b.disabled)';
     const base = `http://127.0.0.1:${port}`, url = `${base}/?library=1&project=project&video=one`;
