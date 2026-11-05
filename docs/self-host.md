@@ -154,6 +154,8 @@ With Entra on:
   `preferred_username` claim) and binds the person to the Entra account's object id. After
   that, only that account gets in as them. A changed email on People removes the binding.
   Someone who is not on the list gets "not on this scene-loop's list".
+  Guest (B2B) accounts are never matched by email: their email claims come from another tenant
+  and prove nothing. Sessions and chat tokens from before Entra was turned on stop working.
 - Only owners connect a chat. On `/authorize`, an owner who is not signed in clicks "Sign in with
   Microsoft and allow", signs in, and goes straight back to the chat.
 - A browser session or a chat connection made from a Microsoft sign-in ends 30 days after that

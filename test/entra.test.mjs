@@ -5,11 +5,12 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
-import { createHash, generateKeyPairSync, randomBytes, sign as rsaSign } from "node:crypto";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { createHash, createHmac, generateKeyPairSync, randomBytes, sign as rsaSign } from "node:crypto";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { TEMPLATE_DIR } from "../lib/projects.mjs";
+import { createPeople } from "../lib/people.mjs";
 
 const SERVER = join(import.meta.dirname, "..", "server.mjs");
 const TENANT = "11111111-2222-3333-4444-555555555555";
@@ -284,4 +285,49 @@ test("OAuth: loopback redirects work (mcp-remote, Claude Code); a commenter can'
 test("OAuth: a redirect URI that is not on SCENE_LOOP_OAUTH_REDIRECTS can't register", async () => {
   const r = await browser()("/register", { json: { redirect_uris: ["https://evil.example/cb"], token_endpoint_auth_method: "none" } });
   assert.equal(r.status, 400);
+});
+
+test("a guest account is never matched by email, so it can't take over a person", async () => {
+  const owner = browser();
+  await signIn(owner, OWNER);
+  await owner("/people", { form: { action: "add", name: "Ben", email: "ben@example.com", role: "commenter", projects: "film" } });
+  const guest = browser();
+  const r = await signIn(guest, { oid: "oid-guest", name: "Ben?", email: "ben@example.com", idp: "https://sts.windows.net/99999999-0000-0000-0000-000000000000/" });
+  assert.equal(r.status, 403);
+  const ben = browser();
+  const ok = await signIn(ben, { oid: "oid-ben", name: "Ben", preferred_username: "ben@example.com" });
+  assert.equal(ok.status, 302);
+});
+
+test("a session signed without a Microsoft sign-in (from before Entra) is refused", async () => {
+  const p = JSON.parse(readFileSync(join(root, ".people.json"), "utf8")).people.find((x) => x.email === "owner@example.com");
+  const key = createHmac("sha256", "test-secret").update("scene-loop:").digest();
+  const body = b64u(JSON.stringify({ t: "session", p: p.id, g: p.gen, n: "old-session", exp: Math.floor(Date.now() / 1000) + 3600 }));
+  const old = `${body}.${b64u(createHmac("sha256", key).update(body).digest())}`;
+  const r = await fetch(`${base}/api/whoami`, { headers: { Cookie: `sl_session=${old}` } });
+  assert.equal(r.status, 401);
+  const withEa = b64u(JSON.stringify({ t: "session", p: p.id, g: p.gen, n: "new-session", ea: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 3600 }));
+  const good = `${withEa}.${b64u(createHmac("sha256", key).update(withEa).digest())}`;
+  assert.equal((await fetch(`${base}/api/whoami`, { headers: { Cookie: `sl_session=${good}` } })).status, 200);
+});
+
+test("access tokens carry the Microsoft sign-in time and never run past its 30 days", async () => {
+  const tok = await connect(browser(), OWNER);
+  const a = JSON.parse(Buffer.from(tok.access_token.split(".")[0], "base64url"));
+  assert.ok(a.ea && a.exp <= a.ea + 30 * 86400 && tok.expires_in <= 3600);
+});
+
+test("two owners who sign in with Microsoft: either can be made a commenter", () => {
+  const dir = mkdtempSync(join(tmpdir(), "sl-entra-people-"));
+  try {
+    const people = createPeople(join(dir, ".people.json"));
+    const a = people.add({ name: "A", email: "a@example.com", role: "owner" }).person;
+    const b = people.add({ name: "B", email: "b@example.com", role: "owner" }).person;
+    people.linkEntra(a.id, { oid: "oa" });
+    people.linkEntra(b.id, { oid: "ob" });
+    assert.equal(people.update(b.id, { role: "commenter", projects: ["film"] }).role, "commenter");
+    assert.throws(() => people.update(a.id, { role: "commenter" }), /nobody who can log in/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
