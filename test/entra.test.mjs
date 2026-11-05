@@ -263,6 +263,17 @@ test("OAuth: an owner connects a chat through Microsoft sign-in, and its token w
   assert.equal((await mcpList("nonsense")).status, 401);
 });
 
+test("OAuth: a refresh token runs out 30 days after the Microsoft sign-in, however often it is used", async () => {
+  const tok = await connect(browser(), OWNER);
+  const claims = (t) => JSON.parse(Buffer.from(t.split(".")[0], "base64url"));
+  const first = claims(tok.refresh_token);
+  assert.ok(first.ea && first.exp <= first.ea + 30 * 86400);
+  const again = await fetch(`${base}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: tok.refresh_token }) }).then((r) => r.json());
+  assert.ok(again.access_token);
+  assert.equal(claims(again.refresh_token).ea, first.ea);
+  assert.ok(claims(again.refresh_token).exp <= first.ea + 30 * 86400);
+});
+
 test("OAuth: loopback redirects work (mcp-remote, Claude Code); a commenter can't connect", async () => {
   const local = await connect(browser(), OWNER, "http://127.0.0.1:33418/oauth/callback");
   assert.ok(local.access_token);
