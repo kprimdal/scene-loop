@@ -124,6 +124,50 @@ Without people, a proxy on the same machine makes scene-loop listen on 127.0.0.1
 from outside. It then refuses any request that carries `X-Forwarded-For`, `Forwarded`,
 `X-Real-IP` or `CF-Connecting-IP`, unless `--no-login` or a token is set.
 
+### Sign-in with Microsoft Entra ID
+
+Inside an organisation that has Microsoft 365, people can sign in with their work account
+instead of a password and an authenticator. Entra then handles the password, MFA and
+conditional access, and leaving the company ends access with the account. scene-loop stays the
+OAuth server that the chat talks to: Entra has no dynamic client registration, so a chat can't
+connect to Entra directly. On `/authorize`, scene-loop sends the person to Microsoft, and after
+the sign-in it gives the chat its own code.
+
+| Setting | What it does |
+| --- | --- |
+| `SCENE_LOOP_ENTRA_TENANT` | The organisation's tenant id (a GUID). One tenant only: `common` and `organizations` are refused. |
+| `SCENE_LOOP_ENTRA_CLIENT_ID` | The Application (client) id of the app registration. |
+| `SCENE_LOOP_ENTRA_CLIENT_SECRET` | A client secret of that app. |
+| `SCENE_LOOP_ENTRA_OWNERS` | `email=Name,email=Name`: owners that are added at every start when they are not on the list. This is how the first owner gets in without a shell. To take one out, remove them here too. |
+| `SCENE_LOOP_OAUTH_REDIRECTS` | Optional, and not only for Entra. The redirect URIs that a chat client may register, comma separated, for example `https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback`. Loopback (`http://localhost`, `127.0.0.1`) always works, for Claude Code and `mcp-remote`. Without the setting, any https redirect works. |
+
+The app registration: single tenant, a Web redirect URI `<SCENE_LOOP_URL>/login/entra/callback`,
+delegated permissions `openid`, `profile` and `email`, and a client secret. Set `SCENE_LOOP_URL`:
+the redirect URI comes from it.
+
+With Entra on:
+
+- The login page has one button, "Sign in with Microsoft". Passwords, authenticator codes,
+  invite links and `SCENE_LOOP_PASSWORD` are off.
+- The people list still decides who gets in, and as what. An owner adds someone on People with
+  their work email. At their first sign-in, scene-loop matches the email (the `email` or
+  `preferred_username` claim) and binds the person to the Entra account's object id. After
+  that, only that account gets in as them. A changed email on People removes the binding.
+  Someone who is not on the list gets "not on this scene-loop's list".
+  Guest (B2B) accounts are never matched by email: their email claims come from another tenant
+  and prove nothing. Sessions and chat tokens from before Entra was turned on stop working.
+- Only owners connect a chat. On `/authorize`, an owner who is not signed in clicks "Sign in with
+  Microsoft and allow", signs in, and goes straight back to the chat.
+- A browser session or a chat connection made from a Microsoft sign-in ends 30 days after that
+  sign-in at the latest, however often its refresh token is used. So someone who is disabled in
+  Entra but still on the list is out within 30 days. Removing them on People ends it at once.
+- Agent tokens on People and Account still work, as a fallback for a client that cannot run
+  OAuth. They do not depend on Entra: revoke them when someone leaves.
+- The ID token is checked with no extra library: RS256 signature against Entra's published
+  keys, issuer, audience, tenant, expiry and a nonce. The PKCE verifier and the nonce come from
+  a random value in a 10-minute cookie, so a sign-in only finishes in the browser that started
+  it.
+
 ## Connect a chat
 
 **Claude Code**, with the fixed token:
