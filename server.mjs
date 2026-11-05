@@ -28,6 +28,7 @@ import { createMcp } from "./lib/mcp.mjs";
 import { createAuth } from "./lib/auth.mjs";
 import { createPeople } from "./lib/people.mjs";
 import { createAdmin } from "./lib/admin.mjs";
+import { entraSettings } from "./lib/entra.mjs";
 
 const appDir = dirname(fileURLToPath(import.meta.url));
 const VERSION = "0.3.0";
@@ -51,6 +52,24 @@ if (!existsSync(rootArg) || !statSync(rootArg).isDirectory()) {
 
 const people = createPeople(join(rootArg, ".people.json"));
 const env = process.env;
+let entra;
+try {
+  entra = entraSettings(env);
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
+// The owners an Entra setup starts with, as email=Name pairs: each is added when missing, at
+// every start. Infrastructure code can then set up the first owner without a shell.
+const addEntraOwners = () => {
+  for (const pair of String(env.SCENE_LOOP_ENTRA_OWNERS ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
+    const [email, name] = pair.split("=").map((x) => x?.trim());
+    if (!email?.includes("@") || !name) throw new Error(`SCENE_LOOP_ENTRA_OWNERS: "${pair}" is not email=Name`);
+    if (people.byEmail(email)) continue;
+    people.add({ name, email, role: "owner" });
+    console.log(`Added ${name} <${email}> as an owner (SCENE_LOOP_ENTRA_OWNERS). They sign in with Microsoft.`);
+  }
+};
 
 // --invite-owner email Name: add an owner (or make the person with that email one) and print a
 // fresh invite link. A running server picks the change up from the file.
@@ -61,8 +80,13 @@ if (args.includes("--invite-owner")) {
     if (!email?.includes("@") || !name || name.startsWith("--")) throw new Error("Usage: node server.mjs <dir> --invite-owner email Name [--url https://your.host]");
     const had = people.byEmail(email);
     if (had && had.role !== "owner") people.update(had.id, { role: "owner" });
-    const invite = had ? people.invite(had.id) : people.add({ name, email, role: "owner" }).invite;
     const base = (PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/+$/, "");
+    if (entra) {
+      if (!had) people.add({ name, email, role: "owner" });
+      console.log(`${had ? `${had.name} is an owner.` : `Added ${name} <${email}> as an owner.`} With Entra on there is no invite link: they sign in with Microsoft at ${base}/login`);
+      process.exit(0);
+    }
+    const invite = had ? people.invite(had.id) : people.add({ name, email, role: "owner" }).invite;
     console.log(`${had ? `${had.name} is an owner; new` : `Added ${name} <${email}> as an owner.`} Invite link, valid 7 days, works once:\n${base}/invite/${invite}`);
     process.exit(0);
   } catch (e) {
@@ -83,6 +107,14 @@ try {
   console.error(e.message);
   process.exit(1);
 }
+if (entra) {
+  try {
+    addEntraOwners();
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+} else if (env.SCENE_LOOP_ENTRA_OWNERS) console.warn("SCENE_LOOP_ENTRA_OWNERS is ignored: Entra sign-in is not set up (SCENE_LOOP_ENTRA_TENANT, _CLIENT_ID, _CLIENT_SECRET).");
 if (env.SCENE_LOOP_SHARE_PORT) console.warn("SCENE_LOOP_SHARE_PORT is gone: there is no second listener. People log in on the main one; point the tunnel at it.");
 
 // ---------- live events (SSE) ----------
@@ -108,6 +140,8 @@ try {
     people,
     trustProxy: env.SCENE_LOOP_TRUST_PROXY,
     reviewer: REVIEWER,
+    entra,
+    redirects: env.SCENE_LOOP_OAUTH_REDIRECTS ? env.SCENE_LOOP_OAUTH_REDIRECTS.split(",").map((u) => u.trim()).filter(Boolean).map((u) => new URL(u).href) : null,
   });
 } catch (e) {
   console.error(e.message);
@@ -118,7 +152,7 @@ try {
 // at once. The file is also read again every few seconds for changes made outside.
 function recheckStreams() {
   for (const [res, c] of clients) {
-    if (c.boot) { if (!(env.SCENE_LOOP_PASSWORD || flag("--password")) || people.hasActiveOwner()) res.end(); continue; }
+    if (c.boot) { if (!(env.SCENE_LOOP_PASSWORD || flag("--password")) || entra || people.hasActiveOwner()) res.end(); continue; }
     if (!c.id) continue;
     const p = people.get(c.id);
     if (!p || p.gen !== c.gen) res.end();
@@ -385,10 +419,12 @@ server.listen(PORT, HOST, async () => {
   const library = loadLibrary();
   console.log(`Library: ${library.title}, ${library.cards.length} cards, ${library.formats.length} formats, ${library.sources.length} sources (${libraryDir()})`);
   for (const e of library.errors) console.warn(`Library: ${e.file} left out: ${e.problems.join("; ")}`);
-  if (auth.enabled()) console.log(`Login on (${people.list().filter((p) => p.email).length} people). MCP needs a bearer token or the OAuth flow; see docs/self-host.md.`);
+  if (auth.enabled()) console.log(`Login on (${people.list().filter((p) => p.email).length} people${entra ? `, Microsoft Entra sign-in, tenant ${entra.tenant}` : ""}). MCP needs a bearer token or the OAuth flow; see docs/self-host.md.`);
+  if (entra && !PUBLIC_URL) console.warn("Entra sign-in without SCENE_LOOP_URL: the redirect URI comes from the request's Host. Set SCENE_LOOP_URL to the address registered in Entra.");
+  if (entra && (env.SCENE_LOOP_PASSWORD || flag("--password"))) console.warn("SCENE_LOOP_PASSWORD is ignored: with Entra on, people sign in with Microsoft.");
   else console.log(`MCP: claude mcp add --transport http scene-loop ${shown}/mcp`);
   if (args.includes("--no-login") && people.loginsOn()) console.warn("--no-login is ignored: there are people on the list, so everyone logs in.");
-  if ((env.SCENE_LOOP_PASSWORD || flag("--password")) && people.hasActiveOwner()) console.warn("SCENE_LOOP_PASSWORD no longer logs anyone in: an owner has an account. Take it out.");
+  if (!entra && (env.SCENE_LOOP_PASSWORD || flag("--password")) && people.hasActiveOwner()) console.warn("SCENE_LOOP_PASSWORD no longer logs anyone in: an owner has an account. Take it out.");
   if (auth.enabled() && auth.generated) console.log("No SCENE_LOOP_SECRET set and no people file: sessions and tokens end when the server restarts.");
   for (const [n, v] of videos) registry.get(n, v).catch((e) => console.error(`${n}/${v}: ${e.message}`)); // opens and warms posters in the background
 });

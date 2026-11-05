@@ -144,7 +144,8 @@ people log in with their own email and password, owners with an authenticator co
 People page an owner adds someone to one or more projects as a commenter (watch, read the
 script, comment under their own name) and sends them the invite link, or removes them again. On
 a private network (a tailnet) you can run `--no-login` and set `SCENE_LOOP_TOKEN`: the page
-stays open and `/mcp` wants the token. Put it behind TLS. [docs/self-host.md](docs/self-host.md)
+stays open and `/mcp` wants the token. In an organisation with Microsoft 365, people can sign in with
+their work account instead (Entra ID, `SCENE_LOOP_ENTRA_*`). Put it behind TLS. [docs/self-host.md](docs/self-host.md)
 has the image, the settings, and nginx, Caddy and Cloudflare Tunnel.
 
 ## Project format
