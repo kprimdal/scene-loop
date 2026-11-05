@@ -420,9 +420,9 @@ server.listen(PORT, HOST, async () => {
   console.log(`Library: ${library.title}, ${library.cards.length} cards, ${library.formats.length} formats, ${library.sources.length} sources (${libraryDir()})`);
   for (const e of library.errors) console.warn(`Library: ${e.file} left out: ${e.problems.join("; ")}`);
   if (auth.enabled()) console.log(`Login on (${people.list().filter((p) => p.email).length} people${entra ? `, Microsoft Entra sign-in, tenant ${entra.tenant}` : ""}). MCP needs a bearer token or the OAuth flow; see docs/self-host.md.`);
+  else console.log(`MCP: claude mcp add --transport http scene-loop ${shown}/mcp`);
   if (entra && !PUBLIC_URL) console.warn("Entra sign-in without SCENE_LOOP_URL: the redirect URI comes from the request's Host. Set SCENE_LOOP_URL to the address registered in Entra.");
   if (entra && (env.SCENE_LOOP_PASSWORD || flag("--password"))) console.warn("SCENE_LOOP_PASSWORD is ignored: with Entra on, people sign in with Microsoft.");
-  else console.log(`MCP: claude mcp add --transport http scene-loop ${shown}/mcp`);
   if (args.includes("--no-login") && people.loginsOn()) console.warn("--no-login is ignored: there are people on the list, so everyone logs in.");
   if (!entra && (env.SCENE_LOOP_PASSWORD || flag("--password")) && people.hasActiveOwner()) console.warn("SCENE_LOOP_PASSWORD no longer logs anyone in: an owner has an account. Take it out.");
   if (auth.enabled() && auth.generated) console.log("No SCENE_LOOP_SECRET set and no people file: sessions and tokens end when the server restarts.");
