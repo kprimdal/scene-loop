@@ -1,24 +1,24 @@
-// Restarts in real takes: the 13 scenes of kristianprimdal.dk's "mit-ai-setup" (2026-10-22),
-// Scribe transcripts and the script as written at the time. The speaker improvises, so the
-// script rarely needs a phrase; on that day 14 phrases said once were taken for restarts and
-// left out of the narration while the audio kept them.
+// Restarts in takes shaped like real ones: 13 scenes of an improvised Danish talk, with
+// Scribe word timings and the script as written. The words are invented (one made-up word
+// per real word, punctuation, filler sounds and timings kept), so the fixture carries no
+// one's transcript. Built by the agent-server tidy, Phase 3 block B6 (2026-11).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { narrationWords } from "../lib/words.mjs";
 
-const scenes = JSON.parse(readFileSync(new URL("./fixtures/mit-ai-setup-takes.json", import.meta.url), "utf8"));
+const scenes = JSON.parse(readFileSync(new URL("./fixtures/synthetic-takes.json", import.meta.url), "utf8"));
 const words = (s) => s.words.map(([word, start, end]) => ({ word, start, end }));
 const restartsOf = (s) => narrationWords({ words: words(s), script: s.script, adopt: true, edits: true }).removed.filter((x) => x.kind === "restart").map((x) => x.text);
 
 // The restarts a listener hears, by hand from the audio's transcript: must is cut, may is a
 // restart too (found or not), anything else was said once and stays.
 const truth = {
-  "s04-byg-tjek": { must: ["Og jeg,", "men de har også..."] },
-  "s09-browser": { must: ["Så bagefter kan jeg så se..."], may: ["Så bagefter kan jeg så se de ændringer, den har været igennem, og jeg får..."] },
-  "s11-puljen": { must: ["Men dog kun, øh, fra samme,", "den måde, på"], may: ["Det vil sige, at hvis der er en af mine Claude-kontier, der rammer, øhm,", "Det vil sige, at hvis der er en af mine Claude-kontier, der rammer,"] },
-  "s12-filer": { must: ["og det vil sige, at jeg ikke er."] },
-  "s13-afslutning": { must: ["Og du kan jo for eksempel starte med at bygge to ting."] },
+  "s04": { must: ["Telo palo,", "volo velo reda solo..."] },
+  "s09": { must: ["Vilo lofalo dulo palo vilo roda..."], may: ["Vilo lofalo dulo palo vilo roda velo gokalo, silo reda koka safa, telo palo lulo..."] },
+  "s11": { must: ["Volo veka vafa, øh, geda nada,", "silo pifa, felo"], may: ["Molo zilo refa, dolo vaga kilo gulo gelo tiga zalo Nilalolo, kilo lela, øhm,", "Molo zilo refa, dolo vaga kilo gulo gelo tiga zalo Nilalolo, kilo lela,"] },
+  "s12": { must: ["telo molo zilo refa, dolo palo dada gulo."] },
+  "s13": { must: ["Telo gada dulo pada zuda kefalo ruga golo dolo sika dafa fula."] },
 };
 
 for (const s of scenes) {
@@ -31,9 +31,9 @@ for (const s of scenes) {
 }
 
 test("a phrase said once stays in the adopted narration", () => {
-  const s = scenes.find((x) => x.scene === "s02-bb");
+  const s = scenes.find((x) => x.scene === "s02");
   const r = narrationWords({ words: words(s), script: s.script, adopt: true, edits: true });
-  assert.match(r.text, /og det fede ved det hele er, at det også er open source\./i);
+  assert.match(r.text, /telo\ molo\ boda\ doda\ molo\ rida\ gulo,\ dolo\ molo\ solo\ gulo\ foda\ goda\./i);
   assert.equal(r.words.length, s.words.length);
 });
 
