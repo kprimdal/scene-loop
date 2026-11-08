@@ -34,12 +34,12 @@ Read `README.md` first. Kristian's own video tool, built in the open.
   branch, and main gets what has been tested. Service settings live in `/etc/default/scene-loop`
   and the unit file (`--no-login`, `CHROME_FLAGS=--no-sandbox` because it runs as root).
 - **Branch work on agent-server goes in a worktree** (`git worktree add /srv/work/scene-loop-<name>
-  -b <name> main`), never in `/srv/work/scene-loop` itself: the deploy cron hard-resets that
+  -b <name> main`), never in `/srv/work/primux/scene-loop/repo` itself: the deploy cron hard-resets that
   checkout to origin/main (it skips when the checkout is not on main, but do not rely on it).
 - **Library content is not in this repo.** `library/` here is the small starter (our own styles,
   motion, patterns, workflows). What we learn about making videos good (technique cards, formats,
   sources, demos) goes in the private repo `kprimdal/scene-loop-library`
-  (`/srv/work/scene-loop-library` on agent-server), loaded with `--library`. Its CLAUDE.md says how
+  (`/srv/work/primux/scene-loop/library` on agent-server), loaded with `--library`. Its CLAUDE.md says how
   to add a source; check with `node bin/check-library.mjs <dir>` from here.
 - A project folder gets a `project.md` next to `storyboard.json` (or at the project root in the
   `videos/` layout). Without it the chat has no pronunciation or voice rules, and `instructions`
@@ -61,7 +61,7 @@ Read `README.md` first. Kristian's own video tool, built in the open.
 - Keep per-scene narration as separate audio files named after the scene id, so a change to one
   block re-renders one block.
 - **Before production starts, check that the tool is current where the work happens.**
-  `git -C /srv/work/scene-loop log -1` must match the Mac's main, the service must answer, and
+  `git -C /srv/work/primux/scene-loop/repo log -1` must match the Mac's main, the service must answer, and
   the project must show `instructions: true`. On 2026-10-02 the server ran the previous day's
   HyperFrames build for five hours because main had not been pushed; the script, the narration
   and the first cut all happened outside the tool as a result.
