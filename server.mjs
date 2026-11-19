@@ -4,7 +4,7 @@
 // /mcp or through the page's tools. This server holds the projects, versions, comments,
 // stills, previews and renders. It never calls a model and holds no keys.
 //
-//   node server.mjs <dir> [--port 4300] [--host 127.0.0.1] [--reviewer Name] [--password ...]
+//   node server.mjs <dir> [--port 4300] [--host 127.0.0.1] [--reviewer Name] [--password ...] [--keep-renders 2]
 //   node server.mjs <dir> --invite-owner email Name [--url https://...]
 //   <dir> is a projects root: one folder per project, each with project.md and
 //   videos/<video>/ (create_project, create_video). A <dir> with a storyboard.json is one
@@ -42,6 +42,17 @@ const rootArg = resolve(args.find((a, i) => !a.startsWith("--") && !takesValue(i
 const REVIEWER = flag("--reviewer") ?? process.env.SCENE_LOOP_REVIEWER ?? "The reviewer";
 const HOST = flag("--host") ?? process.env.SCENE_LOOP_HOST ?? "127.0.0.1";
 const PUBLIC_URL = flag("--url") ?? process.env.SCENE_LOOP_URL;
+// --keep-renders <n>: finished renders kept per video; after each successful render the older
+// ones are deleted. 0 keeps them all. SCENE_LOOP_KEEP_RENDERS does the same.
+const KEEP_RENDERS = (() => {
+  const v = flag("--keep-renders") ?? process.env.SCENE_LOOP_KEEP_RENDERS;
+  const n = v == null ? 2 : Number(v);
+  if (!Number.isInteger(n) || n < 0) {
+    console.error(`--keep-renders wants a whole number, 0 or more (got ${v}).`);
+    process.exit(1);
+  }
+  return n;
+})();
 // --library <dir>: the Library folder (cards, formats, sources, demos). Without it, the starter
 // library in this repository. SCENE_LOOP_LIBRARY does the same.
 if (flag("--library")) setLibraryDir(flag("--library"));
@@ -162,7 +173,7 @@ function recheckStreams() {
 people.onChange(recheckStreams);
 setInterval(people.reload, 5000).unref();
 
-const registry = createRegistry(rootArg, { reviewer: REVIEWER, emit });
+const registry = createRegistry(rootArg, { reviewer: REVIEWER, emit, keepRenders: KEEP_RENDERS });
 const admin = createAdmin({ people, auth, registry, onRemoved: recheckStreams });
 
 const mcp = createMcp({
