@@ -13,7 +13,10 @@ Read `README.md` first. Kristian's own video tool, built in the open.
 - **No npm install today.** Plain Node 22 ESM, no build step. Adding a dependency is a decision.
 - **The agent is the chat next to the page** (Claude Code desktop or the ChatGPT desktop app's
   built-in browser) through the page tools in `public/js/tools.js` (WebMCP + `window.sceneLoop`). The
-  server never calls a model and holds no keys.
+  server never calls a model and holds no keys. One exception, set up by the host: a speech
+  service for transcription (`lib/transcribe.mjs`, Azure AI Speech), signed in with the host's
+  managed identity, so an agent without a key can still time a take's words. It stays optional:
+  without it, the agent transcribes itself. Decided 2026-11-19.
 - **Direction:** HTML scenes with CSS/WAAPI motion, rendered by our own renderer (`lib/chrome.mjs`,
   `lib/clock.js`, `lib/render.mjs`: Chrome over CDP, frozen clock, ffmpeg, per-scene clip cache).
   HyperFrames is gone; old GSAP scenes still play through the clock. Python is for synthesized sound

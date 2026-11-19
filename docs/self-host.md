@@ -124,6 +124,35 @@ Without people, a proxy on the same machine makes scene-loop listen on 127.0.0.1
 from outside. It then refuses any request that carries `X-Forwarded-For`, `Forwarded`,
 `X-Real-IP` or `CF-Connecting-IP`, unless `--no-login` or a token is set.
 
+### Transcription with Azure AI Speech
+
+After a recording session the chat needs each take's words with their times. By default the chat
+transcribes the audio itself (ElevenLabs Scribe) and passes the JSON to `set_narration_words`. A
+chat without a key or without network can't, so the server can do it: `transcribe_narration`
+sends the narration audio to Azure AI Speech (fast transcription) and stores the words the same
+way. The audio goes to your own Azure resource and nowhere else.
+
+| Setting | What it does |
+| --- | --- |
+| `SCENE_LOOP_AZURE_SPEECH_ENDPOINT` | Turns it on. The Speech resource's own endpoint, `https://<resource>.cognitiveservices.azure.com` (a custom subdomain: a token is not accepted on the regional endpoint). |
+| `SCENE_LOOP_AZURE_SPEECH_LOCALE` | The language spoken, default `en-US`. Several, comma separated, let the service pick per file. The chat can pass `locale` per call. |
+| `AZURE_CLIENT_ID` or `SCENE_LOOP_AZURE_SPEECH_CLIENT_ID` | The client id of the user-assigned managed identity to sign in with. Leave out for a system-assigned one. |
+| `SCENE_LOOP_AZURE_SPEECH_KEY` | Only outside Azure, where there is no managed identity: the resource's key. |
+
+In Azure (Container Apps, App Service) the server signs in with its managed identity and holds no
+key. Give that identity the **Cognitive Services User** role on the Speech resource:
+
+```bash
+az role assignment create --assignee <identity principal id> --role "Cognitive Services User" \
+  --scope $(az cognitiveservices account show -g <rg> -n <speech resource> --query id -o tsv)
+```
+
+Each scene's names and acronyms (capitalised words inside a sentence, words such as UNESCO) are
+sent as a phrase list, so the service spells them as the script does. It can still mishear a
+name, and like most services it may leave out "uh" and "um", so a filler sound is found from the
+audio's level instead (a voiced hum no word covers). The reviewer proofreads the adopted script in
+the Script view, as with Scribe.
+
 ### Sign-in with Microsoft Entra ID
 
 Inside an organisation that has Microsoft 365, people can sign in with their work account

@@ -104,7 +104,9 @@ words).
 ## Your own plan, no API key
 
 The agent is the chat you already use, in the app you already pay for. scene-loop never calls a
-model or a voice service itself and holds no keys.
+model or a voice service itself and holds no keys. The one exception is optional and set up by
+whoever runs the server: a speech service that transcribes takes (see Record first, fix the
+script after).
 
 ## Run it
 
@@ -298,7 +300,10 @@ the noise peaks over an RMS threshold, so a whole take came back as speech.
 
 You do not have to read word for word, and the script does not have to be final. After a
 session, ask the chat to time the words: it calls `list_takes`, sends each chosen take's
-narration audio to ElevenLabs Scribe itself and passes the result to `set_narration_words`. For
+narration audio to ElevenLabs Scribe itself and passes the result to `set_narration_words`. When
+the server has a speech service (`list_takes` shows `transcription`), the chat calls
+`transcribe_narration` instead and the server does both steps: useful when the chat has no
+Scribe key or no network, as in a company's own install. For
 a recorded take that adopts what you said: the scene's narration becomes the take's words, with
 the script's spelling and punctuation wherever the words match and numbers as the script wrote
 them ("40" said as "fyrre"). The line as written is kept (`narrationWritten`), and the Script
