@@ -19,7 +19,8 @@ scene-loop (your Mac, or your own server / Docker)
   projects/<project>/   project.md, and videos/<video>/ with one version history per video
 ```
 
-- **The server never calls a model and holds no AI keys.** Same rule as today.
+- **The server never calls a model and holds no AI keys.** Same rule as today. The one exception is
+  optional transcription by the host's speech service (`transcribe_narration`, see self-host.md).
 - **Stills come back as images in tool results,** so Claude sees its own work in the chat without a
   browser.
 - **The web UI stays** for the human side: pinning comments on a frame, comparing,
