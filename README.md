@@ -81,7 +81,7 @@ The tools, all defined once in `lib/tools.mjs`:
 | Narration | `set_narration_audio`, `remove_narration_audio`, `set_narration_words`, `remove_narration_words`, `fit_scenes_to_narration`, `build_soundtrack` |
 | Takes | `list_takes`, `choose_take`, `keep_take`, `add_take` |
 | Clips | `probe_media`, `cut_clip`, `list_clips` |
-| Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render`, `delete_renders` |
+| Video | `get_video_files`, `set_video`, `set_theme_css`, `set_design_spec`, `render`, `get_render`, `delete_renders`, `prune_video` |
 | Library | `list_cards`, `get_card`, `list_formats`, `list_sources`, `get_video_cards`, `attach_card`, `detach_card`, `undo_cards`, `use_card_once`, `apply_style`, `remove_style`, `get_scene_motion`, `apply_motion`, `remove_motion`, `apply_transition`, `undo_transition`, `reset_transition`, `instantiate_pattern` |
 | Music | `list_library`, `add_to_library`, `update_library_item`, `remove_from_library`, `use_library_music` |
 
@@ -390,6 +390,27 @@ frame as before; `SCENE_LOOP_COMPOSITE=0` turns the shortcut off. A page load th
 retried once with twice the time (`SCENE_LOOP_LOAD_TIMEOUT`, default 60 s, doubled for pages
 with video), and a failed chunk fails the render job (`get_render` carries the error) instead of
 the server.
+
+### Disk
+
+A video keeps its newest 2 renders. After each successful render the older ones are deleted,
+and so is any `*.part.mp4` an aborted render left in `renders/`. `--keep-renders <n>` (or
+`SCENE_LOOP_KEEP_RENDERS`) sets the number; 0 keeps every render.
+
+**Free disk space…** in the Renders menu, or `prune_video` from the chat, deletes what only
+older versions use. It counts first and shows the bytes per part, then deletes the parts you
+tick:
+
+- renders: every render but the newest the server keeps (at least one), and unfinished files;
+- takes: every recorded take no scene uses. Irreversible: these are the raw recordings;
+- stills: the stills of every version but each scene's latest (comment stills stay);
+- media: the camera clip and voice kept with every version but each scene's latest, and every
+  stored copy no remaining version uses. Irreversible: an older version then plays the current
+  camera clip and voice;
+- cache (off unless ticked): `.build`, so the next render renders every scene again.
+
+The latest version of every scene, the chosen takes, the newest render, `.history` and
+`scenes/` are never touched. It is refused while a render runs, and a render is refused while it runs.
 
 `npm test` runs the checks in `test/` (plain `node --test`, which finds them; the Chrome and ffmpeg ones skip or
 fail loudly when those are missing).

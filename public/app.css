@@ -629,3 +629,18 @@ a.btn { display: inline-block; color: var(--ink); text-decoration: none; }
 .mainnav a { padding: 6px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 550; font-size: 14px; white-space: nowrap; }
 .mainnav a:hover { color: var(--ink); background: #f2f2f4; }
 .mainnav a.on { color: var(--ink); background: #ececef; }
+
+/* Free disk space (renders.js) */
+.prune-dialog { width: min(560px, calc(100vw - 36px)); padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); box-sizing: border-box; }
+.prune-dialog::backdrop { background: rgb(0 0 0 / 0.35); }
+.prune-dialog h2 { margin: 0 0 4px; font-size: 16px; }
+.prune-dialog p { margin: 0 0 12px; }
+.prune-parts { display: grid; gap: 2px; }
+.prune-part { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 8px; border-radius: 8px; cursor: pointer; }
+.prune-part:hover { background: var(--bg); }
+.prune-part > span:nth-child(2) { display: grid; gap: 2px; }
+.prune-part input { margin-top: 3px; }
+.prune-part input:disabled ~ span { opacity: 0.5; }
+.prune-size { font-variant-numeric: tabular-nums; font-weight: 600; }
+.prune-irrev { margin-left: 8px; padding: 1px 6px; border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--warn); background: #fff1e8; }
+.prune-foot { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
