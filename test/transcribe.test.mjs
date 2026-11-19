@@ -2,7 +2,7 @@
 // audio, and the words are stored as set_narration_words stores them.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cpSync, mkdtempSync, readFileSync, existsSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -30,6 +30,9 @@ test("Azure JSON becomes words with seconds and the script's spelling", () => {
   const r = narrationWords({ azure, script: "Cleaning at Nordlys." });
   assert.deepEqual(r.words, [{ word: "Cleaning", start: 0.1, end: 0.4 }, { word: "at", start: 0.5, end: 0.8 }, { word: "Nordlys.", start: 0.8, end: 1.1 }]);
   assert.throws(() => narrationWords({ azure: { nope: 1 } }), /phrases/);
+  // a phrase the service heard but did not time fails the whole answer, rather than losing it
+  const partly = { phrases: [...answer([["Hello.", 100]]).phrases, { offsetMilliseconds: 900, durationMilliseconds: 500, text: "Goodbye." }] };
+  assert.throws(() => narrationWords({ azure: partly, script: "Hello. Goodbye." }), /without word times: "Goodbye\."/);
   assert.throws(() => narrationWords({ azure, words: [] }), /exactly one/);
 });
 
@@ -123,4 +126,36 @@ test("transcribe_narration stores the words of every scene without them, and say
   await assert.rejects(call("transcribe_narration", {}, { transcriber: null }), /no speech service.*set_narration_words/);
   assert.equal((await call("list_takes", {}, { transcriber: null })).transcription, null);
   assert.ok(existsSync(video.dir));
+});
+
+test("transcribe_narration: audio changed while it was out is not given the old words; a broken file does not stop the rest", async () => {
+  const root = mkdtempSync(join(tmpdir(), "sl-stt-race-"));
+  cpSync(TEMPLATE_DIR, join(root, "p", "videos", "v"), { recursive: true });
+  const registry = createRegistry(root, { reviewer: "Tester", emit() {} });
+  let during = async () => {};
+  const transcriber = { service: "Azure AI Speech", transcribe: async () => { await during(); return answer([["Choose", 200], ["one", 600]]); } };
+  const call = (name, args = {}) => callTool(name, { project: "p", video: "v", model: "Tester", ...args }, { registry, via: "page-js", origin: "http://localhost", transcriber });
+  const { scenes } = await call("list_scenes");
+  const a = scenes[0].id;
+  const { scene: b } = await call("create_scene", { title: "Second", duration: 3, narration: "Choose one." });
+  const video = await registry.get("p", "v");
+  const wordsOf = (id) => join(video.dir, "assets", "narration", `${id}.words.json`);
+  await call("update_scene", { scene: a, narration: "Choose one." });
+  await call("set_narration_audio", { scene: a, path: audioFile() });
+
+  // another take lands while the service works: the old words are refused, nothing stored
+  during = async () => { await call("set_narration_audio", { scene: a, path: audioFile() }); };
+  const raced = await call("transcribe_narration", { scenes: [a], adopt: false });
+  assert.match(raced.scenes[0].error, /changed while it was being transcribed/);
+  assert.equal(existsSync(wordsOf(a)), false);
+
+  // scene b's audio is not audio at all: scene a is still transcribed
+  during = async () => {};
+  writeFileSync(join(video.dir, "assets", "narration", `${b}.wav`), "not audio");
+  const r = await call("transcribe_narration", { scenes: [a], adopt: false });
+  assert.ok(!r.scenes[0].error, r.scenes[0].error);
+  assert.equal(existsSync(wordsOf(a)), true);
+  const both = await call("transcribe_narration", { scenes: [b, a], adopt: false });
+  assert.equal(both.scenes.length, 2);
+  assert.ok(both.scenes.find((x) => x.scene === a && !x.error));
 });
