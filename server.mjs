@@ -200,11 +200,17 @@ function serveFile(req, res, file) {
     const start = range[1] ? Number(range[1]) : size - Number(range[2]);
     const end = range[1] && range[2] ? Number(range[2]) : size - 1;
     res.writeHead(206, { "Content-Type": type, "Content-Range": `bytes ${start}-${end}/${size}`, "Accept-Ranges": "bytes", "Content-Length": end - start + 1, "Cache-Control": "no-cache" });
-    return createReadStream(file, { start, end }).pipe(res);
+    return stream(createReadStream(file, { start, end }), res);
   }
   res.writeHead(200, { "Content-Type": type, "Content-Length": size, "Accept-Ranges": "bytes", "Cache-Control": "no-cache" });
-  createReadStream(file).pipe(res);
+  stream(createReadStream(file), res);
 }
+
+// pipeline, not pipe: a player that seeks or closes aborts its request, and pipe() then left
+// the file open for the life of the server. On a network share (Azure Files) an open file
+// cannot be replaced: the soundtrack stayed "delete pending" and every edit after that
+// failed with EACCES on the rename.
+const stream = (from, res) => pipeline(from, res).catch(() => {});
 
 function send(res, code, body) {
   res.writeHead(code, { "Content-Type": "application/json" });
