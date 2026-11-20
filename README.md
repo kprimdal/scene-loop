@@ -377,7 +377,9 @@ scene references that are missing on disk.
 ## Rendering
 
 Each scene renders to its own clip, `.build/clips/<id>-v<version>-<key>.mp4`, frames split over
-parallel Chrome pages (`SCENE_LOOP_PARALLEL`, default half the cores, 2 to 8). A clip is reused
+parallel Chrome pages (`SCENE_LOOP_PARALLEL`, default half the cores, 2 to 8). The same number
+caps the ffmpeg composites of static stretches, and with `SCENE_LOOP_PARALLEL=1` a render works on
+one scene at a time, which keeps a 1080p render under 0.5 GB on a small server. A clip is reused
 until the scene, the theme, the size, its words or lead, an asset file the scene or the theme
 refers to, or its place on the frame grid changes, so after one edit only that scene renders
 again, and a replaced webcam clip re-renders the scenes that use it. The whole video is the clips
