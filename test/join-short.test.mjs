@@ -25,3 +25,17 @@ test('a cut join writes every frame, and a short one fails instead of finishing'
   assert.ok(!existsSync(out),'no render is left behind');
   assert.deepEqual(readdirSync(root).filter(f=>f.includes('.part.')),[]);
 });
+
+// Two dissolves in a row. In ffmpeg 5.1 (the Docker image) the picture held under the second
+// fade was cloned from the wrong time when it was added after the first xfade, and the join
+// dropped everything from the second dissolve on: a 16-scene render stopped after scene 2.
+test('a chain of dissolves writes every frame',{timeout:60000},async t=>{
+  const root=mkdtempSync(join(tmpdir(),'sl-join-xfade-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const files=['red','green','blue','white'].map((color,i)=>{const p=join(root,i+'.mp4');ff('-f','lavfi','-i',`color=${color}:s=64x36:r=30:d=2`,'-c:v','libx264','-pix_fmt','yuv420p',p);return p;});
+  const out=join(root,'out.mp4');
+  await joinClips(files.map((file,i)=>({file,frames:60,fade:i?0.6:0})),out,{fps:30,width:64,height:36});
+  assert.equal(frames(out),240);
+  // The third clip starts at 4 s: blue, not the green held from the second.
+  const px=execFileSync('ffmpeg',['-v','error','-ss','4.5','-i',out,'-frames:v','1','-vf','scale=1:1','-f','rawvideo','-pix_fmt','rgb24','-']);
+  assert.ok(px[2]>200&&px[1]<60,`blue at 4.5 s, got ${[...px]}`);
+});
