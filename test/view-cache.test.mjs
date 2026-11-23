@@ -35,11 +35,13 @@ test("a tag that only looks like a version is not one: s012 is not s01 v12", asy
   const before = await video.history.versions(id);
   git("tag", `${id}2`);
   git("tag", `${id}/vX`);
+  video.history.forget(); // tags made outside the server
   try {
     assert.deepEqual(await video.history.versions(id), before);
     assert.deepEqual((await video.history.allVersions()).get(id), before);
   } finally {
     git("tag", "-d", `${id}2`, `${id}/vX`);
+    video.history.forget();
   }
 });
 
@@ -60,4 +62,40 @@ test("view probes a narration file again only when its size or mtime changes", a
   // A new take: probed again.
   tone(file, 2);
   assert.ok(Math.abs((await seconds()) - 2) < 0.01);
+});
+
+test("the tags are read once and read again after the server writes a version", async () => {
+  const id = video.storyboard().scenes[0].id;
+  const before = (await video.history.versions(id)).at(-1).v;
+  const git = (...a) => execFileSync("git", ["--git-dir", join(video.dir, ".history"), ...a]);
+  // A tag made outside the server is not seen until forget(): proof the list is cached.
+  git("tag", `${id}/v${before + 50}`);
+  try {
+    assert.equal((await video.history.versions(id)).at(-1).v, before);
+  } finally {
+    git("tag", "-d", `${id}/v${before + 50}`);
+  }
+  // A write through the server is seen at once.
+  const r = await video.updateScene(id, { duration: 7.5, model: "test" });
+  const v = r.sceneVersions[0].version;
+  assert.equal(v, before + 1);
+  assert.equal((await video.history.versions(id)).at(-1).v, v);
+  assert.equal((await video.view()).scenes.find((s) => s.id === id).versions.at(-1).v, v);
+  // Callers get copies.
+  (await video.history.versions(id)).pop();
+  assert.equal((await video.history.versions(id)).at(-1).v, v);
+});
+
+test("view lists a version's stills again after an event", async () => {
+  const id = video.storyboard().scenes[0].id;
+  const v = (await video.history.versions(id)).at(-1).v;
+  const d = join(video.dir, ".state", "stills", id, `v${v}`);
+  const count = async () => (await video.view()).scenes.find((s) => s.id === id).versions.at(-1).stills.length;
+  const n = await count();
+  mkdirSync(d, { recursive: true });
+  writeFileSync(join(d, "frame-99-at-9.5s.png"), "");
+  assert.equal(await count(), n, "the listing is reused until something changes");
+  await video.updateScene(id, { duration: 7.6, model: "test" }); // emits
+  const after = (await video.view()).scenes.find((s) => s.id === id).versions.find((x) => x.v === v).stills.length;
+  assert.equal(after, n + 1);
 });
