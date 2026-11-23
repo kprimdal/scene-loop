@@ -444,4 +444,5 @@ server.listen(PORT, HOST, async () => {
   if (!entra && (env.SCENE_LOOP_PASSWORD || flag("--password")) && people.hasActiveOwner()) console.warn("SCENE_LOOP_PASSWORD no longer logs anyone in: an owner has an account. Take it out.");
   if (auth.enabled() && auth.generated) console.log("No SCENE_LOOP_SECRET set and no people file: sessions and tokens end when the server restarts.");
   for (const [n, v] of videos) registry.get(n, v).catch((e) => console.error(`${n}/${v}: ${e.message}`)); // opens and warms posters in the background
+  registry.list().catch((e) => console.error(`Disk use: ${e.message}`)); // the first count, so the first page load does not wait for it
 });

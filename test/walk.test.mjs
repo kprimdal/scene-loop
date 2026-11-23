@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, truncateSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { walkFiles } from "../lib/walk.mjs";
+import { walkFiles, walkFilesAsync } from "../lib/walk.mjs";
 import { filesFor } from "../lib/remote.mjs";
 
 // A video the way a server holds it after previews: each scene's .preview/build links assets/
@@ -66,6 +66,19 @@ test("walkFiles terminates on symlink cycles and leaves out .preview, node_modul
     assert.equal(f.size, 1);
     assert.ok(f.mtimeMs > 0);
     assert.deepEqual(walkFiles(v, "nope"), []);
+  } finally {
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test("walkFilesAsync finds the same files as walkFiles, with and without the skip list", async () => {
+  const v = video();
+  try {
+    const key = (fs) => fs.map((f) => `${f.path}:${f.size}`).sort();
+    assert.deepEqual(key(await walkFilesAsync(v)), key(walkFiles(v)));
+    assert.deepEqual(key(await walkFilesAsync(v, "", { skip: [] })), key(walkFiles(v, "", { skip: [] })));
+    assert.deepEqual(key(await walkFilesAsync(v, "scenes")), key(walkFiles(v, "scenes")));
+    assert.deepEqual(await walkFilesAsync(join(v, "missing")), []);
   } finally {
     rmSync(v, { recursive: true, force: true });
   }
