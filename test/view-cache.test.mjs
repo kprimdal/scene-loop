@@ -29,6 +29,20 @@ test("allVersions returns every scene's versions from one git run, as versions(i
   assert.deepEqual((await video.view()).scenes.find((s) => s.id === id).versions.map((x) => x.v), [1, 2]);
 });
 
+test("a tag that only looks like a version is not one: s012 is not s01 v12", async () => {
+  const id = video.storyboard().scenes[0].id;
+  const git = (...a) => execFileSync("git", ["--git-dir", join(video.dir, ".history"), ...a]);
+  const before = await video.history.versions(id);
+  git("tag", `${id}2`);
+  git("tag", `${id}/vX`);
+  try {
+    assert.deepEqual(await video.history.versions(id), before);
+    assert.deepEqual((await video.history.allVersions()).get(id), before);
+  } finally {
+    git("tag", "-d", `${id}2`, `${id}/vX`);
+  }
+});
+
 test("view probes a narration file again only when its size or mtime changes", async () => {
   const id = video.storyboard().scenes[0].id;
   const dir = join(video.dir, "assets", "narration");

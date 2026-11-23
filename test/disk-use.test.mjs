@@ -70,3 +70,20 @@ test("list_projects serves cached disk use, counts again after a minute without 
     mock.timers.reset();
   }
 });
+
+test("delete_video counts the project again at once: the video's bytes are in .trash", async () => {
+  const root = mkdtempSync(join(tmpdir(), "sl-disk-"));
+  const pr = join(root, "p");
+  mkdirSync(join(pr, "videos"), { recursive: true });
+  writeFileSync(join(pr, "project.md"), "---\ntitle: P\n---\n");
+  for (const n of ["a", "b"]) cpSync(TEMPLATE_DIR, join(pr, "videos", n), { recursive: true });
+  writeFileSync(join(pr, "videos", "b", "renders.bin"), Buffer.alloc(7000));
+  const reg = createRegistry(root, { reviewer: "test", emit: () => {} });
+  const [before] = await reg.list();
+  const b = before.videos.find((v) => v.name === "b").disk.total;
+  await reg.deleteVideo("p", "b");
+  const [after] = await reg.list();
+  assert.deepEqual(after.videos.map((v) => v.name), ["a"]);
+  assert.equal(after.disk.trash, b);
+  assert.equal(after.disk.total, before.disk.total);
+});
