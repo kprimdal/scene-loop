@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -41,4 +41,49 @@ test("list_projects reports disk use per video and project, by part, without fol
   assert.equal(p.disk.total, d.total + 9000);
   assert.equal(p.disk.renders, 5000);
   assert.deepEqual([empty.name, empty.disk.total, empty.disk.trash], ["empty", 0, 0]);
+});
+
+test("list_projects serves cached disk use, counts again after a minute without waiting, and at once after forgetDiskUse", async () => {
+  const root = mkdtempSync(join(tmpdir(), "sl-disk-"));
+  const pr = join(root, "p");
+  mkdirSync(join(pr, "videos"), { recursive: true });
+  writeFileSync(join(pr, "project.md"), "---\ntitle: P\n---\n");
+  const v = join(pr, "videos", "v");
+  cpSync(TEMPLATE_DIR, v, { recursive: true });
+  mkdirSync(join(v, "renders"), { recursive: true });
+  mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+  try {
+    const reg = createRegistry(root, { reviewer: "test", emit: () => {} });
+    const renders = async () => (await reg.list())[0].videos[0].disk.renders;
+    assert.equal(await renders(), 0);
+    writeFileSync(join(v, "renders", "a.mp4"), Buffer.alloc(1000));
+    assert.equal(await renders(), 0, "within a minute the count is reused");
+    reg.forgetDiskUse(v);
+    assert.equal(await renders(), 1000, "after a delete the next list counts again");
+    writeFileSync(join(v, "renders", "b.mp4"), Buffer.alloc(500));
+    mock.timers.tick(61_000);
+    assert.equal(await renders(), 1000, "a stale count is served while the new one runs");
+    let n = 0;
+    while ((await renders()) !== 1500 && n++ < 100) await new Promise((r) => setImmediate(r));
+    assert.equal(await renders(), 1500, "the count started in the background lands");
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("delete_video counts the project again at once: the video's bytes are in .trash", async () => {
+  const root = mkdtempSync(join(tmpdir(), "sl-disk-"));
+  const pr = join(root, "p");
+  mkdirSync(join(pr, "videos"), { recursive: true });
+  writeFileSync(join(pr, "project.md"), "---\ntitle: P\n---\n");
+  for (const n of ["a", "b"]) cpSync(TEMPLATE_DIR, join(pr, "videos", n), { recursive: true });
+  writeFileSync(join(pr, "videos", "b", "renders.bin"), Buffer.alloc(7000));
+  const reg = createRegistry(root, { reviewer: "test", emit: () => {} });
+  const [before] = await reg.list();
+  const b = before.videos.find((v) => v.name === "b").disk.total;
+  await reg.deleteVideo("p", "b");
+  const [after] = await reg.list();
+  assert.deepEqual(after.videos.map((v) => v.name), ["a"]);
+  assert.equal(after.disk.trash, b);
+  assert.equal(after.disk.total, before.disk.total);
 });
