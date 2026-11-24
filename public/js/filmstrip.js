@@ -21,7 +21,7 @@ export function renderFilmstrip() {
           "div",
           { class: "thumb" },
           h("span", { class: "num" }, i + 1),
-          poster ? h("img", { src: poster.url, alt: "" }) : h("div", { class: "noimg" }),
+          poster ? h("img", { loading: "lazy", src: poster.url, alt: "" }) : h("div", { class: "noimg" }),
           h(
             "div",
             { class: "badges" },

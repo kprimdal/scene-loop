@@ -33,7 +33,7 @@ function tile(project, img, cls) {
   const dims = img.width ? `${img.width}×${img.height} · ` : "";
   const dark = cls.includes("logo") && /white|light|invers|negativ|knockout/i.test(img.path);
   const fig = h("figure", { class: cls + (dark ? " dark" : ""), title: `${img.asset}\nClick to copy the path a scene uses` },
-    h("img", { src: img.url, alt: img.path, loading: "lazy", onclick: () => copy(img.asset) }),
+    h("img", { loading: "lazy", src: img.url, alt: img.path, onclick: () => copy(img.asset) }),
     h("figcaption", {}, h("div", { class: "small" }, img.path), h("div", { class: "muted small" }, dims + bytes(img.size))),
     h("button", { class: "tile-x owner-only", title: `Remove ${img.path} from the brand kit`, onclick: () => removeFile(project, img.path) }, "×"),
     h("button", { class: "tile-bg", title: "Light or dark background", onclick: () => fig.classList.toggle("dark") }, "◐"),
