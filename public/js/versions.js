@@ -34,7 +34,7 @@ export function renderVersions() {
           "div",
           { class: "strip" },
           v.stills.length
-            ? v.stills.map((st) => h("img", { src: st.url, title: `${st.t}s`, onclick: () => viewVersion(v.v, st.t) }))
+            ? v.stills.map((st) => h("img", { loading: "lazy", src: st.url, title: `${st.t}s`, onclick: () => viewVersion(v.v, st.t) }))
             : Array.from({ length: 5 }, () => h("div", { class: "noimg" }, "stills…")),
         ),
         h(
@@ -125,7 +125,7 @@ export function renderCompare() {
   if (!on) return;
   const row = (v) => {
     const ver = sc.versions.find((x) => x.v === v);
-    return h("div", { class: "row" }, h("b", {}, `v${v}`), ...(ver?.stills ?? []).map((st) => h("img", { src: st.url, onclick: () => viewVersion(v, st.t) })));
+    return h("div", { class: "row" }, h("b", {}, `v${v}`), ...(ver?.stills ?? []).map((st) => h("img", { loading: "lazy", src: st.url, onclick: () => viewVersion(v, st.t) })));
   };
   const times = sc.versions.find((x) => x.v === S.compare.a)?.stills.map((st) => `${st.t}s`) ?? [];
   el.replaceChildren(h("div", { class: "row" }, h("span"), ...times.map((t) => h("div", { class: "times" }, t))), row(S.compare.a), row(S.compare.b));

@@ -132,7 +132,7 @@ export function renderOverview() {
         { class: "pcard", href: projectUrl(p.name) },
         h("div", { class: "pcard-head" }, h("div", { style: "min-width:0" }, h("h2", {}, p.title), h("div", { class: "muted small" }, `${p.name} · ${plural(p.videos.length, "video")} · `, ...diskLine(p))), h("div", { class: "spacer" }), insButton(p)),
         tagList(p),
-        posters.length ? h("div", { class: "posters" }, posters.map((v) => h("img", { src: v.poster, alt: "", loading: "lazy" }))) : null,
+        posters.length ? h("div", { class: "posters" }, posters.map((v) => h("img", { loading: "lazy", src: v.poster, alt: "" }))) : null,
       );
     }),
   );
@@ -155,7 +155,7 @@ function renderProject(p) {
           return h(
             "a",
             { class: "vrow", href: videoUrl(p.name, v.name) },
-            v.poster ? h("img", { src: v.poster, alt: "", loading: "lazy" }) : h("div", { class: "noimg" }),
+            v.poster ? h("img", { loading: "lazy", src: v.poster, alt: "" }) : h("div", { class: "noimg" }),
             h("div", { style: "min-width:0" }, h("b", {}, v.title), h("div", { class: "muted small" }, v.name)),
             h("div", { class: "facts" }, h("div", {}, h("b", {}, dur), ` · ${plural(v.scenes, "scene")}`), h("div", {}, v.latestRender ? `rendered ${new Date(v.latestRender.at).toLocaleDateString()}` : "not rendered"), h("div", { title: diskTitle(v.disk) }, bytes(v.disk.total))),
             p.layout === "project" ? h("button", { class: "vdel owner-only", title: "Delete video", "aria-label": `Delete ${v.title}`, onclick: (e) => deleteVideo(e, p.name, v) }, "×") : null,

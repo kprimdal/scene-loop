@@ -54,7 +54,7 @@ export function renderPanel() {
             h(
               "div",
               { class: "pin" },
-              c.still ? h("img", { src: c.still, onclick: () => viewVersion(c.version, c.t) }) : h("div", { class: "noimg", onclick: () => viewVersion(c.version, c.t) }),
+              c.still ? h("img", { loading: "lazy", src: c.still, onclick: () => viewVersion(c.version, c.t) }) : h("div", { class: "noimg", onclick: () => viewVersion(c.version, c.t) }),
               h("div", {}, h("div", { class: "t" }, [`v${c.version}`, tc(c.t), c.by].filter(Boolean).join(" · ")), c.text),
               !S.guest || c.by === S.reviewer ? h("button", { class: "x", title: "Remove", onclick: () => api(`/api/scene/${sc.id}/comments/${c.id}`, { method: "DELETE" }).catch((e) => toast(e.message)) }, "×") : null,
             ),
